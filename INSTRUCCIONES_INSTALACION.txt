@@ -3,49 +3,73 @@
 ║         "Tu obra masiva, protegida y profesional"             ║
 ╚═══════════════════════════════════════════════════════════════╝
 
-Aura Writer es una aplicación 100% offline. Para ejecutarla en un equipo 
-nuevo, sigue estos pasos según tu sistema operativo.
+Aura Writer es una aplicación 100% offline. El código del programa se 
+descarga independientemente de tus novelas (los archivos .aura viajan 
+en tu USB o donde prefieras).
 
 -----------------------------------------------------------------
-1. WINDOWS (10 / 11)
+🚀 INSTALACIÓN RÁPIDA EN UNA SOLA LÍNEA (WINDOWS POWERSHELL)
 -----------------------------------------------------------------
 
-Paso 1: Instalar Python
-- Descarga Python 3.10 o superior (ej: 3.12) de https://python.org
-- ⚠️ IMPORTANTE: Al instalar, marca la casilla "Add Python to PATH".
+Abre PowerShell en la carpeta donde quieras instalar el programa y pega:
 
-Paso 2: Configurar el Entorno
-- Abre una terminal (PowerShell o CMD) en la carpeta del proyecto.
-- Ejecuta estos comandos uno por uno:
+git clone https://github.com/edhepe-project/Aura_Writer.git; cd Aura_Writer; python -m venv venv; .\venv\Scripts\pip install -r requirements.txt; python launcher.py
 
+(Requisito previo: Tener instalado Git y Python 3.10+ con la opción "Add Python to PATH").
+
+-----------------------------------------------------------------
+🔑 IMPORTANTE: LLAVE MAESTRA EN EQUIPOS NUEVOS
+-----------------------------------------------------------------
+
+Aura Writer utiliza doble capa de cifrado (Contraseña + Llave Maestra).
+Para abrir tus archivos .aura en otra computadora:
+
+1. En tu computadora principal:
+   - Abre Aura Writer.
+   - En la pantalla de inicio, haz clic en el botón superior: "🔑 Llave..."
+   - Presiona "📋 Copiar" para copiar tu Llave Maestra (código de 64 caracteres).
+
+2. En la computadora nueva:
+   - Abre Aura Writer.
+   - Haz clic en "🔑 Llave...".
+   - Pega tu llave en "Ingresar o generar nueva llave" y pulsa "💾 Guardar Llave".
+   - ¡Listo! Ahora podrás abrir tus novelas introduciendo tu contraseña normal.
+
+-----------------------------------------------------------------
+1. INSTALACIÓN MANUAL PASO A PASO (WINDOWS 10 / 11)
+-----------------------------------------------------------------
+
+Paso 1: Clonar o descargar el repositorio
+  git clone https://github.com/edhepe-project/Aura_Writer.git
+  cd Aura_Writer
+
+Paso 2: Configurar el entorno virtual e instalar dependencias
   python -m venv venv
   .\venv\Scripts\activate
   pip install -r requirements.txt
 
-Paso 3: Lanzar Aplicación
-- Ejecuta: python launcher.py
+Paso 3: Lanzar la aplicación
+  python launcher.py
 
 -----------------------------------------------------------------
 2. UBUNTU / DEBIAN / LINUX MINT
 -----------------------------------------------------------------
 
-Aura Writer utiliza PyQt6, que requiere algunas librerías gráficas 
-adicionales si no están instaladas en tu sistema.
-
-Paso 1: Instalar Dependencias del Sistema
+Paso 1: Instalar dependencias del sistema
   sudo apt update
-  sudo apt install -y python3 python3-pip python3-venv \
+  sudo apt install -y git python3 python3-pip python3-venv \
       libxcb-cursor0 libxcb-xinerama0 libxcb-icccm4 \
       libxcb-image0 libxcb-keysyms1 libxcb-render-util0 \
       libxcb-xkb1 libxkbcommon-x11-0 libegl1 libgl1-mesa-glx
 
-Paso 2: Configurar el Entorno
-  cd /ruta/a/tu/AuraWriter
+Paso 2: Clonar y configurar
+  git clone https://github.com/edhepe-project/Aura_Writer.git
+  cd Aura_Writer
   python3 -m venv venv
   source venv/bin/activate
   pip install -r requirements.txt
 
-Paso 3: Lanzar Aplicación
+Paso 3: Lanzar aplicación
   python3 launcher.py
 
 -----------------------------------------------------------------
@@ -54,15 +78,7 @@ Paso 3: Lanzar Aplicación
 - La aplicación NO requiere internet. Está aislada por diseño.
 - Si usas 2FA, mantén tus códigos de recuperación (Recovery Codes)
   en formato físico o en un gestor de contraseñas seguro.
-- Sin contraseña ni 2FA, la recuperación de datos es imposible.
-
------------------------------------------------------------------
-🛠️ SOLUCIÓN DE PROBLEMAS
------------------------------------------------------------------
-- ERROR "xcb": Si en Linux ves errores de "xcb plugin", asegúrate
-  de haber ejecutado el Paso 1 de la sección Ubuntu.
-- VENV VACÍO: Si el entorno virtual parece no tener paquetes, 
-  borra la carpeta 'venv' y repite el proceso de creación.
-- FUENTES: En Linux, se recomienda instalar: sudo apt install fonts-noto
+- Sin contraseña ni Llave Maestra, la recuperación de datos es imposible.
 
 Aura Writer — Diseñado por escritores para escritores.
+
