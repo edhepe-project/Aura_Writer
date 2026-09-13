@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# Logs
+*.log
+
+# Proyectos cifrados (nunca subir a repos)
+*.aura
+
+# Backups y temporales generados por USB sync / guardado atómico
+*.aura.bak
+*.aura.tmp
+.aura_usb_config.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Preferencias locales y llaves personales
+aura_prefs.json
+
+# Gemini
+.gemini/

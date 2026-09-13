@@ -1,0 +1,68 @@
+╔═══════════════════════════════════════════════════════════════╗
+║                AURA WRITER — GUÍA DE INSTALACIÓN              ║
+║         "Tu obra masiva, protegida y profesional"             ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Aura Writer es una aplicación 100% offline. Para ejecutarla en un equipo 
+nuevo, sigue estos pasos según tu sistema operativo.
+
+-----------------------------------------------------------------
+1. WINDOWS (10 / 11)
+-----------------------------------------------------------------
+
+Paso 1: Instalar Python
+- Descarga Python 3.10 o superior (ej: 3.12) de https://python.org
+- ⚠️ IMPORTANTE: Al instalar, marca la casilla "Add Python to PATH".
+
+Paso 2: Configurar el Entorno
+- Abre una terminal (PowerShell o CMD) en la carpeta del proyecto.
+- Ejecuta estos comandos uno por uno:
+
+  python -m venv venv
+  .\venv\Scripts\activate
+  pip install -r requirements.txt
+
+Paso 3: Lanzar Aplicación
+- Ejecuta: python launcher.py
+
+-----------------------------------------------------------------
+2. UBUNTU / DEBIAN / LINUX MINT
+-----------------------------------------------------------------
+
+Aura Writer utiliza PyQt6, que requiere algunas librerías gráficas 
+adicionales si no están instaladas en tu sistema.
+
+Paso 1: Instalar Dependencias del Sistema
+  sudo apt update
+  sudo apt install -y python3 python3-pip python3-venv \
+      libxcb-cursor0 libxcb-xinerama0 libxcb-icccm4 \
+      libxcb-image0 libxcb-keysyms1 libxcb-render-util0 \
+      libxcb-xkb1 libxkbcommon-x11-0 libegl1 libgl1-mesa-glx
+
+Paso 2: Configurar el Entorno
+  cd /ruta/a/tu/AuraWriter
+  python3 -m venv venv
+  source venv/bin/activate
+  pip install -r requirements.txt
+
+Paso 3: Lanzar Aplicación
+  python3 launcher.py
+
+-----------------------------------------------------------------
+🛡️ NOTAS DE SEGURIDAD Y PRIVACIDAD
+-----------------------------------------------------------------
+- La aplicación NO requiere internet. Está aislada por diseño.
+- Si usas 2FA, mantén tus códigos de recuperación (Recovery Codes)
+  en formato físico o en un gestor de contraseñas seguro.
+- Sin contraseña ni 2FA, la recuperación de datos es imposible.
+
+-----------------------------------------------------------------
+🛠️ SOLUCIÓN DE PROBLEMAS
+-----------------------------------------------------------------
+- ERROR "xcb": Si en Linux ves errores de "xcb plugin", asegúrate
+  de haber ejecutado el Paso 1 de la sección Ubuntu.
+- VENV VACÍO: Si el entorno virtual parece no tener paquetes, 
+  borra la carpeta 'venv' y repite el proceso de creación.
+- FUENTES: En Linux, se recomienda instalar: sudo apt install fonts-noto
+
+Aura Writer — Diseñado por escritores para escritores.
