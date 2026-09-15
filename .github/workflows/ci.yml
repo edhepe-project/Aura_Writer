@@ -1,0 +1,77 @@
+name: Aura Writer CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+jobs:
+  # ── Linting y Tipo ──────────────────────────────────────
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Instalar dependencias de desarrollo
+        run: pip install -r requirements-dev.txt
+      - name: Flake8
+        run: flake8 src --max-line-length=120 --ignore=E501,W503
+      - name: Pyright
+        run: pyright
+
+  # ── Tests en múltiples plataformas ──────────────────────
+  test:
+    name: Tests (${{ matrix.os }} / Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        python: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Instalar dependencias
+        run: pip install -r requirements-dev.txt
+      - name: Ejecutar tests
+        run: pytest tests/ -v --cov=src --cov-report=xml
+      - name: Subir cobertura
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.xml
+          flags: ${{ matrix.os }}-py${{ matrix.python }}
+
+  # ── Build Windows EXE (solo en releases) ───────────────
+  build-windows:
+    name: Build Windows Executable
+    runs-on: windows-latest
+    needs: [lint, test]
+    if: github.event_name == 'release'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Instalar dependencias de producción y PyInstaller
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller>=6.0
+      - name: Compilar ejecutable
+        run: pyinstaller aura_writer.spec --noconfirm --clean
+      - name: Comprimir artefacto
+        run: Compress-Archive -Path dist\AuraWriter.exe -DestinationPath AuraWriter-Windows-${{ github.ref_name }}.zip
+      - name: Subir artefacto al release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: AuraWriter-Windows-${{ github.ref_name }}.zip

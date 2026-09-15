@@ -18,6 +18,7 @@ from PyQt6.QtGui import QFont, QColor
 import qtawesome as qta
 
 from core.models import Character, CharacterRelation
+from core.theme_manager import ThemeManager
 from ui.character_edit_dialog import CharacterEditDialog
 from ui.relation_dialog import RelationDialog
 
@@ -165,17 +166,31 @@ class CharacterDock(QWidget):
         self._tree.blockSignals(True)
         self._tree.clear()
         char_map = {c.id: c for c in self._characters}
+        is_dark = ThemeManager.is_dark()
 
         for char in self._characters:
             root_item = QTreeWidgetItem()
             root_item.setText(0, f"  {char.name}")
             root_item.setData(0, Qt.ItemDataRole.UserRole, char.id)
             root_item.setData(0, Qt.ItemDataRole.UserRole + 1, "character")
-            role_color = {
-                "Protagonista": "#ffd60a", "Antagonista": "#ff453a",
-                "Misterioso":   "#bf5af2", "Secundario": "#f2f2f7",
-                "Otro":         "#8e8e93"
-            }.get(char.role, "#f2f2f7")
+
+            if is_dark:
+                role_color = {
+                    "Protagonista": "#ffd60a", "Antagonista": "#ff453a",
+                    "Misterioso":   "#bf5af2", "Secundario": "#f2f2f7",
+                    "Otro":         "#8e8e93"
+                }.get(char.role, "#f2f2f7")
+                sub_role_color = "#636366"
+                rel_detail_color = "#8e8e93"
+            else:
+                role_color = {
+                    "Protagonista": "#b45309", "Antagonista": "#dc2626",
+                    "Misterioso":   "#7c3aed", "Secundario": "#1f2937",
+                    "Otro":         "#6b7280"
+                }.get(char.role, "#1f2937")
+                sub_role_color = "#78716c"
+                rel_detail_color = "#57534e"
+
             root_item.setForeground(0, QColor(role_color))
             fnt = QFont()
             fnt.setBold(True)
@@ -185,7 +200,7 @@ class CharacterDock(QWidget):
             # Rol como subtexto
             role_item = QTreeWidgetItem(root_item)
             role_item.setText(0, f"      {char.role}")
-            role_item.setForeground(0, QColor("#636366"))
+            role_item.setForeground(0, QColor(sub_role_color))
             role_item.setFlags(role_item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
             role_fnt = QFont()
             role_fnt.setPointSize(9)
@@ -256,7 +271,7 @@ class CharacterDock(QWidget):
                     rel_item.setData(0, Qt.ItemDataRole.UserRole, other.id)
                     rel_item.setData(0, Qt.ItemDataRole.UserRole + 1, "character")
                     rel_item.setData(0, Qt.ItemDataRole.UserRole + 2, rel.id)
-                    rel_item.setForeground(0, QColor("#8e8e93"))
+                    rel_item.setForeground(0, QColor(rel_detail_color))
 
             self._tree.addTopLevelItem(root_item)
 

@@ -32,6 +32,7 @@ class OutlineTree(QTreeView):
         self.setDropIndicatorShown(True)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.setHeaderHidden(True)
+        self.setRootIsDecorated(False)
         self.setAnimated(True)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
@@ -250,6 +251,12 @@ class OutlineTree(QTreeView):
             index = match.index()
             self.setCurrentIndex(index)
             self.scrollTo(index)
+
+    def update_item_text(self, target_id: str, new_text: str):
+        """Actualiza el texto visible de un ítem por ID sin necesidad de reconstruir todo el árbol."""
+        match = self._find_item_recursive(self._model.invisibleRootItem(), target_id)
+        if match:
+            match.setText(new_text)
 
     def _find_item_recursive(self, parent: QStandardItem, target_id: str):
         """Busca recursivamente un QStandardItem cuyo UserRole == target_id."""

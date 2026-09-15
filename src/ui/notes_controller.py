@@ -21,13 +21,15 @@ class NotesControllerMixin:
     # ------------------------------------------------------------------
 
     def _refresh_notes_list(self, select_id: str = None):
+        """Recarga la lista de notas del inspector."""
         self.notes_list.blockSignals(True)
         self.notes_list.clear()
 
         if self._current_container and hasattr(self._current_container, "author_notes"):
             for note in self._current_container.author_notes:
-                item = QListWidgetItem(note.title)
+                item = QListWidgetItem(f"📝  {note.title}")
                 item.setData(Qt.ItemDataRole.UserRole, note.id)
+                item.setToolTip("Doble click para ver y editar")
                 self.notes_list.addItem(item)
 
             if select_id:
@@ -35,34 +37,68 @@ class NotesControllerMixin:
                     item = self.notes_list.item(i)
                     if item.data(Qt.ItemDataRole.UserRole) == select_id:
                         self.notes_list.setCurrentItem(item)
-                        item.setSelected(True)
                         break
             elif self.notes_list.count() > 0:
-                item = self.notes_list.item(0)
-                self.notes_list.setCurrentItem(item)
-                item.setSelected(True)
+                self.notes_list.setCurrentItem(self.notes_list.item(0))
 
         self.notes_list.blockSignals(False)
-        self._on_note_list_selection_changed()
+        self._update_note_preview()
 
-    def _on_note_list_selection_changed(self):
-        if self._current_note:
-            self._current_note.content = self.inspector_notes.toPlainText()
-
-        selectedItems = self.notes_list.selectedItems()
-        if not selectedItems:
+    def _update_note_preview(self):
+        """Actualiza el preview de texto en el inspector con la nota seleccionada."""
+        item = self.notes_list.currentItem()
+        if item is None:
             self._current_note = None
             self.inspector_notes.clear()
-            self.inspector_notes.setPlaceholderText("Selecciona una nota o crea una...")
+            self.inspector_notes.setPlaceholderText(
+                "No hay notas.\nUsa '+ Nota' para crear una o\ndoble click para editar."
+            )
             return
-
-        note_id = selectedItems[0].data(Qt.ItemDataRole.UserRole)
+        note_id = item.data(Qt.ItemDataRole.UserRole)
         note = self._find_author_note(note_id)
         if note:
             self._current_note = note
-            self.inspector_notes.setPlainText(note.content)
+            preview = note.content.strip()
+            if not preview:
+                preview = "(sin contenido — doble click para editar)"
+            self.inspector_notes.setPlainText(preview)
+        else:
+            self.inspector_notes.clear()
+
+    def _on_note_list_selection_changed(self, current=None, previous=None):
+        """Actualiza el preview cuando cambia la selección."""
+        self._update_note_preview()
+
+    def _on_note_double_clicked(self, item):
+        """Abre el NoteEditorDialog al hacer doble click en una nota."""
+        note_id = item.data(Qt.ItemDataRole.UserRole)
+        note = self._find_author_note(note_id)
+        if not note:
+            return
+
+        from ui.note_editor_dialog import NoteEditorDialog
+        dlg = NoteEditorDialog(note, parent=self)
+        result = dlg.exec()
+
+        if result == QDialog.DialogCode.Accepted:
+            if dlg.was_deleted:
+                # Eliminar la nota
+                if self._current_note and self._current_note.id == note_id:
+                    self._current_note = None
+                self._current_container.author_notes = [
+                    n for n in self._current_container.author_notes
+                    if n.id != note_id
+                ]
+                self._mark_dirty()
+                self._refresh_notes_list()
+            else:
+                # Guardar cambios (el dialog ya modificó note.title y note.content)
+                self._mark_dirty()
+                self._refresh_notes_list(select_id=note_id)
+                self.statusBar().showMessage(f"Nota guardada: {note.title}")
 
     def _on_inspector_add_note(self):
+        """Crea una nueva nota y abre directamente el editor."""
         if not self._current_container or not hasattr(self._current_container, "author_notes"):
             QMessageBox.warning(self, "Aviso", "Selecciona una Obra, Libro o Capítulo primero.")
             return
@@ -70,32 +106,44 @@ class NotesControllerMixin:
         title, ok = QInputDialog.getText(self, "Nueva Nota", "Título de la nota:")
         if ok and title:
             from core.models import AuthorNote
+            from ui.note_editor_dialog import NoteEditorDialog
             new_note = AuthorNote(title=title)
             self._current_container.author_notes.append(new_note)
-            self._mark_dirty()  # FIX BUG-04: nota nueva debe activar guardado
+            self._mark_dirty()
             self._refresh_notes_list(select_id=new_note.id)
-            self.inspector_notes.setFocus()
+            # Abrir el editor inmediatamente
+            dlg = NoteEditorDialog(new_note, parent=self)
+            result = dlg.exec()
+            if result == QDialog.DialogCode.Accepted:
+                if dlg.was_deleted:
+                    self._current_container.author_notes = [
+                        n for n in self._current_container.author_notes
+                        if n.id != new_note.id
+                    ]
+                self._mark_dirty()
+                self._refresh_notes_list()
 
     def _on_inspector_delete_note(self):
-        selectedItems = self.notes_list.selectedItems()
-        if not selectedItems:
+        """Elimina la nota seleccionada (botón Eliminar del panel)."""
+        item = self.notes_list.currentItem()
+        if not item:
             return
-
-        note_id = selectedItems[0].data(Qt.ItemDataRole.UserRole)
-        note_title = selectedItems[0].text()
+        note_id   = item.data(Qt.ItemDataRole.UserRole)
+        note_title = item.text().replace("📝  ", "", 1)
 
         reply = QMessageBox.question(
             self, "Eliminar Nota",
-            f"¿Eliminar la nota '{note_title}' permanentemente?"
+            f"¿Eliminar la nota «{note_title}» permanentemente?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
         )
         if reply == QMessageBox.StandardButton.Yes:
             if self._current_note and self._current_note.id == note_id:
                 self._current_note = None
-                self.inspector_notes.clear()
             self._current_container.author_notes = [
                 n for n in self._current_container.author_notes if n.id != note_id
             ]
-            self._mark_dirty()  # FIX BUG-03: eliminación de nota debe activar guardado
+            self._mark_dirty()
             self._refresh_notes_list()
 
     def _load_author_note(self, note_id: str):
@@ -141,19 +189,6 @@ class NotesControllerMixin:
         dlg.setWindowTitle(f"🖼️  {media.title}")
         dlg.setMinimumSize(500, 400)
         dlg.resize(min(pixmap.width() + 80, 900), min(pixmap.height() + 180, 700))
-        dlg.setStyleSheet("""
-            QDialog { background: #1c1c1e; }
-            QLabel { color: #f2f2f7; }
-            QLineEdit {
-                background: #2c2c2e; color: #f2f2f7; border: 1px solid #3a3a3c;
-                border-radius: 6px; padding: 8px; font-size: 13px;
-            }
-            QPushButton {
-                background: #3a3a3c; color: #f2f2f7; border: none;
-                border-radius: 6px; padding: 8px 16px; font-size: 12px;
-            }
-            QPushButton:hover { background: #48484a; }
-        """)
 
         layout = QVBoxLayout(dlg)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -161,7 +196,7 @@ class NotesControllerMixin:
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("QScrollArea { border: none; background: #1c1c1e; }")
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
         img_label = QLabel()
         img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         max_w = min(dlg.width() - 40, 850)

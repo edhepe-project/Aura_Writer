@@ -1,9 +1,11 @@
-from PyQt6.QtWidgets import QTextEdit, QMessageBox, QMenu, QInputDialog
+from PyQt6.QtWidgets import QTextEdit, QMessageBox, QMenu, QInputDialog, QApplication
 from PyQt6.QtGui import (QTextCharFormat, QFont, QTextCursor, QImage,
                          QTextImageFormat, QAction, QTextBlock)
 from PyQt6.QtCore import Qt, QUrl, QMimeData
 import os
 import uuid
+import qtawesome as qta
+from core.theme_manager import ThemeManager
 
 
 class AuraEditor(QTextEdit):
@@ -118,22 +120,26 @@ class AuraEditor(QTextEdit):
         cursor = self.textCursor()
         cursor.insertBlock()
         cursor.insertHtml(
-            '<hr style="page-break-after:always; border:0;'
-            ' border-top:1px dashed #ccc; margin:20px 0;"'
-            ' title="Salto de Página" />'
+            '<p style="page-break-after:always; text-align:center; color:#8e8e93;'
+            ' margin:16px 0; border-top:1px dashed #a1a1aa; border-bottom:1px dashed #a1a1aa;'
+            ' padding:4px 0; font-size:11px; font-style:italic; user-select:none;">'
+            '— Salto de Página —</p>'
         )
         cursor.insertBlock()
+        self.setFocus()
 
     def insert_blank_page(self):
-        """Inserta una página en blanco para control de paginación."""
+        """Inserta una página en blanco para control de paginación editorial."""
         cursor = self.textCursor()
         cursor.insertBlock()
-        cursor.insertHtml('<hr style="page-break-after:always; border:0;" />')
         cursor.insertHtml(
-            '<p style="text-align:center; color:#ccc;">[ Página en Blanco ]</p>'
+            '<p style="page-break-after:always; text-align:center; color:#8e8e93;'
+            ' margin:20px 0; border:1px dashed #a1a1aa; border-radius:4px;'
+            ' padding:12px 0; font-size:12px; font-style:italic; background:rgba(128,128,128,0.08); user-select:none;">'
+            '[ Página en Blanco ]</p>'
         )
-        cursor.insertHtml('<hr style="page-break-after:always; border:0;" />')
         cursor.insertBlock()
+        self.setFocus()
 
     # ------------------------------------------------------------------
     # Manejo de imágenes — inserción
@@ -160,8 +166,8 @@ class AuraEditor(QTextEdit):
                         image.loadFromData(data)
                         if not image.isNull():
                             self._insert_image_object(image, fp)
-                    except Exception as e:
-                        print(f"Error cargando imagen: {e}")
+                    except Exception:
+                        pass
         else:
             # Pegar solo texto plano para conservar el formato editorial (Georgia 12pt).
             # Ctrl+Shift+V permite pegar con formato rico si el usuario lo necesita.
@@ -205,8 +211,7 @@ class AuraEditor(QTextEdit):
                 self.document().ResourceType.ImageResource,
                 QUrl(resource_name), image
             )
-        except Exception as e:
-            print(f"No se pudo incrustar recurso de imagen: {e}")
+        except Exception:
             return
 
         cursor = self.textCursor()
@@ -235,30 +240,34 @@ class AuraEditor(QTextEdit):
         self.setTextCursor(cursor)
 
     # ------------------------------------------------------------------
-    # Menú contextual — borrar / redimensionar imagen
+    # Menú contextual estilizado adaptativo (Claro / Oscuro)
     # ------------------------------------------------------------------
 
     def _show_context_menu(self, pos):
-        """Menú contextual: si el cursor está sobre una imagen, ofrece
-        opciones de imagen; si no, muestra el menú estándar con opciones de formato."""
+        """Menú contextual con iconos temáticos de alto contraste en modo claro y oscuro."""
         cursor = self.cursorForPosition(pos)
         char_fmt = cursor.charFormat()
 
-        menu = self.createStandardContextMenu()
+        menu = QMenu(self)
+        is_dark = ThemeManager.is_dark()
+
+        # Paleta de colores armoniosa según tema
+        _ic = "#d1d1d6" if is_dark else "#4a4a5a"
+        _accent = "#ffd60a" if is_dark else "#d97706"
+        _danger = "#ff453a" if is_dark else "#dc2626"
+        _blue = "#32ade6" if is_dark else "#0284c7"
+        _clean_ic = "#ff9f0a" if is_dark else "#d97706"
 
         if char_fmt.isImageFormat():
             img_fmt = char_fmt.toImageFormat()
-            img_name = img_fmt.name()
 
+            act_delete = menu.addAction(qta.icon("fa5s.trash-alt", color=_danger), "Eliminar imagen")
             menu.addSeparator()
-
-            act_delete = menu.addAction("🗑️  Eliminar imagen")
-            act_resize_50 = menu.addAction("📐  Redimensionar a 50%")
-            act_resize_75 = menu.addAction("📐  Redimensionar a 75%")
-            act_resize_100 = menu.addAction("📐  Tamaño original")
+            act_resize_50 = menu.addAction(qta.icon("fa5s.compress-arrows-alt", color=_blue), "Redimensionar al 50%")
+            act_resize_75 = menu.addAction(qta.icon("fa5s.expand-arrows-alt", color=_blue), "Redimensionar al 75%")
+            act_resize_100 = menu.addAction(qta.icon("fa5s.arrows-alt", color=_blue), "Tamaño original (100%)")
 
             chosen = menu.exec(self.viewport().mapToGlobal(pos))
-
             if chosen == act_delete:
                 self._delete_image_at_cursor(cursor)
             elif chosen == act_resize_50:
@@ -267,32 +276,87 @@ class AuraEditor(QTextEdit):
                 self._resize_image(cursor, img_fmt, 0.75)
             elif chosen == act_resize_100:
                 self._resize_image(cursor, img_fmt, 1.0)
-        else:
-            menu.addSeparator()
-            act_bold = menu.addAction("𝐁  Negrita (Ctrl+B)")
-            act_italic = menu.addAction("𝐼  Cursiva (Ctrl+I)")
-            act_underline = menu.addAction("U̲  Subrayado (Ctrl+U)")
-            act_strike = menu.addAction("S̶  Tachado (Ctrl+K)")
-            act_clean = menu.addAction("🧹  Limpiar Formato (Ctrl+\\)")
-            menu.addSeparator()
-            act_dot = menu.addAction("·  Punto Medio Conlang (Ctrl+.)")
-            act_dash = menu.addAction("—  Raya de Diálogo (Ctrl+-)")
+            return
 
-            chosen = menu.exec(self.viewport().mapToGlobal(pos))
-            if chosen == act_bold:
-                self.set_bold()
-            elif chosen == act_italic:
-                self.set_italic()
-            elif chosen == act_underline:
-                self.set_underline()
-            elif chosen == act_strike:
-                self.set_strikethrough()
-            elif chosen == act_clean:
-                self.clear_formatting()
-            elif chosen == act_dot:
-                self.insert_middle_dot()
-            elif chosen == act_dash:
-                self.insert_em_dash()
+        # Estado de selección y portapapeles
+        has_selection = self.textCursor().hasSelection()
+        can_undo = self.document().isUndoAvailable()
+        can_redo = self.document().isRedoAvailable()
+        clipboard = QApplication.clipboard()
+        mime = clipboard.mimeData()
+        can_paste = bool(mime and (mime.hasText() or mime.hasImage()))
+
+        # ── Edición Estándar ──
+        act_undo = menu.addAction(qta.icon("fa5s.undo", color=_ic if can_undo else (_ic + "55")), "Deshacer\tCtrl+Z")
+        act_undo.setEnabled(can_undo)
+        act_redo = menu.addAction(qta.icon("fa5s.redo", color=_ic if can_redo else (_ic + "55")), "Rehacer\tCtrl+Y")
+        act_redo.setEnabled(can_redo)
+
+        menu.addSeparator()
+
+        act_cut = menu.addAction(qta.icon("fa5s.cut", color=_ic if has_selection else (_ic + "55")), "Cortar\tCtrl+X")
+        act_cut.setEnabled(has_selection)
+        act_copy = menu.addAction(qta.icon("fa5s.copy", color=_ic if has_selection else (_ic + "55")), "Copiar\tCtrl+C")
+        act_copy.setEnabled(has_selection)
+        act_paste = menu.addAction(qta.icon("fa5s.paste", color=_ic if can_paste else (_ic + "55")), "Pegar\tCtrl+V")
+        act_paste.setEnabled(can_paste)
+        act_delete = menu.addAction(qta.icon("fa5s.trash-alt", color=_danger if has_selection else (_ic + "55")), "Eliminar\tSupr")
+        act_delete.setEnabled(has_selection)
+
+        menu.addSeparator()
+
+        act_select_all = menu.addAction(qta.icon("fa5s.th-large", color=_ic), "Seleccionar todo\tCtrl+A")
+
+        menu.addSeparator()
+
+        # ── Formato de Texto ──
+        act_bold = menu.addAction(qta.icon("fa5s.bold", color=_ic), "Negrita\tCtrl+B")
+        act_italic = menu.addAction(qta.icon("fa5s.italic", color=_ic), "Cursiva\tCtrl+I")
+        act_underline = menu.addAction(qta.icon("fa5s.underline", color=_ic), "Subrayado\tCtrl+U")
+        act_strike = menu.addAction(qta.icon("fa5s.strikethrough", color=_ic), "Tachado\tCtrl+K")
+        act_clean = menu.addAction(qta.icon("fa5s.eraser", color=_clean_ic), "Limpiar formato\tCtrl+\\")
+
+        menu.addSeparator()
+
+        # ── Tipografía / Inserciones Especiales ──
+        act_dot = menu.addAction(qta.icon("fa5s.circle", color=_accent), "Punto medio conlang (·)\tCtrl+.")
+        act_dash = menu.addAction(qta.icon("fa5s.minus", color=_accent), "Raya de diálogo (—)\tCtrl+-")
+        act_sep = menu.addAction(qta.icon("fa5s.asterisk", color=_accent), "Separador de escena (* * *)\tCtrl+Shift+S")
+
+        chosen = menu.exec(self.viewport().mapToGlobal(pos))
+        if not chosen:
+            return
+
+        if chosen == act_undo:
+            self.undo()
+        elif chosen == act_redo:
+            self.redo()
+        elif chosen == act_cut:
+            self.cut()
+        elif chosen == act_copy:
+            self.copy()
+        elif chosen == act_paste:
+            self.paste()
+        elif chosen == act_delete:
+            self.textCursor().removeSelectedText()
+        elif chosen == act_select_all:
+            self.selectAll()
+        elif chosen == act_bold:
+            self.set_bold()
+        elif chosen == act_italic:
+            self.set_italic()
+        elif chosen == act_underline:
+            self.set_underline()
+        elif chosen == act_strike:
+            self.set_strikethrough()
+        elif chosen == act_clean:
+            self.clear_formatting()
+        elif chosen == act_dot:
+            self.insert_middle_dot()
+        elif chosen == act_dash:
+            self.insert_em_dash()
+        elif chosen == act_sep:
+            self.insert_scene_break()
 
     def _delete_image_at_cursor(self, cursor: QTextCursor):
         """Selecciona y borra el carácter de imagen bajo el cursor.
@@ -376,6 +440,24 @@ class AuraEditor(QTextEdit):
 
     def keyPressEvent(self, event):
         """Intercepta Delete/Backspace para imágenes, atajos de guion largo, atajos de formato y auto-conversión de '--' a '—'."""
+        # ── Motor de sonido Olivetti ──
+        try:
+            from core.sound_manager import OlivettiSoundEngine
+            engine = OlivettiSoundEngine.instance()
+            if engine.enabled:
+                key = event.key()
+                is_enter = key in (Qt.Key.Key_Return, Qt.Key.Key_Enter)
+                is_space = (key == Qt.Key.Key_Space)
+                is_backspace = (key == Qt.Key.Key_Backspace)
+                engine.on_key_pressed(
+                    text=event.text(),
+                    is_enter=is_enter,
+                    is_space=is_space,
+                    is_backspace=is_backspace
+                )
+        except Exception:
+            pass
+
         # ── Atajos de formato y símbolos (Ctrl+B, Ctrl+I, Ctrl+U, Ctrl+K, Ctrl+\, Ctrl+.) ──
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             key = event.key()

@@ -63,6 +63,7 @@ DARK_STYLESHEET = """
     }
     QMenu::item { padding: 5px 20px; border-radius: 5px; }
     QMenu::item:selected { background: #3a3a3c; }
+    QMenu::item:disabled { color: #636366; }
     QMenu::separator { height: 1px; background: #3a3a3c; margin: 3px 0; }
 
     QToolBar {
@@ -176,11 +177,17 @@ DARK_STYLESHEET = """
         background: transparent;
         border: none;
     }
+    QScrollArea > QWidget > QWidget {
+        background: transparent;
+    }
+    QScrollArea > .QWidget {
+        background: transparent;
+    }
 
     QTreeWidget, QTreeView {
         background: #1c1c1e; color: #f2f2f7; border: none; outline: none;
     }
-    QTreeWidget::item, QTreeView::item { padding: 4px 6px; border-radius: 4px; }
+    QTreeWidget::item, QTreeView::item { padding: 4px 6px; }
     QTreeWidget::item:selected, QTreeView::item:selected {
         background: #2c2c2e; color: #ffffff;
     }
@@ -216,6 +223,21 @@ DARK_STYLESHEET = """
     QScrollBar::handle:horizontal:hover { background: #636366; }
     QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
     QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: none; }
+
+    QCheckBox { color: #aeaeb2; spacing: 6px; }
+    QCheckBox::indicator {
+        width: 15px; height: 15px;
+        border: 1px solid #48484a;
+        border-radius: 4px;
+        background: #2c2c2e;
+    }
+    QCheckBox::indicator:hover { border-color: #636366; background: #3a3a3c; }
+    QCheckBox::indicator:checked {
+        background: #ffd60a;
+        border-color: #ffd60a;
+        image: none;
+    }
+    QCheckBox::indicator:checked:hover { background: #ffe234; border-color: #ffe234; }
 """
 
 # ── Tema Claro (papel / diario literario) ────────────────────────────
@@ -240,6 +262,7 @@ LIGHT_STYLESHEET = """
     }
     QMenu::item { padding: 5px 20px; border-radius: 5px; }
     QMenu::item:selected { background: #ede8e1; }
+    QMenu::item:disabled { color: #a8a29e; }
     QMenu::separator { height: 1px; background: #d4cfc8; margin: 3px 0; }
 
     QToolBar {
@@ -353,11 +376,17 @@ LIGHT_STYLESHEET = """
         background: transparent;
         border: none;
     }
+    QScrollArea > QWidget > QWidget {
+        background: transparent;
+    }
+    QScrollArea > .QWidget {
+        background: transparent;
+    }
 
     QTreeWidget, QTreeView {
         background: #f5f0ea; color: #1a1a2e; border: none; outline: none;
     }
-    QTreeWidget::item, QTreeView::item { padding: 4px 6px; border-radius: 4px; }
+    QTreeWidget::item, QTreeView::item { padding: 4px 6px; }
     QTreeWidget::item:selected, QTreeView::item:selected {
         background: #dedad2; color: #1a1a2e;
     }
@@ -393,6 +422,21 @@ LIGHT_STYLESHEET = """
     QScrollBar::handle:horizontal:hover { background: #9a9490; }
     QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
     QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: none; }
+
+    QCheckBox { color: #4a4a5a; spacing: 6px; }
+    QCheckBox::indicator {
+        width: 15px; height: 15px;
+        border: 1px solid #b4afa8;
+        border-radius: 4px;
+        background: #f5f0ea;
+    }
+    QCheckBox::indicator:hover { border-color: #8a8580; background: #ede8e1; }
+    QCheckBox::indicator:checked {
+        background: #9a5c00;
+        border-color: #9a5c00;
+        image: none;
+    }
+    QCheckBox::indicator:checked:hover { background: #b36e00; border-color: #b36e00; }
 """
 
 
@@ -412,13 +456,10 @@ class ThemeManager:
     def load(cls) -> str:
         """Lee el tema guardado. Retorna 'dark' si no existe preferencia."""
         try:
-            prefs_path = os.path.normpath(_PREFS_FILE)
-            if os.path.exists(prefs_path):
-                with open(prefs_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                theme = data.get("theme", DARK)
-                if theme in cls.STYLESHEETS:
-                    cls._current = theme
+            from core.config_manager import ConfigManager
+            theme = ConfigManager.get("theme", DARK)
+            if theme in cls.STYLESHEETS:
+                cls._current = theme
         except Exception:
             pass
         return cls._current
@@ -427,14 +468,8 @@ class ThemeManager:
     def save(cls, theme: str):
         """Persiste la preferencia del tema en disco."""
         try:
-            prefs_path = os.path.normpath(_PREFS_FILE)
-            data = {}
-            if os.path.exists(prefs_path):
-                with open(prefs_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-            data["theme"] = theme
-            with open(prefs_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
+            from core.config_manager import ConfigManager
+            ConfigManager.set("theme", theme)
         except Exception:
             pass
 
@@ -444,6 +479,41 @@ class ThemeManager:
         if theme not in cls.STYLESHEETS:
             theme = DARK
         cls._current = theme
+
+        # Sincronizar QPalette del sistema con el tema para evitar fondos oscuros residuales
+        try:
+            from PyQt6.QtGui import QPalette, QColor
+            palette = QPalette()
+            if theme == LIGHT:
+                palette.setColor(QPalette.ColorRole.Window, QColor("#f5f0ea"))
+                palette.setColor(QPalette.ColorRole.WindowText, QColor("#1a1a2e"))
+                palette.setColor(QPalette.ColorRole.Base, QColor("#faf7f3"))
+                palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#ede8e1"))
+                palette.setColor(QPalette.ColorRole.ToolTipBase, QColor("#faf7f3"))
+                palette.setColor(QPalette.ColorRole.ToolTipText, QColor("#1a1a2e"))
+                palette.setColor(QPalette.ColorRole.Text, QColor("#1a1a2e"))
+                palette.setColor(QPalette.ColorRole.Button, QColor("#ede8e1"))
+                palette.setColor(QPalette.ColorRole.ButtonText, QColor("#1a1a2e"))
+                palette.setColor(QPalette.ColorRole.BrightText, QColor("#ffffff"))
+                palette.setColor(QPalette.ColorRole.Highlight, QColor("#9a5c00"))
+                palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
+            else:
+                palette.setColor(QPalette.ColorRole.Window, QColor("#1c1c1e"))
+                palette.setColor(QPalette.ColorRole.WindowText, QColor("#f2f2f7"))
+                palette.setColor(QPalette.ColorRole.Base, QColor("#2c2c2e"))
+                palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#3a3a3c"))
+                palette.setColor(QPalette.ColorRole.ToolTipBase, QColor("#2c2c2e"))
+                palette.setColor(QPalette.ColorRole.ToolTipText, QColor("#f2f2f7"))
+                palette.setColor(QPalette.ColorRole.Text, QColor("#f2f2f7"))
+                palette.setColor(QPalette.ColorRole.Button, QColor("#2c2c2e"))
+                palette.setColor(QPalette.ColorRole.ButtonText, QColor("#f2f2f7"))
+                palette.setColor(QPalette.ColorRole.BrightText, QColor("#ffffff"))
+                palette.setColor(QPalette.ColorRole.Highlight, QColor("#d4a017"))
+                palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#000000"))
+            app.setPalette(palette)
+        except Exception:
+            pass
+
         app.setStyleSheet(cls.STYLESHEETS[theme])
         cls.save(theme)
 

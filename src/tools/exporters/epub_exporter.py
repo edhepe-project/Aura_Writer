@@ -191,6 +191,16 @@ class EPUBExporter:
                     first_heading_skipped_e = True
                     continue
 
+                if "[ Página en Blanco ]" in text or "[ Página en blanco ]" in text or "página en blanco" in text.lower():
+                    html_parts.append('<div style="page-break-after:always; height:1px;"></div>\n')
+                    is_first = True
+                    continue
+
+                if "Salto de Página" in text or "salto de página" in text.lower() or "page-break-after" in str(p.get("style", "")):
+                    html_parts.append('<div style="page-break-after:always; height:1px;"></div>\n')
+                    is_first = True
+                    continue
+
                 if text.strip() in ("***", "* * *", "---", "———", "• • •", "⁂"):
                     html_parts.append('<p class="scene-break">✦ &nbsp; ✦ &nbsp; ✦</p>\n')
                     is_first = True

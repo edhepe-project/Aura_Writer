@@ -114,6 +114,18 @@ class DOCXExporter:
                     first_heading_skipped_d = True
                     continue
                 text = p.get_text(strip=True)
+                if not text:
+                    continue
+
+                if "[ Página en Blanco ]" in text or "[ Página en blanco ]" in text or "página en blanco" in text.lower():
+                    doc.add_page_break()
+                    doc.add_page_break()
+                    continue
+
+                if "Salto de Página" in text or "salto de página" in text.lower() or "page-break-after" in str(p.get("style", "")):
+                    doc.add_page_break()
+                    continue
+
                 if text:
                     para = doc.add_paragraph(text)
                     para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.DOUBLE

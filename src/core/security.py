@@ -59,15 +59,12 @@ class SecurityManager:
         if cls._cached_app_key is not None:
             return cls._cached_app_key
 
+        from core.config_manager import ConfigManager
         try:
-            prefs_path = os.path.normpath(_PREFS_FILE)
-            if os.path.exists(prefs_path):
-                with open(prefs_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                custom_key = data.get("app_key")
-                if custom_key and isinstance(custom_key, str) and len(custom_key.strip()) == 64:
-                    cls._cached_app_key = bytes.fromhex(custom_key.strip())
-                    return cls._cached_app_key
+            custom_key = ConfigManager.get("app_key")
+            if custom_key and isinstance(custom_key, str) and len(custom_key.strip()) == 64:
+                cls._cached_app_key = bytes.fromhex(custom_key.strip())
+                return cls._cached_app_key
         except Exception as e:
             log.warning("No se pudo leer app_key de preferencias: %s", e)
 
@@ -99,20 +96,14 @@ class SecurityManager:
 
         cls._cached_app_key = key_bytes
 
-        # Persistir en aura_prefs.json
-        try:
-            prefs_path = os.path.normpath(_PREFS_FILE)
-            data = {}
-            if os.path.exists(prefs_path):
-                with open(prefs_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-            data["app_key"] = clean_key
-            with open(prefs_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
+        # Persistir a través de ConfigManager
+        from core.config_manager import ConfigManager
+        success = ConfigManager.set("app_key", clean_key)
+        if success:
             log.info("Nueva llave maestra de aplicación guardada correctamente.")
             return True
-        except Exception as e:
-            log.error("Error al guardar la llave maestra en preferencias: %s", e)
+        else:
+            log.error("Error al guardar la llave maestra en preferencias.")
             return False
 
     # ------------------------------------------------------------------

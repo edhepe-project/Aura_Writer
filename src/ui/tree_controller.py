@@ -384,6 +384,7 @@ class TreeControllerMixin:
             if note:
                 note.title = new_name
 
+        self.outline_tree.update_item_text(item_id, new_name)
         self._mark_dirty()  # FIX BUG-05: renombrar cualquier nodo debe activar guardado
         self.statusBar().showMessage(f"Renombrado a '{new_name}' ✓", 3000)
 

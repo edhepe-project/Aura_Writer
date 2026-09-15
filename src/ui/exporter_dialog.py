@@ -22,6 +22,7 @@ class ExporterDialog(QDialog):
         # Tipo de exportación
         self.export_type = QComboBox()
         self.export_type.addItems(["Borrador (DOCX)", "PDF Publicable (A5)", "E-Book (EPUB)"])
+        self.export_type.currentIndexChanged.connect(self._on_format_changed)
         form.addRow("Formato:", self.export_type)
 
         # Metadatos
@@ -39,7 +40,7 @@ class ExporterDialog(QDialog):
         # Opciones adicionales
         self.chk_author_notes = QCheckBox("Incluir notas de autor en la exportación")
         self.chk_author_notes.setChecked(False)
-        self.chk_author_notes.setStyleSheet("margin-top: 8px; color: #666;")
+        self.chk_author_notes.setStyleSheet("margin-top: 8px; font-size: 12px;")
         layout.addWidget(self.chk_author_notes)
 
         # Ruta de salida
@@ -57,7 +58,7 @@ class ExporterDialog(QDialog):
         btn_cancel.clicked.connect(self.reject)
         btn_export = QPushButton("Generar Archivo")
         btn_export.setStyleSheet(
-            "background-color: #27ae60; color: white; font-weight: bold; padding: 10px;"
+            "background-color: #27ae60; color: white; font-weight: bold; padding: 8px 18px; border-radius: 6px;"
         )
         btn_export.clicked.connect(self.accept)
 
@@ -65,6 +66,17 @@ class ExporterDialog(QDialog):
         btns.addWidget(btn_cancel)
         btns.addWidget(btn_export)
         layout.addLayout(btns)
+
+    def _on_format_changed(self, index: int):
+        """Actualiza automáticamente la extensión del archivo si ya se había ingresado una ruta."""
+        current_path = self.path_input.text().strip()
+        if not current_path:
+            return
+        ext_map = {0: ".docx", 1: ".pdf", 2: ".epub"}
+        new_ext = ext_map.get(index, ".docx")
+        import os
+        base, _ = os.path.splitext(current_path)
+        self.path_input.setText(base + new_ext)
 
     def select_path(self):
         ext_map = {0: "DOCX (*.docx)", 1: "PDF (*.pdf)", 2: "EPUB (*.epub)"}

@@ -389,6 +389,10 @@ class RelationGraphWidget(QWidget):
     def _build_graph(self, meta: UniverseMetadata):
         self._scene.clear()
 
+        from core.theme_manager import ThemeManager
+        bg_col = "#1c1c1e" if ThemeManager.is_dark() else "#f5f0ea"
+        self._view.setBackgroundBrush(QBrush(QColor(bg_col)))
+
         filter_data = self.filter_combo.currentData() or "all"
 
         # Paleta de colores únicos por personaje (por índice)

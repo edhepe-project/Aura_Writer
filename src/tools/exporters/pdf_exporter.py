@@ -424,6 +424,21 @@ class PDFExporter:
                         first_heading_skipped = True
                         continue
 
+                    # Detección de Página en Blanco y Salto de Página
+                    if "[ Página en Blanco ]" in text or "[ Página en blanco ]" in text or "página en blanco" in text.lower():
+                        story.append(NextPageTemplate("BlankPage"))
+                        story.append(PageBreak())
+                        story.append(Spacer(1, 40))
+                        story.append(NextPageTemplate("ContentPage"))
+                        story.append(PageBreak())
+                        is_first_para = True
+                        continue
+
+                    if "Salto de Página" in text or "salto de página" in text.lower() or "page-break-after" in str(p.get("style", "")):
+                        story.append(PageBreak())
+                        is_first_para = True
+                        continue
+
                     if text.strip() in ("***", "* * *", "---", "———", "• • •", "⁂"):
                         story.append(Spacer(1, 8))
                         story.append(OrnamentalRule(

@@ -140,11 +140,8 @@ class AuraMainWindow(
 
         self.notes_list = QListWidget()
         self.notes_list.setMaximumHeight(140)
-        self.notes_list.setStyleSheet(
-            "QListWidget{background:#2c2c2e;border-radius:6px;font-size:12px;color:#f2f2f7;}"
-            "QListWidget::item:selected{background:#3a3a3c;}"
-        )
         self.notes_list.currentItemChanged.connect(self._on_note_list_selection_changed)
+        self.notes_list.itemDoubleClicked.connect(self._on_note_double_clicked)
         il.addWidget(self.notes_list)
 
         btn_row = QHBoxLayout()
@@ -160,10 +157,11 @@ class AuraMainWindow(
         il.addLayout(btn_row)
 
         self.inspector_notes = QTextEdit()
-        self.inspector_notes.setPlaceholderText("Selecciona una nota o crea una...")
-        self.inspector_notes.setStyleSheet(
-            "QTextEdit{background:#2c2c2e;border-radius:6px;font-size:12px;color:#f2f2f7;padding:6px;}"
+        self.inspector_notes.setReadOnly(True)
+        self.inspector_notes.setPlaceholderText(
+            "No hay notas.\nUsa '+ Nota' para crear una\no doble click para editar."
         )
+        self.inspector_notes.setMaximumHeight(110)
         il.addWidget(self.inspector_notes, 1)
 
         self.char_dock = CharacterDock()
@@ -172,6 +170,9 @@ class AuraMainWindow(
         self.char_dock.character_selected.connect(self._on_character_selected)
         self.char_dock.chapter_requested.connect(self._on_chapter_requested_from_dock)
         il.addWidget(self.char_dock, 1)
+
+        self._outline_frame = outline_frame
+        self._inspector_frame = inspector_frame
 
         self.main_splitter.addWidget(outline_frame)
         self.main_splitter.addWidget(editor_frame)
@@ -257,6 +258,8 @@ class AuraMainWindow(
         from PyQt6.QtWidgets import QApplication
         new_theme = ThemeManager.toggle(QApplication.instance())
         self._update_theme_action_label()
+        if hasattr(self, "_refresh_toolbar_icons"):
+            self._refresh_toolbar_icons()
         label = "Claro" if new_theme == "light" else "Oscuro"
         self.statusBar().showMessage(f"Tema cambiado a {label}", 3000)
 
@@ -271,6 +274,42 @@ class AuraMainWindow(
             if hasattr(self, "_theme_btn_action"):
                 self._theme_btn_action.setText("Oscuro")
                 self._theme_btn_action.setIcon(qta.icon("fa5s.moon", color="#32ade6"))
+
+    def toggle_zen_mode(self):
+        """Alterna el modo concentración (Zen Mode): oculta los paneles laterales para escribir sin distracciones."""
+        is_zen = getattr(self, "_is_zen_mode", False)
+        self._is_zen_mode = not is_zen
+
+        if self._is_zen_mode:
+            # Guardar anchos del splitter antes de colapsar
+            if hasattr(self, "main_splitter"):
+                self._saved_splitter_sizes = self.main_splitter.sizes()
+
+            # Ocultar paneles laterales
+            if hasattr(self, "_outline_frame"):
+                self._outline_frame.hide()
+            if hasattr(self, "_inspector_frame"):
+                self._inspector_frame.hide()
+
+            if hasattr(self, "_zen_act"):
+                self._zen_act.setChecked(True)
+            self.statusBar().showMessage("🧘 Modo Zen activado (F11 para restaurar paneles)", 4000)
+        else:
+            # Restaurar paneles laterales
+            if hasattr(self, "_outline_frame"):
+                self._outline_frame.show()
+            if hasattr(self, "_inspector_frame"):
+                self._inspector_frame.show()
+
+            # Restaurar anchos del splitter
+            if hasattr(self, "main_splitter") and hasattr(self, "_saved_splitter_sizes"):
+                self.main_splitter.setSizes(self._saved_splitter_sizes)
+            elif hasattr(self, "main_splitter"):
+                self.main_splitter.setSizes([220, 800, 260])
+
+            if hasattr(self, "_zen_act"):
+                self._zen_act.setChecked(False)
+            self.statusBar().showMessage("Modo Zen desactivado.", 3000)
 
     # ------------------------------------------------------------------
     # Estadisticas del editor
@@ -288,7 +327,16 @@ class AuraMainWindow(
             return
         words = len(self.editor.toPlainText().split())
         mins = max(1, words // 200)
-        self.statusBar().showMessage(f"Palabras: {words} | Caracteres: {chars} | Lectura: ~{mins} min")
+
+        # Contador de palabras de la sesión
+        if not hasattr(self, "_session_start_words"):
+            self._session_start_words = words
+        session_diff = words - self._session_start_words
+        session_sign = f"+{session_diff}" if session_diff > 0 else f"{session_diff}"
+
+        self.statusBar().showMessage(
+            f"Capítulo: {words} palabras ({session_sign} en sesión) | Caracteres: {chars} | Lectura: ~{mins} min"
+        )
 
     def update_stats(self):
         self._do_update_stats()
@@ -319,6 +367,7 @@ class AuraMainWindow(
             else:
                 self.statusBar().showMessage("Proyecto guardado", 3000)
             self._update_usb_indicator()
+
         except Exception as e:
             log.exception("Error al guardar")
             QMessageBox.critical(self, "Error al Guardar", str(e))

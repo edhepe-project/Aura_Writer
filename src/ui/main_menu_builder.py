@@ -5,7 +5,7 @@ Construcción de menús, barras de herramientas con acciones reactivas y actuali
 
 from PyQt6.QtWidgets import QToolBar, QMenu
 from PyQt6.QtCore import QSize
-from PyQt6.QtGui import QKeySequence, QTextCharFormat, QFont, QAction
+from PyQt6.QtGui import QKeySequence, QTextCharFormat, QFont, QAction, QActionGroup
 import qtawesome as qta
 
 
@@ -104,11 +104,38 @@ class MainMenuBuilderMixin:
         view_menu.addAction(graph_act)
 
         view_menu.addSeparator()
+        self._zen_act = QAction("🧘 Modo Zen (Sin Distracciones)", self)
+        self._zen_act.setShortcut("F11")
+        self._zen_act.setCheckable(True)
+        self._zen_act.triggered.connect(self.toggle_zen_mode)
+        view_menu.addAction(self._zen_act)
+
+        view_menu.addSeparator()
         self._theme_act = QAction("\U0001f319 Cambiar a Tema Claro", self)
         self._theme_act.setShortcut("Ctrl+Shift+T")
         self._theme_act.triggered.connect(self._toggle_theme)
         view_menu.addAction(self._theme_act)
         self._update_theme_action_label()
+
+        # ── Sonido Aura Singularity ──────────────────────────────────
+        sound_menu = mb.addMenu("&Sonido")
+        from core.sound_manager import OlivettiSoundEngine
+        engine = OlivettiSoundEngine.instance()
+
+        self._sound_toggle_act = QAction("✨ Aura Singularity (528 Hz)", self)
+        self._sound_toggle_act.setShortcut("Ctrl+M")
+        self._sound_toggle_act.setCheckable(True)
+        self._sound_toggle_act.setChecked(engine.enabled)
+        self._sound_toggle_act.toggled.connect(self._set_sound_enabled)
+        sound_menu.addAction(self._sound_toggle_act)
+
+        bell_act = QAction("🔔 Campanilla al borde de página", self)
+        bell_act.setCheckable(True)
+        bell_act.setChecked(engine.bell_enabled)
+        def _toggle_bell(checked):
+            engine.bell_enabled = checked
+        bell_act.triggered.connect(_toggle_bell)
+        sound_menu.addAction(bell_act)
 
         # ── Seguridad ────────────────────────────────────────────────
         sec_menu = mb.addMenu("&Seguridad")
@@ -147,91 +174,141 @@ class MainMenuBuilderMixin:
 
     def setup_toolbar(self):
         """Construye la barra de herramientas principal."""
-        toolbar = QToolBar("Principal")
-        toolbar.setIconSize(QSize(20, 20))
-        self.addToolBar(toolbar)
+        self._main_toolbar = QToolBar("Principal")
+        self._main_toolbar.setIconSize(QSize(20, 20))
+        self.addToolBar(self._main_toolbar)
 
         try:
-            _ic = "#aeaeb2"  # gris claro — visible sobre fondos oscuros
+            from core.theme_manager import ThemeManager
+            is_dark = ThemeManager.is_dark()
+            _ic = "#aeaeb2" if is_dark else "#4a4a5a"
+            _accent = "#ffd60a" if is_dark else "#d97706"
 
-            toolbar.addAction(qta.icon("fa5s.save", color="#30d158"), "Guardar", self.save_project)
-            toolbar.addSeparator()
+            self._act_save = self._main_toolbar.addAction(qta.icon("fa5s.save", color="#30d158" if is_dark else "#16a34a"), "Guardar", self.save_project)
+            self._main_toolbar.addSeparator()
 
             self._bold_act.setIcon(qta.icon("fa5s.bold", color=_ic))
             self._bold_act.setText("Negrita (Ctrl+B)")
-            toolbar.addAction(self._bold_act)
+            self._main_toolbar.addAction(self._bold_act)
 
             self._italic_act.setIcon(qta.icon("fa5s.italic", color=_ic))
             self._italic_act.setText("Cursiva (Ctrl+I)")
-            toolbar.addAction(self._italic_act)
+            self._main_toolbar.addAction(self._italic_act)
 
             self._underline_act.setIcon(qta.icon("fa5s.underline", color=_ic))
             self._underline_act.setText("Subrayado (Ctrl+U)")
-            toolbar.addAction(self._underline_act)
+            self._main_toolbar.addAction(self._underline_act)
 
             self._strike_act.setIcon(qta.icon("fa5s.strikethrough", color=_ic))
             self._strike_act.setText("Tachado (Ctrl+K)")
-            toolbar.addAction(self._strike_act)
+            self._main_toolbar.addAction(self._strike_act)
 
             self._clean_act.setIcon(qta.icon("fa5s.eraser", color=_ic))
             self._clean_act.setText("Limpiar Formato (Ctrl+\\)")
-            toolbar.addAction(self._clean_act)
+            self._main_toolbar.addAction(self._clean_act)
 
-            toolbar.addSeparator()
-            toolbar.addAction(qta.icon("fa5s.align-left", color=_ic), "Izq", self.editor.align_left)
-            toolbar.addAction(qta.icon("fa5s.align-center", color=_ic), "Centrar", self.editor.align_center)
-            toolbar.addAction(qta.icon("fa5s.align-right", color=_ic), "Der", self.editor.align_right)
-            toolbar.addAction(qta.icon("fa5s.align-justify", color=_ic), "Justificar", self.editor.align_justify)
+            self._main_toolbar.addSeparator()
+            self._act_left = self._main_toolbar.addAction(qta.icon("fa5s.align-left", color=_ic), "Izq", self.editor.align_left)
+            self._act_center = self._main_toolbar.addAction(qta.icon("fa5s.align-center", color=_ic), "Centrar", self.editor.align_center)
+            self._act_right = self._main_toolbar.addAction(qta.icon("fa5s.align-right", color=_ic), "Der", self.editor.align_right)
+            self._act_justify = self._main_toolbar.addAction(qta.icon("fa5s.align-justify", color=_ic), "Justificar", self.editor.align_justify)
 
-            toolbar.addSeparator()
-            toolbar.addAction(qta.icon("fa5s.circle", color="#ffd60a"), "Punto Medio · (Ctrl+.)", self.editor.insert_middle_dot)
-            toolbar.addAction(qta.icon("fa5s.minus", color="#ffd60a"), "Raya — (Ctrl+- o escribir --)", self.editor.insert_em_dash)
-            toolbar.addAction(qta.icon("fa5s.asterisk", color="#ffd60a"), "Separador * * *", self.editor.insert_scene_separator)
-            toolbar.addAction(qta.icon("fa5s.cut", color="#ff453a"), "Salto de Pág", self.editor.insert_page_break)
-            toolbar.addAction(qta.icon("fa5s.file-alt", color=_ic), "Pág en Blanco", self.editor.insert_blank_page)
-            toolbar.addAction(qta.icon("fa5s.image", color="#32ade6"), "Imagen", self.insert_media)
+            self._main_toolbar.addSeparator()
+            self._act_dot = self._main_toolbar.addAction(qta.icon("fa5s.circle", color=_accent), "Punto Medio · (Ctrl+.)", self.editor.insert_middle_dot)
+            self._act_dash = self._main_toolbar.addAction(qta.icon("fa5s.minus", color=_accent), "Raya — (Ctrl+- o escribir --)", self.editor.insert_em_dash)
+            self._act_sep = self._main_toolbar.addAction(qta.icon("fa5s.asterisk", color=_accent), "Separador * * *", self.editor.insert_scene_separator)
+            self._act_pb = self._main_toolbar.addAction(qta.icon("fa5s.cut", color="#ff453a" if is_dark else "#dc2626"), "Salto de Pág", self.editor.insert_page_break)
+            self._act_blank = self._main_toolbar.addAction(qta.icon("fa5s.file-alt", color=_ic), "Pág en Blanco", self.editor.insert_blank_page)
+            self._act_img = self._main_toolbar.addAction(qta.icon("fa5s.image", color="#32ade6" if is_dark else "#0284c7"), "Imagen", self.insert_media)
 
-            toolbar.addSeparator()
-            toolbar.addAction(qta.icon("fa5s.search", color=_ic), "Buscador Global", self.open_search)
-            toolbar.addAction(qta.icon("fa5s.lock", color="#ff9f0a"), "Bloqueo Rápido", self.quick_lock)
+            self._main_toolbar.addSeparator()
+            self._act_search = self._main_toolbar.addAction(qta.icon("fa5s.search", color=_ic), "Buscador Global", self.open_search)
+            self._act_lock = self._main_toolbar.addAction(qta.icon("fa5s.lock", color="#ff9f0a" if is_dark else "#ea580c"), "Bloqueo Rápido", self.quick_lock)
 
-            toolbar.addSeparator()
-            toolbar.addAction(qta.icon("fa5s.globe", color="#bf5af2"), "Mapa Mental", self.open_universe_map)
-            toolbar.addAction(qta.icon("fa5s.project-diagram", color="#5e5ce6"), "Relaciones", self.open_relation_graph)
-            toolbar.addSeparator()
-            toolbar.addAction(qta.icon("fa5s.file-export", color="#30d158"), "Exportar", self.open_exporter)
-            toolbar.addAction(qta.icon("fa5s.trash-alt", color="#ff453a"), "Papelera", self.open_trash_dialog)
+            self._main_toolbar.addSeparator()
+            self._act_map = self._main_toolbar.addAction(qta.icon("fa5s.globe", color="#bf5af2" if is_dark else "#9333ea"), "Mapa Mental", self.open_universe_map)
+            self._act_graph = self._main_toolbar.addAction(qta.icon("fa5s.project-diagram", color="#5e5ce6" if is_dark else "#4f46e5"), "Relaciones", self.open_relation_graph)
+            self._main_toolbar.addSeparator()
+            self._act_export = self._main_toolbar.addAction(qta.icon("fa5s.file-export", color="#30d158" if is_dark else "#16a34a"), "Exportar", self.open_exporter)
+            self._act_trash = self._main_toolbar.addAction(qta.icon("fa5s.trash-alt", color="#ff453a" if is_dark else "#dc2626"), "Papelera", self.open_trash_dialog)
 
-            toolbar.addSeparator()
-            self._theme_btn_action = toolbar.addAction(
-                qta.icon("fa5s.sun", color="#ffd60a"), "Cambiar Tema", self._toggle_theme
+            self._main_toolbar.addSeparator()
+            self._theme_btn_action = self._main_toolbar.addAction(
+                qta.icon("fa5s.sun" if is_dark else "fa5s.moon", color="#ffd60a" if is_dark else "#2563eb"),
+                "Cambiar Tema", self._toggle_theme
             )
             self._update_theme_action_label()
         except Exception:
-            toolbar.addAction("Guardar", self.save_project)
-            toolbar.addSeparator()
-            toolbar.addAction(self._bold_act)
-            toolbar.addAction(self._italic_act)
-            toolbar.addAction(self._underline_act)
-            toolbar.addAction(self._strike_act)
-            toolbar.addAction(self._clean_act)
-            toolbar.addSeparator()
-            toolbar.addAction("Izq", self.editor.align_left)
-            toolbar.addAction("Cen", self.editor.align_center)
-            toolbar.addAction("Der", self.editor.align_right)
-            toolbar.addAction("Jus", self.editor.align_justify)
-            toolbar.addSeparator()
-            toolbar.addAction("·", self.editor.insert_middle_dot)
-            toolbar.addAction("* * *", self.editor.insert_scene_separator)
-            toolbar.addAction("Salto Pág", self.editor.insert_page_break)
-            toolbar.addAction("Pág Blanco", self.editor.insert_blank_page)
-            toolbar.addSeparator()
-            toolbar.addAction("Img", self.insert_media)
-            toolbar.addSeparator()
-            toolbar.addAction("Mapa", self.open_universe_map)
-            toolbar.addAction("Nodos", self.open_relation_graph)
-            toolbar.addSeparator()
-            toolbar.addAction("Exportar", self.open_exporter)
+            self._main_toolbar.addAction("Guardar", self.save_project)
+            self._main_toolbar.addSeparator()
+            self._main_toolbar.addAction(self._bold_act)
+            self._main_toolbar.addAction(self._italic_act)
+            self._main_toolbar.addAction(self._underline_act)
+            self._main_toolbar.addAction(self._strike_act)
+            self._main_toolbar.addAction(self._clean_act)
+            self._main_toolbar.addSeparator()
+            self._main_toolbar.addAction("Izq", self.editor.align_left)
+            self._main_toolbar.addAction("Cen", self.editor.align_center)
+            self._main_toolbar.addAction("Der", self.editor.align_right)
+            self._main_toolbar.addAction("Jus", self.editor.align_justify)
+            self._main_toolbar.addSeparator()
+            self._main_toolbar.addAction("·", self.editor.insert_middle_dot)
+            self._main_toolbar.addAction("* * *", self.editor.insert_scene_separator)
+            self._main_toolbar.addAction("Salto Pág", self.editor.insert_page_break)
+            self._main_toolbar.addAction("Pág Blanco", self.editor.insert_blank_page)
+            self._main_toolbar.addSeparator()
+            self._main_toolbar.addAction("Img", self.insert_media)
+            self._main_toolbar.addSeparator()
+            self._main_toolbar.addAction("Mapa", self.open_universe_map)
+            self._main_toolbar.addAction("Nodos", self.open_relation_graph)
+            self._main_toolbar.addSeparator()
+            self._main_toolbar.addAction("Exportar", self.open_exporter)
+
+    def _refresh_toolbar_icons(self):
+        """Actualiza los iconos de la barra de herramientas al cambiar de tema."""
+        try:
+            from core.theme_manager import ThemeManager
+            is_dark = ThemeManager.is_dark()
+            _ic = "#aeaeb2" if is_dark else "#4a4a5a"
+            _accent = "#ffd60a" if is_dark else "#d97706"
+
+            if hasattr(self, "_bold_act"): self._bold_act.setIcon(qta.icon("fa5s.bold", color=_ic))
+            if hasattr(self, "_italic_act"): self._italic_act.setIcon(qta.icon("fa5s.italic", color=_ic))
+            if hasattr(self, "_underline_act"): self._underline_act.setIcon(qta.icon("fa5s.underline", color=_ic))
+            if hasattr(self, "_strike_act"): self._strike_act.setIcon(qta.icon("fa5s.strikethrough", color=_ic))
+            if hasattr(self, "_clean_act"): self._clean_act.setIcon(qta.icon("fa5s.eraser", color=_ic))
+
+            if hasattr(self, "_act_left"): self._act_left.setIcon(qta.icon("fa5s.align-left", color=_ic))
+            if hasattr(self, "_act_center"): self._act_center.setIcon(qta.icon("fa5s.align-center", color=_ic))
+            if hasattr(self, "_act_right"): self._act_right.setIcon(qta.icon("fa5s.align-right", color=_ic))
+            if hasattr(self, "_act_justify"): self._act_justify.setIcon(qta.icon("fa5s.align-justify", color=_ic))
+
+            if hasattr(self, "_act_dot"): self._act_dot.setIcon(qta.icon("fa5s.circle", color=_accent))
+            if hasattr(self, "_act_dash"): self._act_dash.setIcon(qta.icon("fa5s.minus", color=_accent))
+            if hasattr(self, "_act_sep"): self._act_sep.setIcon(qta.icon("fa5s.asterisk", color=_accent))
+            if hasattr(self, "_act_pb"): self._act_pb.setIcon(qta.icon("fa5s.cut", color="#ff453a" if is_dark else "#dc2626"))
+            if hasattr(self, "_act_blank"): self._act_blank.setIcon(qta.icon("fa5s.file-alt", color=_ic))
+            if hasattr(self, "_act_img"): self._act_img.setIcon(qta.icon("fa5s.image", color="#32ade6" if is_dark else "#0284c7"))
+
+            if hasattr(self, "_act_search"): self._act_search.setIcon(qta.icon("fa5s.search", color=_ic))
+            if hasattr(self, "_act_lock"): self._act_lock.setIcon(qta.icon("fa5s.lock", color="#ff9f0a" if is_dark else "#ea580c"))
+            if hasattr(self, "_act_map"): self._act_map.setIcon(qta.icon("fa5s.globe", color="#bf5af2" if is_dark else "#9333ea"))
+            if hasattr(self, "_act_graph"): self._act_graph.setIcon(qta.icon("fa5s.project-diagram", color="#5e5ce6" if is_dark else "#4f46e5"))
+            if hasattr(self, "_act_export"): self._act_export.setIcon(qta.icon("fa5s.file-export", color="#30d158" if is_dark else "#16a34a"))
+            if hasattr(self, "_act_save"): self._act_save.setIcon(qta.icon("fa5s.save", color="#30d158" if is_dark else "#16a34a"))
+        except Exception:
+            pass
+
+    def _set_sound_enabled(self, enabled: bool):
+        """Activa o desactiva el sonido mecánico con sincronización exacta."""
+        try:
+            from core.sound_manager import OlivettiSoundEngine
+            engine = OlivettiSoundEngine.instance()
+            engine.enabled = enabled
+            status = "Sonido Aura Singularity: ACTIVADO" if enabled else "Sonido Aura Singularity: SILENCIADO"
+            self.statusBar().showMessage(status, 2500)
+        except Exception:
+            pass
 
     def _update_format_actions(self, fmt: QTextCharFormat):
         """Sincroniza el estado visual de los botones de formato con el formato bajo el cursor."""

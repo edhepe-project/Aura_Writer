@@ -29,3 +29,11 @@ aura_prefs.json
 
 # Gemini
 .gemini/
+
+# Build & Test artifacts
+build/
+dist/
+.pytest_cache/
+.backups/
+temp_test/
+*.png

@@ -18,8 +18,14 @@ class _ResultCard(QWidget):
     def __init__(self, icon: str, title: str, location: str,
                  snippet: str, query: str):
         super().__init__()
+        from core.theme_manager import ThemeManager
         self.setAutoFillBackground(True)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+        is_dark = ThemeManager.is_dark()
+        text_col = "#f2f2f7" if is_dark else "#1a1a2e"
+        loc_col  = "#636366" if is_dark else "#7a7a8a"
+        sub_col  = "#8e8e93" if is_dark else "#6a6a7a"
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 10, 12, 10)
@@ -28,21 +34,21 @@ class _ResultCard(QWidget):
         # Línea 1 — ícono + título
         t_lbl = QLabel(f"<b>{icon} {_esc(title)}</b>")
         t_lbl.setTextFormat(Qt.TextFormat.RichText)
-        t_lbl.setStyleSheet("color:#f2f2f7; font-size:13px;")
+        t_lbl.setStyleSheet(f"color:{text_col}; font-size:13px;")
         layout.addWidget(t_lbl)
 
         # Línea 2 — ruta / breadcrumb
         loc_lbl = QLabel(f"📍 {_esc(location)}")
-        loc_lbl.setStyleSheet("color:#636366; font-size:11px;")
+        loc_lbl.setStyleSheet(f"color:{loc_col}; font-size:11px;")
         layout.addWidget(loc_lbl)
 
         # Línea 3 — snippet resaltado
         if snippet:
-            highlighted = _highlight(snippet, query)
+            highlighted = _highlight(snippet, query, is_dark=is_dark)
             snip_lbl = QLabel(highlighted)
             snip_lbl.setTextFormat(Qt.TextFormat.RichText)
             snip_lbl.setWordWrap(True)
-            snip_lbl.setStyleSheet("color:#8e8e93; font-size:11px;")
+            snip_lbl.setStyleSheet(f"color:{sub_col}; font-size:11px;")
             snip_lbl.setSizePolicy(QSizePolicy.Policy.Expanding,
                                    QSizePolicy.Policy.Preferred)
             layout.addWidget(snip_lbl)
@@ -54,16 +60,25 @@ def _esc(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def _highlight(text: str, query: str) -> str:
+def _highlight(text: str, query: str, is_dark: bool = True, is_regex: bool = False) -> str:
     if not query:
         return _esc(text)
     escaped = _esc(text)
-    pattern = re.compile(re.escape(re.escape(query).replace("\\", "")), re.IGNORECASE)
-    # Escapar query para regex sin doble-escape
-    pattern = re.compile(re.escape(query), re.IGNORECASE)
+    try:
+        pattern_str = query if is_regex else re.escape(query)
+        pattern = re.compile(pattern_str, re.IGNORECASE)
+    except re.error:
+        pattern = re.compile(re.escape(query), re.IGNORECASE)
+
+    if is_dark:
+        hl_color   = "#ffd60a"
+        hl_bg      = "#3a3a3c"
+    else:
+        hl_color   = "#7c4a00"
+        hl_bg      = "#ffe08a"
     return pattern.sub(
         lambda m: (
-            f"<b style='color:#ffd60a; background:#3a3a3c;"
+            f"<b style='color:{hl_color}; background:{hl_bg};"
             f" padding:1px 3px; border-radius:3px;'>{_esc(m.group())}</b>"
         ),
         escaped
@@ -118,8 +133,14 @@ class SearchDialog(QDialog):
         self.filter_combo.setFixedWidth(130)
         self.filter_combo.currentIndexChanged.connect(self.perform_search)
 
+        from PyQt6.QtWidgets import QCheckBox
+        self.regex_check = QCheckBox("Regex")
+        self.regex_check.setToolTip("Habilitar expresiones regulares en la búsqueda")
+        self.regex_check.stateChanged.connect(self.perform_search)
+
         bar.addWidget(self.search_input, 1)
         bar.addWidget(self.filter_combo)
+        bar.addWidget(self.regex_check)
         root.addLayout(bar)
 
         # ── Área de resultados — scroll con tarjetas ──────────────────
@@ -127,7 +148,14 @@ class SearchDialog(QDialog):
         self._results_area.setWidgetResizable(True)
         self._results_area.setFrameShape(QFrame.Shape.NoFrame)
 
+        from core.theme_manager import ThemeManager
+        _bg = "#1c1c1e" if ThemeManager.is_dark() else "#f5f0ea"
+        _area_style = f"background:{_bg}; border:none;"
+        self._results_area.setStyleSheet(_area_style)
+        self._results_area.viewport().setStyleSheet(_area_style)
+
         self._cards_container = QWidget()
+        self._cards_container.setStyleSheet(f"background:{_bg};")
         self._cards_layout = QVBoxLayout(self._cards_container)
         self._cards_layout.setContentsMargins(0, 0, 0, 0)
         self._cards_layout.setSpacing(1)
@@ -165,6 +193,22 @@ class SearchDialog(QDialog):
         count = 0
         seen_ids: set[str] = set()
 
+        is_regex = self.regex_check.isChecked()
+        compiled_regex = None
+        if is_regex:
+            try:
+                compiled_regex = re.compile(query, re.IGNORECASE)
+            except re.error as e:
+                self.status_lbl.setText(f"Error en expresión regular: {e}")
+                return
+
+        def matches(target_text: str) -> bool:
+            if not target_text:
+                return False
+            if is_regex and compiled_regex:
+                return bool(compiled_regex.search(target_text))
+            return query.lower() in target_text.lower()
+
         # 1. Capítulos
         if scope in ("Todo", "Capítulos"):
             for obra in self.pm.metadata.obras:
@@ -173,21 +217,21 @@ class SearchDialog(QDialog):
                         if cap.id in seen_ids:
                             continue
                         location = f"{obra.title} › {libro.title}"
-                        in_title = query.lower() in cap.title.lower()
+                        in_title = matches(cap.title)
 
                         content = self.pm.read_chapter_content(cap.content_file)
                         try:
                             text = BeautifulSoup(content, "lxml").get_text()
                         except Exception:
                             text = content
-                        in_content = query.lower() in text.lower()
+                        in_content = matches(text)
 
                         if in_title or in_content:
                             seen_ids.add(cap.id)
-                            snippet = (self._get_snippet(text, query)
+                            snippet = (self._get_snippet(text, query, is_regex=is_regex)
                                        if in_content else "Coincidencia en el título")
                             self._add_card("📖", cap.title, location,
-                                           snippet, query, cap.id, "chapter")
+                                           snippet, query, cap.id, "chapter", is_regex=is_regex)
                             count += 1
 
         # 2. Personajes
@@ -195,14 +239,14 @@ class SearchDialog(QDialog):
             for char in self.pm.metadata.characters:
                 if char.id in seen_ids:
                     continue
-                in_name = query.lower() in char.name.lower()
-                in_desc = query.lower() in char.description.lower()
+                in_name = matches(char.name)
+                in_desc = matches(char.description)
                 if in_name or in_desc:
                     seen_ids.add(char.id)
-                    snippet = (self._get_snippet(char.description, query)
+                    snippet = (self._get_snippet(char.description, query, is_regex=is_regex)
                                if in_desc else "Coincidencia en el nombre")
                     self._add_card("👤", char.name, "Personajes",
-                                   snippet, query, char.id, "character")
+                                   snippet, query, char.id, "character", is_regex=is_regex)
                     count += 1
 
         # 3. Notas de Autor
@@ -213,20 +257,22 @@ class SearchDialog(QDialog):
                         for note in cap.author_notes:
                             if note.id in seen_ids:
                                 continue
-                            in_title  = query.lower() in note.title.lower()
-                            in_body   = query.lower() in note.content.lower()
+                            in_title  = matches(note.title)
+                            in_body   = matches(note.content)
                             if in_title or in_body:
                                 seen_ids.add(note.id)
                                 location = f"{obra.title} › {libro.title} › {cap.title}"
-                                snippet  = (self._get_snippet(note.content, query)
+                                snippet  = (self._get_snippet(note.content, query, is_regex=is_regex)
                                             if in_body else "Coincidencia en el título")
                                 self._add_card("📌", f"Nota: {note.title}", location,
-                                               snippet, query, cap.id, "chapter")
+                                               snippet, query, cap.id, "chapter", is_regex=is_regex)
                                 count += 1
 
         if count == 0:
+            from core.theme_manager import ThemeManager
+            empty_col = "#8e8e93" if ThemeManager.is_dark() else "#78716c"
             empty = QLabel(f"Sin resultados para «{query}»")
-            empty.setStyleSheet("color:#48484a; font-size:13px; padding:24px;")
+            empty.setStyleSheet(f"color:{empty_col}; font-size:13px; padding:24px; background:transparent;")
             empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
             # Insertar antes del stretch
             self._cards_layout.insertWidget(0, empty)
@@ -247,10 +293,10 @@ class SearchDialog(QDialog):
                 item.widget().deleteLater()
 
     def _add_card(self, icon, title, location, snippet,
-                  query, item_id, item_type):
+                  query, item_id, item_type, is_regex: bool = False):
         """Crea una tarjeta clickeable y la inserta antes del stretch."""
         card = _ResultCardWidget(icon, title, location, snippet, query,
-                                 item_id, item_type)
+                                 item_id, item_type, is_regex=is_regex)
         card.activated.connect(self._on_card_activated)
         idx = self._cards_layout.count() - 1   # antes del stretch
         self._cards_layout.insertWidget(idx, card)
@@ -264,12 +310,27 @@ class SearchDialog(QDialog):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _get_snippet(text: str, query: str, context: int = 60) -> str:
-        idx = text.lower().find(query.lower())
+    def _get_snippet(text: str, query: str, context: int = 60, is_regex: bool = False) -> str:
+        if is_regex:
+            try:
+                m = re.search(query, text, re.IGNORECASE)
+                if m:
+                    idx = m.start()
+                    q_len = max(1, m.end() - m.start())
+                else:
+                    idx = -1
+                    q_len = len(query)
+            except re.error:
+                idx = text.lower().find(query.lower())
+                q_len = len(query)
+        else:
+            idx = text.lower().find(query.lower())
+            q_len = len(query)
+
         if idx == -1:
             return text[:120] + ("…" if len(text) > 120 else "")
         start = max(0, idx - context)
-        end   = min(len(text), idx + len(query) + context)
+        end   = min(len(text), idx + q_len + context)
         pre   = "…" if start > 0 else ""
         suf   = "…" if end < len(text) else ""
         return f"{pre}{text[start:end].replace(chr(10), ' ').strip()}{suf}"
@@ -284,13 +345,14 @@ class _ResultCardWidget(QFrame):
     _count = 0   # contador de instancias para alternar colores
 
     def __init__(self, icon, title, location, snippet,
-                 query, item_id, item_type):
+                 query, item_id, item_type, is_regex: bool = False):
         super().__init__()
         from core.theme_manager import ThemeManager
 
         _ResultCardWidget._count += 1
         self._item_id   = item_id
         self._item_type = item_type
+        self._is_regex  = is_regex
         is_dark = ThemeManager.is_dark()
 
         if is_dark:
@@ -344,7 +406,7 @@ class _ResultCardWidget(QFrame):
 
         # Snippet
         if snippet:
-            hl = _highlight(snippet, query)
+            hl = _highlight(snippet, query, is_dark=is_dark, is_regex=self._is_regex)
             snip = QLabel(hl)
             snip.setTextFormat(Qt.TextFormat.RichText)
             snip.setWordWrap(True)

@@ -17,6 +17,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QColor, QPen, QBrush, QPainter
 
 from core.models import Character, CharacterRelation, RELATION_TYPES, RELATION_COLORS, RELATION_ICONS
+from core.theme_manager import ThemeManager
 
 
 class GenealogyWidget(QWidget):
@@ -80,7 +81,9 @@ class GenealogyWidget(QWidget):
         self._gen_view.setViewportUpdateMode(
             QGraphicsView.ViewportUpdateMode.FullViewportUpdate
         )
-        self._gen_view.setBackgroundBrush(QBrush(QColor("#141416")))
+        is_dark = ThemeManager.is_dark()
+        bg_col = "#141416" if is_dark else "#f5f0ea"
+        self._gen_view.setBackgroundBrush(QBrush(QColor(bg_col)))
         self._gen_view.wheelEvent = self._gen_wheel_event
         layout.addWidget(self._gen_view, 1)
 
@@ -111,6 +114,9 @@ class GenealogyWidget(QWidget):
     def refresh(self):
         """Construye el mapa conceptual radial centrado en el personaje."""
         self._gen_scene.clear()
+        is_dark = ThemeManager.is_dark()
+        bg_col = "#141416" if is_dark else "#f5f0ea"
+        self._gen_view.setBackgroundBrush(QBrush(QColor(bg_col)))
         char_map = {c.id: c for c in self._characters}
 
         # Buscar personajes conectados
@@ -128,7 +134,7 @@ class GenealogyWidget(QWidget):
 
         if not connected_ids:
             msg = QGraphicsTextItem("Sin relaciones aún\n\nAñade relaciones en la pestaña 🔗")
-            msg.setDefaultTextColor(QColor("#636366"))
+            msg.setDefaultTextColor(QColor("#636366" if is_dark else "#78716c"))
             msg.setFont(QFont("Segoe UI", 13))
             self._gen_scene.addItem(msg)
             self._draw_center_node(0, 0)
@@ -207,7 +213,8 @@ class GenealogyWidget(QWidget):
         self._gen_scene.addItem(lbl)
 
         name_lbl = QGraphicsTextItem(name)
-        name_lbl.setDefaultTextColor(QColor("#f2f2f7"))
+        is_dark = ThemeManager.is_dark()
+        name_lbl.setDefaultTextColor(QColor("#f2f2f7" if is_dark else "#1a1a2e"))
         name_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         nbr = name_lbl.boundingRect()
         name_lbl.setPos(x - nbr.width() / 2, y + r + 8)
@@ -215,7 +222,7 @@ class GenealogyWidget(QWidget):
         self._gen_scene.addItem(name_lbl)
 
         role_lbl = QGraphicsTextItem(self._char.role)
-        role_lbl.setDefaultTextColor(QColor("#8e8e93"))
+        role_lbl.setDefaultTextColor(QColor("#8e8e93" if is_dark else "#5a554e"))
         role_lbl.setFont(QFont("Segoe UI", 8, QFont.Weight.Normal))
         rbr = role_lbl.boundingRect()
         role_lbl.setPos(x - rbr.width() / 2, y + r + 8 + nbr.height())
@@ -252,8 +259,9 @@ class GenealogyWidget(QWidget):
         lbl.setZValue(3)
         self._gen_scene.addItem(lbl)
 
+        is_dark = ThemeManager.is_dark()
         name_lbl = QGraphicsTextItem(char.name)
-        name_lbl.setDefaultTextColor(QColor("#d1d1d6"))
+        name_lbl.setDefaultTextColor(QColor("#d1d1d6" if is_dark else "#2d2d3a"))
         name_lbl.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
         nbr = name_lbl.boundingRect()
         name_lbl.setPos(x - nbr.width() / 2, y + r + 4)

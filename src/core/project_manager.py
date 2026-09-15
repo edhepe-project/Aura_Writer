@@ -90,6 +90,13 @@ class ProjectManager:
         SecurityManager.package_project(self.password, self.temp_dir, self.current_project_path)
         log.info("Proyecto guardado (local): %s", self.current_project_path)
 
+        # ── Respaldo automático rotativo ────────────────────────────
+        try:
+            from core.backup_manager import BackupManager
+            BackupManager.create_backup(self.current_project_path)
+        except Exception as e:
+            log.warning("No se pudo generar el backup automático: %s", e)
+
         # ── Sincronizar con USB si está configurado ──────────────────
         self._last_usb_error = ""
         if self.usb_sync.is_configured():

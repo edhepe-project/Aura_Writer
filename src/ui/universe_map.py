@@ -209,6 +209,10 @@ class UniverseMapWidget(QWidget):
         self._scene.clear()
         self._nodes.clear()
 
+        from core.theme_manager import ThemeManager
+        bg_col = "#1c1c1e" if ThemeManager.is_dark() else "#f5f0ea"
+        self._view.setBackgroundBrush(QBrush(QColor(bg_col)))
+
         uid = "universe_root"
         node_types:  dict[str, str] = {uid: "universe"}
         node_labels: dict[str, str] = {uid: meta.title}

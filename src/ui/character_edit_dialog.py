@@ -15,6 +15,7 @@ from PyQt6.QtCore import Qt, QPoint, QStringListModel
 from PyQt6.QtGui import QColor
 
 from core.models import Character, CharacterRelation, RELATION_COLORS
+from core.theme_manager import ThemeManager
 from ui.relation_dialog import RelationDialog
 from ui.genealogy_widget import GenealogyWidget
 
@@ -54,7 +55,13 @@ class CharacterEditDialog(QDialog):
         root.setSpacing(14)
 
         # Header
+        is_dark = ThemeManager.is_dark()
+        header_color = "#f2f2f7" if is_dark else "#1a1a2e"
         header_lbl = QLabel("👤  FICHA DE PERSONAJE")
+        header_lbl.setStyleSheet(
+            f"font-size: 13px; font-weight: 800; color: {header_color}; "
+            f"letter-spacing: 0.8px; padding: 2px 0; background: transparent;"
+        )
         root.addWidget(header_lbl)
 
         # Tabs
@@ -95,8 +102,11 @@ class CharacterEditDialog(QDialog):
     def _build_profile_tab(self) -> QWidget:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
 
         container = QWidget()
+        container.setObjectName("profileContainer")
+        container.setStyleSheet("QWidget#profileContainer { background: transparent; }")
         layout = QVBoxLayout(container)
         layout.setContentsMargins(12, 16, 12, 12)
         layout.setSpacing(10)
@@ -267,6 +277,8 @@ class CharacterEditDialog(QDialog):
 
     def _build_relations_tab(self) -> QWidget:
         container = QWidget()
+        container.setObjectName("relationsContainer")
+        container.setStyleSheet("QWidget#relationsContainer { background: transparent; }")
         layout = QVBoxLayout(container)
         layout.setContentsMargins(12, 16, 12, 12)
         layout.setSpacing(10)
@@ -284,7 +296,10 @@ class CharacterEditDialog(QDialog):
         self._rel_list.customContextMenuRequested.connect(self._on_rel_context_menu)
         layout.addWidget(self._rel_list, 1)
 
-        info = QLabel("Clic derecho en una relación para editar o eliminar")
+        is_dark = ThemeManager.is_dark()
+        info_col = "#8e8e93" if is_dark else "#78716c"
+        info = QLabel("ℹ️  Clic derecho en una relación para editar o eliminar")
+        info.setStyleSheet(f"color: {info_col}; font-size: 11px; padding: 2px 4px; background: transparent;")
         layout.addWidget(info)
 
         self._refresh_rel_list()
@@ -578,16 +593,33 @@ class CharacterEditDialog(QDialog):
 
     @staticmethod
     def _section_label(text: str) -> QLabel:
+        is_dark = ThemeManager.is_dark()
+        color = "#8e8e93" if is_dark else "#5a554e"
         lbl = QLabel(text.upper())
+        lbl.setStyleSheet(
+            f"color: {color}; font-size: 11px; font-weight: 700; "
+            f"letter-spacing: 0.5px; background: transparent; margin-top: 4px;"
+        )
         return lbl
 
     @staticmethod
     def _section_header(text: str) -> QLabel:
+        is_dark = ThemeManager.is_dark()
+        color = "#f2f2f7" if is_dark else "#1a1a2e"
+        bg_bar = "rgba(255, 255, 255, 0.04)" if is_dark else "rgba(0, 0, 0, 0.04)"
         lbl = QLabel(text)
+        lbl.setStyleSheet(
+            f"color: {color}; font-size: 13px; font-weight: 800; "
+            f"background: {bg_bar}; border-left: 3px solid #5e5ce6; "
+            f"padding: 6px 10px; border-radius: 4px; margin-top: 6px;"
+        )
         return lbl
 
     @staticmethod
     def _separator() -> QFrame:
+        is_dark = ThemeManager.is_dark()
+        sep_color = "#3a3a3c" if is_dark else "#d4cfc8"
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet(f"background: {sep_color}; height: 1px; border: none; margin: 8px 0;")
         return sep
