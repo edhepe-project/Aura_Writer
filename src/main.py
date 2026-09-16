@@ -123,16 +123,36 @@ def main():
                     # Obtener el código TOTP que el usuario pudo haber ingresado
                     totp_code = login.get_totp_code() or ""
 
-                    # Para archivos V3 (3FA), el TOTP se verifica DENTRO del descifrado.
-                    # Si falta el código y el archivo es V3, el descifrado fallará con
-                    # un mensaje claro, y pedimos el código al usuario para reintentar.
+                    # Detectar ANTES de abrir si el archivo requiere TOTP (formato V3).
+                    # Esto evita el falso positivo donde cualquier error de apertura
+                    # disparaba el diálogo de TOTP por coincidir palabras en el mensaje.
+                    from core.security import SecurityManager as _SM
+                    try:
+                        with open(project_path, 'rb') as _f:
+                            _hdr_pre = _f.read(6)
+                        _is_v3_file = _SM.is_v3_format(_hdr_pre)
+                    except OSError:
+                        _is_v3_file = False
+
+                    # Si es V3 y no se proporcionó código, pedirlo antes de intentar abrir
+                    if _is_v3_file and not totp_code:
+                        login2 = LoginDialog()
+                        login2.project_path = project_path
+                        login2.open_pass_input.setText(password)
+                        login2.btn_select_file.setText(os.path.basename(project_path))
+                        login2.show_totp_field()
+                        login2._validate()
+                        if not login2.exec():
+                            sys.exit(0)
+                        totp_code = login2.get_totp_code() or ""
+
                     try:
                         main_win.project_manager.open_project(project_path, password,
                                                               totp_code=totp_code)
                     except ValueError as ve:
                         err_lower = str(ve).lower()
-                        if "totp" in err_lower or "código" in err_lower or "autenticación" in err_lower:
-                            # Pedir código TOTP y reintentar
+                        # Solo reintentar con TOTP si el archivo es realmente V3
+                        if _is_v3_file and ("totp" in err_lower or "autenticación" in err_lower):
                             login2 = LoginDialog()
                             login2.project_path = project_path
                             login2.open_pass_input.setText(password)
@@ -142,11 +162,11 @@ def main():
                             if not login2.exec():
                                 sys.exit(0)
                             totp_code = login2.get_totp_code() or ""
-                            # Segundo intento con código TOTP
+                            # Segundo intento con código TOTP correcto
                             main_win.project_manager.open_project(project_path, password,
                                                                    totp_code=totp_code)
                         else:
-                            raise  # otro error (contraseña incorrecta, corrupto, etc.)
+                            raise  # contraseña incorrecta, llave maestra distinta, etc.
 
                     # ── Post-apertura: manejar 2FA según versión del formato ──────
                     if main_win.project_manager.is_2fa_enabled():

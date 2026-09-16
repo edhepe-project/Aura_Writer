@@ -96,7 +96,7 @@ class ProjectManager:
         except Exception as e:
             shutil.rmtree(self.temp_dir, ignore_errors=True)
             self.temp_dir = None
-            raise ValueError("Contraseña incorrecta, código TOTP inválido, o archivo corrupto.") from e
+            raise ValueError("Contraseña incorrecta o archivo corrupto.") from e
 
     def save_project(self):
         """Cifra el estado actual al archivo local Y sincroniza con USB."""
