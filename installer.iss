@@ -26,6 +26,9 @@ AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
+
 ; Instala sin privilegios de administrador (por defecto en carpeta del usuario)
 DefaultDirName={autopf}\{#MyAppName}
 ChangesAssociations=yes
@@ -95,7 +98,12 @@ function SetEnvironmentVariable(lpName: String; lpValue: String): Boolean;
 external 'SetEnvironmentVariableW@kernel32.dll stdcall';
 
 function InitializeSetup(): Boolean;
+var
+  ResultCode: Integer;
 begin
+  // Cerrar cualquier proceso remanente de AuraWriter antes de instalar
+  Exec('taskkill.exe', '/F /IM AuraWriter.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
   // Limpiar variables de PyInstaller heredadas de la app que invocó la actualización
   SetEnvironmentVariable('_MEIPASS', '');
   SetEnvironmentVariable('_MEIPASS2', '');
