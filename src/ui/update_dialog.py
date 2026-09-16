@@ -157,23 +157,7 @@ class UpdateDialog(QDialog):
             )
             if reply == QMessageBox.StandardButton.Yes:
                 try:
-                    # Limpiar variables de entorno de PyInstaller para no contaminar el proceso hijo
-                    clean_env = os.environ.copy()
-                    for key in list(clean_env.keys()):
-                        if key.startswith("_MEI") or key in ("PYTHONPATH", "PYTHONHOME", "PYI_CHILD_SUBPROCESS"):
-                            clean_env.pop(key, None)
-
-                    # Lanzar instalador de forma totalmente desacoplada
-                    if hasattr(os, "startfile"):
-                        os.startfile(path_or_error)
-                    else:
-                        subprocess.Popen([path_or_error], env=clean_env, close_fds=True)
-
-                    from PyQt6.QtWidgets import QApplication
-                    app = QApplication.instance()
-                    if app:
-                        app.quit()
-                    sys.exit(0)
+                    self._launch_installer_clean(path_or_error)
                 except Exception as e:
                     QMessageBox.critical(self, "Error", f"No se pudo iniciar el instalador:\n{e}")
                     self.btn_download.setEnabled(True)
@@ -183,6 +167,71 @@ class UpdateDialog(QDialog):
             QMessageBox.warning(self, "Error en la descarga", path_or_error)
             self.btn_download.setEnabled(True)
             self.btn_later.setText("Cerrar")
+
+    def _launch_installer_clean(self, installer_path: str):
+        """
+        Lanza el instalador con un entorno completamente limpio y desvinculado (DETACHED_PROCESS).
+        
+        Elimina las variables de entorno de PyInstaller (_MEIPASS, _MEIPASS2, PYTHONPATH, etc.)
+        para evitar que el instalador o la nueva app hereden rutas temporales viejas que causan
+        el error 'Failed to load Python DLL'.
+        """
+        import tempfile
+
+        # 1. Crear copia limpia del entorno del sistema eliminando rastros de PyInstaller
+        clean_env = os.environ.copy()
+        for key in list(clean_env.keys()):
+            if key.upper().startswith(("_MEI", "PYI_", "PYTHON")):
+                del clean_env[key]
+
+        bat_path = os.path.join(tempfile.gettempdir(), "aura_updater_launch.bat")
+
+        # 2. Script .bat para esperar el cierre completo y arrancar el instalador desacoplado
+        bat_content = (
+            "@echo off\r\n"
+            ":: Esperar a que AuraWriter.exe termine\r\n"
+            ":wait_loop\r\n"
+            "tasklist /FI \"IMAGENAME eq AuraWriter.exe\" 2>NUL | find /I \"AuraWriter.exe\" >NUL\r\n"
+            "if not errorlevel 1 (\r\n"
+            "    timeout /T 1 /NOBREAK >NUL\r\n"
+            "    goto wait_loop\r\n"
+            ")\r\n"
+            ":: Limpiar variables de entorno explicitamente en batch\r\n"
+            "set _MEIPASS=\r\n"
+            "set _MEIPASS2=\r\n"
+            "set PYTHONPATH=\r\n"
+            "set PYTHONHOME=\r\n"
+            "set PYI_CHILD_SUBPROCESS=\r\n"
+            f":: Lanzar instalador desacoplado\r\n"
+            f"start \"\" \"{installer_path}\"\r\n"
+            f":: Autodestruirse\r\n"
+            f"del \"%~f0\"\r\n"
+        )
+
+        with open(bat_path, "w", encoding="ascii") as f:
+            f.write(bat_content)
+
+        # 3. Lanzar con DETACHED_PROCESS y entorno higienizado
+        DETACHED_PROCESS = 0x00000008
+        CREATE_NEW_PROCESS_GROUP = 0x00000200
+        CREATE_NO_WINDOW = 0x08000000
+
+        subprocess.Popen(
+            ["cmd.exe", "/C", bat_path],
+            env=clean_env,
+            creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW,
+            close_fds=True,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        # 4. Cerrar la aplicación actual
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app:
+            app.quit()
+        sys.exit(0)
 
     def reject(self):
         if self._download_worker and self._download_worker.isRunning():

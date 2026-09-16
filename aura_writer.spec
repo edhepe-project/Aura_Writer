@@ -12,24 +12,9 @@ if not os.path.exists(os.path.join(conda_dir, 'python313.dll')):
     conda_dir = sys.base_prefix
 
 extra_binaries = []
-dll_names = [
-    'zlib.dll',
-    'python3.dll',
-    'python313.dll',
-    'vcruntime140.dll',
-    'vcruntime140_1.dll',
-    'vcruntime140_threads.dll',
-    'msvcp140.dll',
-    'msvcp140_1.dll',
-    'msvcp140_2.dll',
-    'msvcp140_atomic_wait.dll',
-    'msvcp140_codecvt_ids.dll',
-    'ucrtbase.dll',
-]
-for dll_name in dll_names:
-    dll_path = os.path.join(conda_dir, dll_name)
-    if os.path.exists(dll_path):
-        extra_binaries.append((dll_path, '.'))
+zlib_path = os.path.join(conda_dir, 'zlib.dll')
+if os.path.exists(zlib_path):
+    extra_binaries.append((zlib_path, '.'))
 
 a = Analysis(
     ['launcher.py'],
@@ -74,6 +59,16 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
+
+# Deduplicar binarios para evitar errores de extracción duplicada (Failed to extract entry)
+seen_bin_names = set()
+unique_binaries = []
+for item in a.binaries:
+    dest_name = os.path.basename(item[0]).lower()
+    if dest_name not in seen_bin_names:
+        seen_bin_names.add(dest_name)
+        unique_binaries.append(item)
+a.binaries = unique_binaries
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 

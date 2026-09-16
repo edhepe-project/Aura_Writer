@@ -118,5 +118,15 @@ begin
   if CurStep = ssInstall then begin
     // Asegurarse de que no queden archivos del instalador anterior colgados
   end;
+
+  if CurStep = ssPostInstall then begin
+    // Limpiar vars de PyInstaller ANTES de que el [Run] lance la nueva app
+    // Esto garantiza que AuraWriter.exe arranque sin _MEIPASS heredado
+    SetEnvironmentVariable('_MEIPASS', '');
+    SetEnvironmentVariable('_MEIPASS2', '');
+    SetEnvironmentVariable('PYI_CHILD_SUBPROCESS', '');
+    SetEnvironmentVariable('PYTHONPATH', '');
+    SetEnvironmentVariable('PYTHONHOME', '');
+  end;
 end;
 
