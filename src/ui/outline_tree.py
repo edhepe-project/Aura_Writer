@@ -203,6 +203,16 @@ class OutlineTree(QTreeView):
             if indexes:
                 self._start_rename(indexes[0])
                 return
+        elif event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
+            indexes = self.selectedIndexes()
+            if indexes:
+                item = self._model.itemFromIndex(indexes[0])
+                if item:
+                    item_id = item.data(Qt.ItemDataRole.UserRole)
+                    item_type = item.data(Qt.ItemDataRole.UserRole + 1)
+                    if item_type != "universe":
+                        self._request_delete(item_id, item_type, item.text())
+                        return
         super().keyPressEvent(event)
 
     # ------------------------------------------------------------------
@@ -284,35 +294,54 @@ class OutlineTree(QTreeView):
     # ------------------------------------------------------------------
 
     def dropEvent(self, event):
-        """Intercepta el soltado para manejar el reordenamiento a nivel lógica y no visual solamente."""
-        drop_index = self.indexAt(event.position().toPoint())
-        
+        """Intercepta el soltado para manejar el reordenamiento con posición exacta."""
+        drop_pos = event.position().toPoint()
+        drop_index = self.indexAt(drop_pos)
+        drop_indicator = self.dropIndicatorPosition()  # Above / Below / OnItem / OnViewport
+
         selected = self.selectedIndexes()
         if not selected:
             event.ignore()
             return
-            
+
         source_index = selected[0]
         source_item = self._model.itemFromIndex(source_index)
         if not source_item:
             event.ignore()
             return
-            
-        source_id = source_item.data(Qt.ItemDataRole.UserRole)
+
+        source_id   = source_item.data(Qt.ItemDataRole.UserRole)
         source_type = source_item.data(Qt.ItemDataRole.UserRole + 1)
-        
-        target_id = "universe_root"
+
+        target_id   = "universe_root"
         target_type = "universe"
-        
+        # "above" = insertar antes del target; "below" = insertar después; "on" = dentro
+        position    = "on"
+
         if drop_index.isValid():
             target_item = self._model.itemFromIndex(drop_index)
             if target_item:
-                target_id = target_item.data(Qt.ItemDataRole.UserRole)
+                target_id   = target_item.data(Qt.ItemDataRole.UserRole)
                 target_type = target_item.data(Qt.ItemDataRole.UserRole + 1)
-        
+
+            ind = drop_indicator
+            if ind == QAbstractItemView.DropIndicatorPosition.AboveItem:
+                position = "above"
+            elif ind == QAbstractItemView.DropIndicatorPosition.BelowItem:
+                position = "below"
+            else:
+                position = "on"
+
         if source_id and target_id and source_id != target_id:
-            self.node_moved_requested.emit(source_id, source_type, target_id, target_type)
-            
+            # Emitimos source_id, source_type, target_id, target_type, position
+            # (5 parámetros; el signal acepta 4 → añadimos position como parte de target_type)
+            self.node_moved_requested.emit(
+                source_id,
+                source_type,
+                target_id,
+                f"{target_type}:{position}",  # ← codificamos posición aquí
+            )
+
         # Ignoramos el comportamiento por defecto de QTreeView (que destruye metadatos)
-        # para delegarlo al ProjectManager
         event.ignore()
+

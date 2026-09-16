@@ -61,6 +61,13 @@ def main():
     # ── Tema global (lee preferencia guardada) ──────────────────────────
     ThemeManager.apply(app, ThemeManager.load())
 
+    # ── Motor de sonido (inicializar con QApplication activo) ──────────
+    try:
+        from core.sound_manager import AuraSoundEngine
+        AuraSoundEngine.instance()  # crea el singleton mientras el event loop existe
+    except Exception as e:
+        log.warning("Sound engine init failed: %s", e)
+
     # Detectar si se pasó un archivo .aura como argumento (Doble clic en Windows)
     initial_file = None
     if len(sys.argv) > 1 and sys.argv[1].lower().endswith(".aura") and os.path.exists(sys.argv[1]):

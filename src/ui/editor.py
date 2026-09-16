@@ -440,10 +440,10 @@ class AuraEditor(QTextEdit):
 
     def keyPressEvent(self, event):
         """Intercepta Delete/Backspace para imágenes, atajos de guion largo, atajos de formato y auto-conversión de '--' a '—'."""
-        # ── Motor de sonido Olivetti ──
+        # ── Motor de sonido Aura Singularity ──
         try:
-            from core.sound_manager import OlivettiSoundEngine
-            engine = OlivettiSoundEngine.instance()
+            from core.sound_manager import AuraSoundEngine
+            engine = AuraSoundEngine.instance()
             if engine.enabled:
                 key = event.key()
                 is_enter = key in (Qt.Key.Key_Return, Qt.Key.Key_Enter)

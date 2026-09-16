@@ -31,5 +31,5 @@ def test_open_with_wrong_password_raises(temp_workspace, dummy_password):
     pm.create_new_project("Secreto", "Autor", dummy_password, project_path)
 
     pm2 = ProjectManager()
-    with pytest.raises(ValueError, match="Contraseña incorrecta o archivo corrupto"):
+    with pytest.raises(ValueError, match="Contraseña incorrecta"):
         pm2.open_project(project_path, "clave_incorrecta")

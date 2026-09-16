@@ -240,6 +240,8 @@ class TreeControllerMixin:
                 for l in o.libros:
                     for i, c in enumerate(l.capitulos):
                         if c.id == item_id:
+                            if l.content_order:
+                                l.content_order = [e for e in l.content_order if e.get("id") != item_id]
                             return l.capitulos.pop(i)
         elif item_type == "media":
             for i, m in enumerate(meta.medias):
@@ -280,11 +282,17 @@ class TreeControllerMixin:
     # Reordenamiento (Drag & Drop)
     # ------------------------------------------------------------------
 
-    def _on_node_moved(self, src_id: str, src_type: str, target_id: str, target_type: str):
-        """Mueve un nodo soltado usando la misma lógica inteligente de add_node."""
+    def _on_node_moved(self, src_id: str, src_type: str, target_id: str, target_type_raw: str):
+        """Mueve un nodo con posición exacta (above / below / on) respecto al target."""
         meta = self.project_manager.metadata
         if not meta:
             return
+
+        # Decodificar posición codificada en target_type ("libro:above" → target_type="libro", pos="above")
+        if ":" in target_type_raw:
+            target_type, position = target_type_raw.rsplit(":", 1)
+        else:
+            target_type, position = target_type_raw, "on"
 
         obj = self._pluck_node(src_id, src_type)
         if not obj:
@@ -292,17 +300,60 @@ class TreeControllerMixin:
 
         if src_type == "obra":
             meta.obras.append(obj)
+
         elif src_type == "libro":
             obra = self._resolve_obra(target_id, target_type)
             obra.libros.append(obj)
+
         elif src_type == "chapter":
-            libro = self._resolve_libro(target_id, target_type)
-            libro.capitulos.append(obj)
+            # Siempre moverse dentro del libro que contiene el target
+            libro = (self._find_libro(target_id)           # target ES el libro
+                     or self._find_parent_libro(target_id)) # target es un capítulo hermano
+
+            if not libro:
+                self.statusBar().showMessage("No se pudo determinar el libro destino.", 3000)
+                return
+
+            # Añadir el capítulo al libro (ya fue extraído por _pluck_node)
+            if obj not in libro.capitulos:
+                libro.capitulos.append(obj)
+
+            # Asegurarnos de que content_order existe
+            if not libro.content_order:
+                libro.content_order = [
+                    {"type": "chapter", "id": c.id} for c in libro.capitulos
+                ]
+
+            # Quitar la entrada del origen en content_order (puede estar como antiguo)
+            libro.content_order = [e for e in libro.content_order if e.get("id") != src_id]
+
+            # Determinar índice de inserción
+            if target_id == libro.id or target_type == "libro":
+                # Soltado sobre el propio libro → al final
+                insert_idx = len(libro.content_order)
+            else:
+                # Buscar posición del target en content_order
+                target_idx = next(
+                    (i for i, e in enumerate(libro.content_order) if e.get("id") == target_id),
+                    None,
+                )
+                if target_idx is None:
+                    insert_idx = len(libro.content_order)
+                elif position == "above":
+                    insert_idx = target_idx        # antes del target
+                elif position == "below":
+                    insert_idx = target_idx + 1    # después del target
+                else:
+                    insert_idx = target_idx + 1    # "on" → tratar como después
+
+            libro.content_order.insert(insert_idx, {"type": "chapter", "id": src_id})
+
         elif src_type == "author_note":
             chapter = self._resolve_chapter(target_id, target_type)
             chapter.author_notes.append(obj)
+
         elif src_type == "media":
-            if target_type == "universe":
+            if target_type in ("universe", "universe"):
                 meta.medias.append(obj)
             elif target_type == "obra":
                 obra = self._find_obra(target_id)
@@ -315,10 +366,6 @@ class TreeControllerMixin:
                 if libro:
                     libro.medias.append(obj)
                     libro.content_order.append({"type": "media", "id": obj.id})
-                    if len(libro.content_order) == 1:
-                        for cap in libro.capitulos:
-                            libro.content_order.insert(len(libro.content_order) - 1,
-                                                       {"type": "chapter", "id": cap.id})
                 else:
                     meta.medias.append(obj)
             elif target_type == "chapter":
@@ -331,24 +378,21 @@ class TreeControllerMixin:
                 chapter = (self.project_manager.find_chapter(target_id)
                            or self._find_parent_chapter(target_id))
                 libro = self._find_libro(target_id) or self._find_parent_libro(target_id)
-                obra = self._find_obra(target_id) or self._find_parent_obra(target_id)
+                obra  = self._find_obra(target_id)  or self._find_parent_obra(target_id)
                 if chapter:
                     chapter.medias.append(obj)
                 elif libro:
                     libro.medias.append(obj)
                     libro.content_order.append({"type": "media", "id": obj.id})
-                    if len(libro.content_order) == 1:
-                        for cap in libro.capitulos:
-                            libro.content_order.insert(len(libro.content_order) - 1,
-                                                       {"type": "chapter", "id": cap.id})
                 elif obra:
                     obra.medias.append(obj)
                 else:
                     meta.medias.append(obj)
 
-        self._mark_dirty()  # NEW-03: mover nodo debe marcar el proyecto como modificado
+        self._mark_dirty()
         self._refresh_tree()
         self.statusBar().showMessage("Elemento movido ✓", 3000)
+
 
     # ------------------------------------------------------------------
     # Renombrar nodos

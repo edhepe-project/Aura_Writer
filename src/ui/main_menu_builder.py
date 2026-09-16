@@ -119,8 +119,8 @@ class MainMenuBuilderMixin:
 
         # ── Sonido Aura Singularity ──────────────────────────────────
         sound_menu = mb.addMenu("&Sonido")
-        from core.sound_manager import OlivettiSoundEngine
-        engine = OlivettiSoundEngine.instance()
+        from core.sound_manager import AuraSoundEngine
+        engine = AuraSoundEngine.instance()
 
         self._sound_toggle_act = QAction("✨ Aura Singularity (528 Hz)", self)
         self._sound_toggle_act.setShortcut("Ctrl+M")
@@ -136,6 +136,14 @@ class MainMenuBuilderMixin:
             engine.bell_enabled = checked
         bell_act.triggered.connect(_toggle_bell)
         sound_menu.addAction(bell_act)
+
+        # ── Herramientas ─────────────────────────────────────────────
+        tools_menu = mb.addMenu("&Herramientas")
+
+        compare_act = QAction("⚖️ Mesa de Cotejo (Comparar Capítulos)…", self)
+        compare_act.setShortcut("Ctrl+Shift+C")
+        compare_act.triggered.connect(self.open_chapter_comparator)
+        tools_menu.addAction(compare_act)
 
         # ── Seguridad ────────────────────────────────────────────────
         sec_menu = mb.addMenu("&Seguridad")
@@ -302,8 +310,8 @@ class MainMenuBuilderMixin:
     def _set_sound_enabled(self, enabled: bool):
         """Activa o desactiva el sonido mecánico con sincronización exacta."""
         try:
-            from core.sound_manager import OlivettiSoundEngine
-            engine = OlivettiSoundEngine.instance()
+            from core.sound_manager import AuraSoundEngine
+            engine = AuraSoundEngine.instance()
             engine.enabled = enabled
             status = "Sonido Aura Singularity: ACTIVADO" if enabled else "Sonido Aura Singularity: SILENCIADO"
             self.statusBar().showMessage(status, 2500)

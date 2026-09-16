@@ -426,6 +426,36 @@ class AuraMainWindow(
         self.statusBar().showMessage(f"Imagen anadida: {media.title}", 3000)
 
     # ------------------------------------------------------------------
+    # Mesa de Cotejo / Comparador de Capítulos
+    # ------------------------------------------------------------------
+
+    def open_chapter_comparator(self):
+        """Abre la Mesa de Cotejo para comparar y afinar dos capítulos lado a lado."""
+        if not self.project_manager.metadata:
+            QMessageBox.warning(self, "Mesa de Cotejo", "Abre un proyecto primero.")
+            return
+
+        self._flush_content_to_metadata()
+
+        from ui.comparator_dialog import ChapterComparatorDialog
+        dlg = ChapterComparatorDialog(
+            project_manager=self.project_manager,
+            initial_chapter=self._current_chapter,
+            parent=self
+        )
+        dlg.exec()
+
+        self._refresh_tree()
+
+        # Si el capítulo actualmente activo en el editor principal fue modificado, recargarlo
+        if self._current_chapter and self._current_chapter.content_file:
+            html = self.project_manager.read_chapter_content(self._current_chapter.content_file)
+            self.editor.blockSignals(True)
+            self.editor.setHtml(html)
+            self.editor.blockSignals(False)
+            self.update_stats()
+
+    # ------------------------------------------------------------------
     # Seleccion de nodos en el arbol
     # ------------------------------------------------------------------
 
