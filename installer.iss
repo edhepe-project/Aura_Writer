@@ -81,10 +81,11 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFile
 Name: "{autodesktop}\{#MyAppName}";  Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\aura_writer.ico"; AppUserModelID: "AuraStudio.AuraWriter.1.0"; Tasks: desktopicon
 
 [Run]
-; Opción de lanzar la app al terminar la instalación (usando ShellExecute para entorno limpio)
-Filename: "{app}\{#MyAppExeName}"; \
+; Lanzar la app mediante cmd con entorno purgado de _MEIPASS y breve retardo para liberar bloqueos
+Filename: "{cmd}"; \
+  Parameters: "/c ""timeout /t 1 /nobreak >nul & set _MEIPASS=& set _MEIPASS2=& set PYTHONPATH=& set PYTHONHOME=& set PYI_CHILD_SUBPROCESS=& start """" ""{app}\{#MyAppExeName}"""""; \
   Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; \
-  Flags: nowait postinstall skipifsilent shellexec runasoriginaluser
+  Flags: nowait postinstall skipifsilent runhidden
 
 [UninstallRun]
 ; No hay procesos adicionales que matar al desinstalar
