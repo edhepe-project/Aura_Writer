@@ -16,7 +16,10 @@ if exist "%~dp0venv\Scripts\python.exe" (
 
 :: ── 2. Leer la versión desde src/version.py ─────────────────────────────
 echo [1/5] Leyendo version de la aplicacion...
-for /f "usebackq delims=" %%V in (`%PYTHON% -c "import sys; sys.path.insert(0,'src'); from version import __version__; print(__version__)"`) do set APP_VERSION=%%V
+:: Usar variable sin comillas para el for /f (las comillas se añaden donde se necesita)
+set PYTHON_RAW=%~dp0venv\Scripts\python.exe
+if not exist "%PYTHON_RAW%" set PYTHON_RAW=python
+for /f "usebackq delims=" %%V in (`"%PYTHON_RAW%" -c "import sys; sys.path.insert(0,'src'); from version import __version__; print(__version__)"`) do set APP_VERSION=%%V
 if "%APP_VERSION%"=="" (
     echo ERROR: No se pudo leer la version desde src/version.py
     pause & exit /b 1

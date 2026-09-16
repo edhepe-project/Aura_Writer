@@ -67,8 +67,7 @@ Name: "assocfiles";  Description: "Abrir archivos .aura con {#MyAppName}"; Group
 Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; Ícono (para accesos directos)
 Source: "aura_writer.ico"; DestDir: "{app}"; Flags: ignoreversion
-; Script lanzador para desvincular variables de PyInstaller al finalizar instalador
-Source: "run_clean.bat"; DestDir: "{app}"; Flags: ignoreversion
+; (run_clean.bat ya no se necesita — usamos schtasks para desacoplar el lanzamiento)
 
 [Registry]
 ; Asociación de archivos .aura → sólo si el usuario eligió la tarea
@@ -83,52 +82,23 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFile
 Name: "{autodesktop}\{#MyAppName}";  Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\aura_writer.ico"; AppUserModelID: "AuraStudio.AuraWriter.1.0"; Tasks: desktopicon
 
 [Run]
-; Lanzar la app mediante run_clean.bat de forma 100% transparente y con entorno purgado
-Filename: "{app}\run_clean.bat"; \
+; Solo mostrar el checkbox opcional — el usuario abre la app manualmente.
+; No hay lanzamiento automático: evita 100% la herencia de entorno de PyInstaller.
+Filename: "{app}\{#MyAppExeName}"; \
   Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; \
-  Flags: nowait postinstall skipifsilent runhidden
+  Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
-; No hay procesos adicionales que matar al desinstalar
+; Nada que limpiar
 
 [Code]
 // ─────────────────────────────────────────────────────────────────────────────
-// Limpia variables de entorno de PyInstaller para que cualquier ejecutable
-// lanzado desde el instalador no busque DLLs en carpetas temporales viejas
+// Cierra la app antigua antes de instalar para liberar archivos bloqueados
 // ─────────────────────────────────────────────────────────────────────────────
-function SetEnvironmentVariable(lpName: String; lpValue: String): Boolean;
-external 'SetEnvironmentVariableW@kernel32.dll stdcall';
-
 function InitializeSetup(): Boolean;
 var
   ResultCode: Integer;
 begin
-  // Cerrar cualquier proceso remanente de AuraWriter antes de instalar
   Exec('taskkill.exe', '/F /IM AuraWriter.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-
-  // Limpiar variables de PyInstaller heredadas de la app que invocó la actualización
-  SetEnvironmentVariable('_MEIPASS', '');
-  SetEnvironmentVariable('_MEIPASS2', '');
-  SetEnvironmentVariable('PYI_CHILD_SUBPROCESS', '');
-  SetEnvironmentVariable('PYTHONPATH', '');
-  SetEnvironmentVariable('PYTHONHOME', '');
   Result := True;
 end;
-
-procedure CurStepChanged(CurStep: TSetupStep);
-begin
-  if CurStep = ssInstall then begin
-    // Asegurarse de que no queden archivos del instalador anterior colgados
-  end;
-
-  if CurStep = ssPostInstall then begin
-    // Limpiar vars de PyInstaller ANTES de que el [Run] lance la nueva app
-    // Esto garantiza que AuraWriter.exe arranque sin _MEIPASS heredado
-    SetEnvironmentVariable('_MEIPASS', '');
-    SetEnvironmentVariable('_MEIPASS2', '');
-    SetEnvironmentVariable('PYI_CHILD_SUBPROCESS', '');
-    SetEnvironmentVariable('PYTHONPATH', '');
-    SetEnvironmentVariable('PYTHONHOME', '');
-  end;
-end;
-
