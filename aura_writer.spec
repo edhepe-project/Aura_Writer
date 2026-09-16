@@ -6,11 +6,35 @@ import os
 block_cipher = None
 
 src_dir = os.path.abspath('src')
+conda_dir = os.path.dirname(sys.executable)
+if not os.path.exists(os.path.join(conda_dir, 'python313.dll')):
+    # If in venv, get base prefix
+    conda_dir = sys.base_prefix
+
+extra_binaries = []
+dll_names = [
+    'zlib.dll',
+    'python3.dll',
+    'python313.dll',
+    'vcruntime140.dll',
+    'vcruntime140_1.dll',
+    'vcruntime140_threads.dll',
+    'msvcp140.dll',
+    'msvcp140_1.dll',
+    'msvcp140_2.dll',
+    'msvcp140_atomic_wait.dll',
+    'msvcp140_codecvt_ids.dll',
+    'ucrtbase.dll',
+]
+for dll_name in dll_names:
+    dll_path = os.path.join(conda_dir, dll_name)
+    if os.path.exists(dll_path):
+        extra_binaries.append((dll_path, '.'))
 
 a = Analysis(
     ['launcher.py'],
     pathex=[src_dir, '.'],
-    binaries=[],
+    binaries=extra_binaries,
     datas=[
         ('aura_writer.ico', '.'),
         ('assets', 'assets'),
@@ -38,6 +62,8 @@ a = Analysis(
         'networkx',
         'pydantic',
         'markdown',
+        'pygame',
+        'pygame.mixer',
     ],
     hookspath=[],
     hooksconfig={},
@@ -62,7 +88,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,

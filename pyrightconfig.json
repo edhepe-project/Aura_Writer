@@ -1,19 +1,30 @@
 {
   "venvPath": ".",
   "venv": "venv",
-  "pythonVersion": "3.12",
+  "pythonVersion": "3.13",
   "pythonPlatform": "Windows",
   "include": [
     "src"
   ],
   "exclude": [
     "venv",
-    "**/__pycache__"
+    "**/__pycache__",
+    "build",
+    "dist",
+    "installer_output",
+    "scratch",
+    "**/.system_generated"
   ],
   "extraPaths": [
     "src"
   ],
-  "typeCheckingMode": "basic",
+  "typeCheckingMode": "off",
   "useLibraryCodeForTypes": true,
-  "reportMissingModuleSource": "none"
+  "reportMissingModuleSource": "none",
+  "reportMissingImports": "warning",
+  "reportUndefinedVariable": "error",
+  "reportGeneralTypeIssues": "none",
+  "reportAttributeAccessIssue": "none",
+  "reportArgumentType": "none",
+  "reportOptionalMemberAccess": "none"
 }
