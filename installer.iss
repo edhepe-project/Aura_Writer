@@ -67,6 +67,8 @@ Name: "assocfiles";  Description: "Abrir archivos .aura con {#MyAppName}"; Group
 Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; Ícono (para accesos directos)
 Source: "aura_writer.ico"; DestDir: "{app}"; Flags: ignoreversion
+; Script lanzador para desvincular variables de PyInstaller al finalizar instalador
+Source: "run_clean.bat"; DestDir: "{app}"; Flags: ignoreversion
 
 [Registry]
 ; Asociación de archivos .aura → sólo si el usuario eligió la tarea
@@ -81,9 +83,8 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFile
 Name: "{autodesktop}\{#MyAppName}";  Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\aura_writer.ico"; AppUserModelID: "AuraStudio.AuraWriter.1.0"; Tasks: desktopicon
 
 [Run]
-; Lanzar la app mediante cmd con entorno purgado de _MEIPASS y breve retardo para liberar bloqueos
-Filename: "{cmd}"; \
-  Parameters: "/c ""timeout /t 1 /nobreak >nul & set _MEIPASS=& set _MEIPASS2=& set PYTHONPATH=& set PYTHONHOME=& set PYI_CHILD_SUBPROCESS=& start """" ""{app}\{#MyAppExeName}"""""; \
+; Lanzar la app mediante run_clean.bat de forma 100% transparente y con entorno purgado
+Filename: "{app}\run_clean.bat"; \
   Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; \
   Flags: nowait postinstall skipifsilent runhidden
 
