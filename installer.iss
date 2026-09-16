@@ -78,10 +78,10 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFile
 Name: "{autodesktop}\{#MyAppName}";  Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\aura_writer.ico"; AppUserModelID: "AuraStudio.AuraWriter.1.0"; Tasks: desktopicon
 
 [Run]
-; Opción de lanzar la app al terminar la instalación
+; Opción de lanzar la app al terminar la instalación (usando ShellExecute para entorno limpio)
 Filename: "{app}\{#MyAppExeName}"; \
   Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; \
-  Flags: nowait postinstall skipifsilent
+  Flags: nowait postinstall skipifsilent shellexec runasoriginaluser
 
 [UninstallRun]
 ; No hay procesos adicionales que matar al desinstalar

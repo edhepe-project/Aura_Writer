@@ -157,9 +157,22 @@ class UpdateDialog(QDialog):
             )
             if reply == QMessageBox.StandardButton.Yes:
                 try:
-                    # Ejecutar instalador de forma independiente
-                    subprocess.Popen([path_or_error], shell=True)
-                    # Cerrar la aplicación actual
+                    # Limpiar variables de entorno de PyInstaller para no contaminar el proceso hijo
+                    clean_env = os.environ.copy()
+                    for key in list(clean_env.keys()):
+                        if key.startswith("_MEI") or key in ("PYTHONPATH", "PYTHONHOME", "PYI_CHILD_SUBPROCESS"):
+                            clean_env.pop(key, None)
+
+                    # Lanzar instalador de forma totalmente desacoplada
+                    if hasattr(os, "startfile"):
+                        os.startfile(path_or_error)
+                    else:
+                        subprocess.Popen([path_or_error], env=clean_env, close_fds=True)
+
+                    from PyQt6.QtWidgets import QApplication
+                    app = QApplication.instance()
+                    if app:
+                        app.quit()
                     sys.exit(0)
                 except Exception as e:
                     QMessageBox.critical(self, "Error", f"No se pudo iniciar el instalador:\n{e}")
