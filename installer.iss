@@ -81,12 +81,6 @@ Root: HKA; Subkey: "Software\Classes\Applications\{#MyAppExeName}\SupportedTypes
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\aura_writer.ico"; AppUserModelID: "AuraStudio.AuraWriter.1.0"
 Name: "{autodesktop}\{#MyAppName}";  Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\aura_writer.ico"; AppUserModelID: "AuraStudio.AuraWriter.1.0"; Tasks: desktopicon
 
-[Run]
-; Solo mostrar el checkbox opcional — el usuario abre la app manualmente.
-; No hay lanzamiento automático: evita 100% la herencia de entorno de PyInstaller.
-Filename: "{app}\{#MyAppExeName}"; \
-  Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; \
-  Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 ; Nada que limpiar
