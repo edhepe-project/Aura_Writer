@@ -33,6 +33,7 @@ aura_prefs.json
 # Build & Test artifacts
 build/
 dist/
+installer_output/
 .pytest_cache/
 .backups/
 temp_test/
