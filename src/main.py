@@ -45,7 +45,9 @@ def main():
 
     if sys.platform == "win32":
         try:
-            myappid = "aura.writer.app.1.0"
+            # El AppUserModelID debe coincidir con el AppId del instalador para que
+            # Windows agrupe correctamente la ventana y muestre el ícono correcto.
+            myappid = "AuraStudio.AuraWriter.1.0"
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
         except Exception as e:
             log.warning("Could not set AppUserModelID: %s", e)
@@ -68,10 +70,29 @@ def main():
     except Exception as e:
         log.warning("Sound engine init failed: %s", e)
 
+    from core.config_manager import ConfigManager
+
     # Detectar si se pasó un archivo .aura como argumento (Doble clic en Windows)
     initial_file = None
     if len(sys.argv) > 1 and sys.argv[1].lower().endswith(".aura") and os.path.exists(sys.argv[1]):
         initial_file = os.path.abspath(sys.argv[1])
+    elif not initial_file:
+        # Recordar el último archivo abierto guardado en las preferencias
+        last_saved = ConfigManager.get("last_opened_project", "")
+        if last_saved:
+            if os.path.exists(last_saved):
+                initial_file = os.path.abspath(last_saved)
+            else:
+                # Si el archivo fue movido, renombrado o eliminado (estilo Word)
+                QMessageBox.warning(
+                    None,
+                    "Archivo no encontrado",
+                    f"Aura Writer no pudo encontrar el último archivo que abriste:\n\n"
+                    f"📁 \"{last_saved}\"\n\n"
+                    "Es posible que el archivo haya sido movido de lugar, renombrado o eliminado.\n"
+                    "Por favor, selecciónalo manualmente con el botón 'Seleccionar archivo'."
+                )
+                ConfigManager.set("last_opened_project", "")
 
     attempts = 0
     max_attempts = 3
@@ -83,6 +104,7 @@ def main():
             if last_project_path:
                 login.project_path = last_project_path
                 login.btn_select_file.setText(os.path.basename(last_project_path))
+                login.btn_select_file.setToolTip(last_project_path)
             
             if not login.exec():
                 sys.exit(0)
@@ -237,10 +259,26 @@ def main():
 
                 meta = main_win.project_manager.metadata
                 main_win.setWindowTitle(f"Aura Writer - {meta.title}")
+
+                # Guardar en preferencias para recordar en el próximo inicio
+                if project_path and os.path.exists(project_path):
+                    ConfigManager.set("last_opened_project", os.path.abspath(project_path))
+
                 main_win.outline_tree.populate_from_metadata(meta)
                 main_win.char_dock.populate(meta.characters, meta.relations, meta.obras)
 
-                main_win.show()
+                # Reabrir exactamente en el último capítulo/nodo donde nos quedamos
+                last_node = getattr(meta, "last_selected_node_id", "")
+                restored = False
+                if last_node:
+                    restored = main_win.outline_tree.select_node_by_id(last_node)
+                
+                # Si no había sesión previa o no se encontró, seleccionar el primer capítulo
+                if not restored:
+                    main_win.outline_tree.select_first_chapter()
+
+                main_win.showMaximized()  # Siempre abrir maximizado
+                main_win.editor.setFocus()
                 # Verificar versiones USB después de mostrar la ventana
                 # (requiere que la UI esté visible para mostrar diálogos)
                 main_win._check_usb_version_on_open()

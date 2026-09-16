@@ -187,8 +187,17 @@ class AuraMainWindow(
         self._autosave_indicator.setStyleSheet("color:#636366;font-size:11px;padding:0 8px;")
         self._usb_indicator = QLabel("USB: No configurada")
         self._usb_indicator.setStyleSheet("color:#636366;font-size:11px;padding:0 8px;")
+
+        # Indicador de Zoom interactivo en la barra de estado
+        self._zoom_indicator = QPushButton(f"🔍 {self.editor.get_zoom_percentage()}%")
+        self._zoom_indicator.setToolTip("Ajustar Zoom, Tipografía y Estilo de Papel (Ctrl+,)")
+        self._zoom_indicator.setStyleSheet("border: none; color:#8e8e93; font-size:11px; padding: 2px 6px;")
+        self._zoom_indicator.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._zoom_indicator.clicked.connect(self.open_editor_appearance_dialog)
+
         status.addPermanentWidget(self._autosave_indicator)
         status.addPermanentWidget(self._usb_indicator)
+        status.addPermanentWidget(self._zoom_indicator)
 
     @staticmethod
     def _make_label(text: str, bold=False, size=0, color="") -> QLabel:
@@ -204,6 +213,14 @@ class AuraMainWindow(
         styles.append("margin-bottom:2px;")
         lbl.setStyleSheet(" ".join(styles))
         return lbl
+
+    def changeEvent(self, event):
+        """Devuelve el foco al editor al recuperar el foco desde Windows (Alt+Tab)."""
+        super().changeEvent(event)
+        if event.type() == event.Type.ActivationChange and self.isActiveWindow():
+            # Devolver foco al editor si hay un capítulo activo
+            if self._current_chapter and hasattr(self, "editor"):
+                self.editor.setFocus()
 
     # ------------------------------------------------------------------
     # Ventanas emergentes (Mapa y Grafo)
@@ -375,8 +392,11 @@ class AuraMainWindow(
     def _flush_content_to_metadata(self):
         """Persiste el contenido del editor y la nota activa al metadata."""
         if self._current_chapter and self._current_chapter.content_file:
+            html = (self.editor.get_content_html()
+                    if hasattr(self.editor, "get_content_html")
+                    else self.editor.toHtml())
             self.project_manager.write_chapter_content(
-                self._current_chapter.content_file, self.editor.toHtml()
+                self._current_chapter.content_file, html
             )
         if self._current_note:
             self._current_note.content = self.inspector_notes.toPlainText()
@@ -475,12 +495,117 @@ class AuraMainWindow(
         self._refresh_notes_list()
         self._update_dock_context(item_id, item_type)
 
+        # Recordar el último nodo/capítulo seleccionado
+        meta.last_selected_node_id = item_id
+
         if item_type == "chapter":
             chapter = self.project_manager.find_chapter(item_id)
             if chapter:
                 self._load_chapter(chapter)
         elif item_type == "media":
             self._show_media_preview(item_id)
+
+    # ------------------------------------------------------------------
+    # Ayuda y Actualizaciones
+    # ------------------------------------------------------------------
+
+    def check_for_updates_manual(self):
+        """Disparado manualmente por el usuario desde el menú de Ayuda."""
+        from core.updater import UpdateCheckWorker
+        from ui.update_dialog import UpdateDialog
+
+        self.statusBar().showMessage("Buscando actualizaciones...", 3000)
+        self._manual_update_worker = UpdateCheckWorker(self)
+
+        def _on_finish(has_update: bool, release_info: dict, err: str):
+            if has_update:
+                dlg = UpdateDialog(release_info, self)
+                dlg.exec()
+            elif err:
+                QMessageBox.warning(
+                    self, "Buscar Actualizaciones",
+                    f"No se pudo comprobar si hay actualizaciones:\n{err}"
+                )
+            else:
+                from version import __version__
+                QMessageBox.information(
+                    self, "Buscar Actualizaciones",
+                    f"¡Estás al día!\nAura Writer v{__version__} es la versión más reciente."
+                )
+
+        self._manual_update_worker.check_finished.connect(_on_finish)
+        self._manual_update_worker.start()
+
+    def _check_updates_silently(self):
+        """Comprobación silenciosa al inicio."""
+        from core.updater import UpdateCheckWorker
+        from ui.update_dialog import UpdateDialog
+
+        self._silent_update_worker = UpdateCheckWorker(self)
+
+        def _on_finish(has_update: bool, release_info: dict, err: str):
+            if has_update and not err:
+                dlg = UpdateDialog(release_info, self)
+                dlg.exec()
+
+        self._silent_update_worker.check_finished.connect(_on_finish)
+        self._silent_update_worker.start()
+
+    def open_project_website(self):
+        """Abre el sitio web del proyecto en el navegador predeterminado."""
+        import webbrowser
+        from version import APP_URL
+        webbrowser.open(APP_URL)
+
+    def show_about_dialog(self):
+        """Muestra el diálogo 'Acerca de Aura Writer'."""
+        from version import __version__, APP_NAME, APP_AUTHOR, APP_URL
+        text = (
+            f"<h2>{APP_NAME} v{__version__}</h2>"
+            f"<p><b>Autor:</b> {APP_AUTHOR}</p>"
+            f"<p><b>Propósito:</b> Suite de escritura creativa, diseño narrativo y seguridad de grado autor.</p>"
+            f"<p><b>Sitio Web:</b> <a href='{APP_URL}'>{APP_URL}</a></p>"
+            f"<hr>"
+            f"<p><small>Cifrado AES-256-GCM • Llave Maestra de Aplicación • TOTP 2FA • Motor de Resonancia 528 Hz.</small></p>"
+        )
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle(f"Acerca de {APP_NAME}")
+        msg_box.setTextFormat(Qt.TextFormat.RichText)
+        msg_box.setText(text)
+        try:
+            msg_box.setIconPixmap(qta.icon("fa5s.feather-alt", color="#d4a017").pixmap(48, 48))
+        except Exception:
+            pass
+        msg_box.exec()
+
+    # ------------------------------------------------------------------
+    # Accesibilidad, Zoom y Apariencia del Editor
+    # ------------------------------------------------------------------
+
+    def open_editor_appearance_dialog(self):
+        """Abre el diálogo de configuración de papel, fuente y zoom."""
+        from ui.editor_appearance_dialog import EditorAppearanceDialog
+        dlg = EditorAppearanceDialog(self.editor, self)
+        dlg.appearance_changed.connect(self._update_zoom_indicator)
+        dlg.exec()
+        self._update_zoom_indicator()
+
+    def _on_zoom_in(self):
+        self.editor.zoom_in()
+        self._update_zoom_indicator()
+
+    def _on_zoom_out(self):
+        self.editor.zoom_out()
+        self._update_zoom_indicator()
+
+    def _on_zoom_reset(self):
+        self.editor.zoom_reset()
+        self._update_zoom_indicator()
+
+    def _update_zoom_indicator(self):
+        if hasattr(self, "_zoom_indicator"):
+            pct = self.editor.get_zoom_percentage()
+            self._zoom_indicator.setText(f"🔍 {pct}%")
 
     # ------------------------------------------------------------------
     # Cierre de la aplicacion

@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QPushButton, QFileDialog, QStackedWidget,
                              QWidget, QFormLayout, QMessageBox, QCheckBox)
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QFont
 import qtawesome as qta
 
 log = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ class LoginDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Aura Writer")
-        self.setFixedSize(440, 340)
+        self.setFixedSize(460, 370)
         self.project_path = None
         self.password = None
         self.mode = self.MODE_OPEN
@@ -49,6 +50,12 @@ class LoginDialog(QDialog):
         header.addWidget(icon_lbl)
         header.addWidget(title_lbl)
         header.addStretch()
+
+        btn_updates = QPushButton("🔄 Actualizaciones")
+        btn_updates.setToolTip("Comprobar si existe una versión más reciente de Aura Writer")
+        btn_updates.setStyleSheet("padding: 4px 8px; font-size: 11px;")
+        btn_updates.clicked.connect(self._check_updates)
+        header.addWidget(btn_updates)
 
         btn_app_key = QPushButton("🔑 Llave...")
         btn_app_key.setToolTip("Consultar o configurar la Llave Maestra de Aplicación (para nuevo equipo)")
@@ -101,6 +108,7 @@ class LoginDialog(QDialog):
         self.open_pass_input = QLineEdit()
         self.open_pass_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.open_pass_input.setPlaceholderText("Contraseña maestra")
+        self._add_password_toggle(self.open_pass_input)
         self.open_pass_input.textChanged.connect(self._validate)
         layout.addRow("Contraseña:", self.open_pass_input)
         self.open_pass_input.returnPressed.connect(self._on_return_pressed)
@@ -139,7 +147,7 @@ class LoginDialog(QDialog):
         layout = QFormLayout(page)
 
         self.new_title_input  = QLineEdit()
-        self.new_title_input.setPlaceholderText("Mi Gran Novela")
+        self.new_title_input.setPlaceholderText("Mi Novela")
         layout.addRow("Título:", self.new_title_input)
 
         self.new_author_input = QLineEdit()
@@ -149,16 +157,25 @@ class LoginDialog(QDialog):
         self.new_pass_input   = QLineEdit()
         self.new_pass_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.new_pass_input.setPlaceholderText("Contraseña maestra (mín. 8 caracteres)")
+        self._add_password_toggle(self.new_pass_input)
         layout.addRow("Contraseña:", self.new_pass_input)
 
         self.new_pass2_input  = QLineEdit()
         self.new_pass2_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.new_pass2_input.setPlaceholderText("Repite la contraseña")
+        self._add_password_toggle(self.new_pass2_input)
         layout.addRow("Confirmar:", self.new_pass2_input)
+
+        # ── Etiqueta de advertencia en rojo para contraseñas no coincidentes ──
+        # Se mantiene visible con altura fija para evitar saltos o recortes en los inputs
+        self.pass_mismatch_label = QLabel("")
+        self.pass_mismatch_label.setFixedHeight(18)
+        self.pass_mismatch_label.setStyleSheet("color: #ff453a; font-size: 11px; font-weight: bold;")
+        layout.addRow("", self.pass_mismatch_label)
 
         # ── Checkbox 2FA ─────────────────────────────────────────────
         self.chk_2fa = QCheckBox("🔐 Activar autenticación 2FA (TOTP)")
-        self.chk_2fa.setStyleSheet("color: #30d158; margin-top: 6px;")
+        self.chk_2fa.setStyleSheet("color: #30d158;")
         self.chk_2fa.setToolTip(
             "Protege tu proyecto con un segundo factor de autenticación.\n"
             "Necesitarás una app como Google Authenticator o Authy."
@@ -217,11 +234,25 @@ class LoginDialog(QDialog):
                 totp_text = self.open_totp_input.text().strip()
                 ok = len(totp_text) >= 6
         else:
+            p1 = self.new_pass_input.text()
+            p2 = self.new_pass2_input.text()
+
+            # Feedback visual de contraseña (mantiene espacio reservado)
+            if p1 and len(p1) < 8:
+                self.pass_mismatch_label.setText("La contrasena debe tener al menos 8 caracteres.")
+                self.new_pass2_input.setStyleSheet("")
+            elif p2 and p1 != p2:
+                self.pass_mismatch_label.setText("Las contrasenas no coinciden.")
+                self.new_pass2_input.setStyleSheet("border: 1px solid #ff453a;")
+            else:
+                self.pass_mismatch_label.setText("")
+                self.new_pass2_input.setStyleSheet("")
+
             ok = (
-                bool(self.new_title_input.text())
-                and bool(self.new_author_input.text())
-                and len(self.new_pass_input.text()) >= 8
-                and self.new_pass_input.text() == self.new_pass2_input.text()
+                bool(self.new_title_input.text().strip())
+                and bool(self.new_author_input.text().strip())
+                and len(p1) >= 8
+                and p1 == p2
             )
         self.btn_action.setEnabled(ok)
 
@@ -275,3 +306,56 @@ class LoginDialog(QDialog):
         from ui.app_key_dialog import AppKeyDialog
         dlg = AppKeyDialog(self)
         dlg.exec()
+
+    def _check_updates(self):
+        """Comprueba actualizaciones directamente desde la pantalla de bienvenida."""
+        from core.updater import UpdateCheckWorker
+        from ui.update_dialog import UpdateDialog
+
+        worker = UpdateCheckWorker(self)
+
+        def _on_finish(has_update: bool, release_info: dict, err: str):
+            if has_update:
+                dlg = UpdateDialog(release_info, self)
+                dlg.exec()
+            elif err:
+                QMessageBox.warning(
+                    self, "Buscar Actualizaciones",
+                    f"No se pudo comprobar si hay actualizaciones:\n{err}"
+                )
+            else:
+                from version import __version__
+                QMessageBox.information(
+                    self, "Buscar Actualizaciones",
+                    f"¡Estás al día!\nAura Writer v{__version__} es la versión más reciente."
+                )
+
+        worker.check_finished.connect(_on_finish)
+        worker.start()
+
+    def _add_password_toggle(self, line_edit: QLineEdit):
+        """Agrega un icono de ojo interactivo dentro del campo de contraseña para ver/ocultar."""
+        try:
+            show_icon = qta.icon("fa5s.eye", color="#8e8e93")
+            hide_icon = qta.icon("fa5s.eye-slash", color="#d4a017")
+            action = line_edit.addAction(show_icon, QLineEdit.ActionPosition.TrailingPosition)
+            action.setToolTip("Mostrar / Ocultar contraseña")
+
+            def _toggle():
+                if line_edit.echoMode() == QLineEdit.EchoMode.Password:
+                    line_edit.setEchoMode(QLineEdit.EchoMode.Normal)
+                    action.setIcon(hide_icon)
+                else:
+                    line_edit.setEchoMode(QLineEdit.EchoMode.Password)
+                    action.setIcon(show_icon)
+
+            action.triggered.connect(_toggle)
+        except Exception:
+            pass
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        # Si ya hay un proyecto precargado, poner el foco directamente en el campo de contraseña
+        if self.mode == self.MODE_OPEN and self.project_path:
+            self.open_pass_input.setFocus()
+

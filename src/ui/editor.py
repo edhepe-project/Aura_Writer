@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QTextEdit, QMessageBox, QMenu, QInputDialog, QApplication
-from PyQt6.QtGui import (QTextCharFormat, QFont, QTextCursor, QImage,
+from PyQt6.QtGui import (QTextCharFormat, QTextFormat, QFont, QTextCursor, QImage,
                          QTextImageFormat, QAction, QTextBlock)
 from PyQt6.QtCore import Qt, QUrl, QMimeData
 import os
@@ -14,13 +14,15 @@ class AuraEditor(QTextEdit):
         self.setAcceptDrops(True)
         self.setPlaceholderText("Tu historia comienza aquí…")
 
-        # Fuente serif para escritores
-        font = QFont("Georgia", 12)
-        self.setFont(font)
+        # Configuración de zoom y apariencia de trabajo
+        self._zoom_percentage: int = 100
+        self._zoom_in_progress: bool = False
+        self._work_font_family: str = "Georgia"
+        self._paper_style: str = "auto"
+        self._load_appearance_preferences()
 
         # Margen de página nativo en el documento (cero overhead en repintado)
         self.document().setDocumentMargin(35)
-
 
         # Cache de imágenes para evitar destrucción por GC
         self._image_cache: list[QImage] = []
@@ -28,6 +30,185 @@ class AuraEditor(QTextEdit):
         # Menú contextual extendido
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
+
+    # ------------------------------------------------------------------
+    # Apariencia, Zoom y Accesibilidad
+    # ------------------------------------------------------------------
+
+    def _load_appearance_preferences(self):
+        """Carga las preferencias de visualización y accesibilidad del editor."""
+        try:
+            from core.config_manager import ConfigManager
+            self._zoom_percentage = ConfigManager.get("editor_zoom", 100)
+            self._work_font_family = ConfigManager.get("editor_font", "Georgia")
+            self._paper_style = ConfigManager.get("editor_paper", "auto")
+        except Exception:
+            pass
+        self._apply_appearance()
+
+    def _apply_appearance(self):
+        """Aplica la tipografía de trabajo y el estilo de papel (SIN tocar char formats del doc)."""
+        # Fuente base para texto nuevo
+        font = QFont(self._work_font_family)
+        font.setPointSizeF(12.0)
+        self.setFont(font)
+        self.document().setDefaultFont(font)
+
+        # Aplicar estilo de papel (colores de lienzo y texto)
+        paper_styles = {
+            "blanco": "background-color: #ffffff; color: #1a1a1a; selection-background-color: #c7d2fe;",
+            "sepia":  "background-color: #f4ecd8; color: #2d241e; selection-background-color: #e2d2b6;",
+            "verde":  "background-color: #e8f0e6; color: #1c2e1c; selection-background-color: #c8dec4;",
+            "noche":  "background-color: #1e1e20; color: #e0e0e0; selection-background-color: #4a4a4e;",
+            "oled":   "background-color: #000000; color: #e6e6e6; selection-background-color: #333333;",
+            "auto":   ""
+        }
+        style = paper_styles.get(self._paper_style, "")
+        font_css = f"font-family: '{self._work_font_family}', serif;"
+        if style:
+            self.setStyleSheet(f"AuraEditor {{ {style} {font_css} border: none; border-radius: 6px; padding: 12px; }}")
+        else:
+            self.setStyleSheet(f"AuraEditor {{ {font_css} }}")
+
+        # Aplicar nivel de zoom visual (sobre la base 100 %)
+        self._apply_zoom()
+
+    def _apply_zoom(self):
+        """Escala visualmente todo el texto por el factor de zoom.
+        Usa select-all + mergeCharFormat: simple, sin tracking por posición.
+        """
+        if getattr(self, '_zoom_in_progress', False):
+            return
+
+        doc = self.document()
+        if doc.isEmpty():
+            return
+
+        self._zoom_in_progress = True
+        try:
+            BASE_PT = 12.0
+            factor = self._zoom_percentage / 100.0
+            scaled_pt = BASE_PT * factor
+
+            # Fuente del widget
+            font = QFont(self._work_font_family)
+            font.setPointSizeF(scaled_pt)
+            self.setFont(font)
+            doc.setDefaultFont(font)
+
+            # Aplicar al texto existente
+            cursor = QTextCursor(doc)
+            cursor.select(QTextCursor.SelectionType.Document)
+            if cursor.hasSelection():
+                fmt = QTextCharFormat()
+                if abs(factor - 1.0) < 0.01:
+                    fmt.clearProperty(QTextFormat.Property.FontPointSize)   # 100 % → limpiar para heredar defaultFont
+                else:
+                    fmt.setFontPointSize(scaled_pt)
+                cursor.mergeCharFormat(fmt)
+        finally:
+            self._zoom_in_progress = False
+
+    def get_content_html(self) -> str:
+        """Devuelve el HTML normalizado a 100 % de zoom para guardar en disco.
+        Temporalmente restaura tamaños al 100 %, serializa, luego re-aplica zoom.
+        """
+        if getattr(self, '_zoom_in_progress', False):
+            return super().toHtml()
+        if abs(self._zoom_percentage - 100) < 1:
+            return super().toHtml()
+
+        doc = self.document()
+        self._zoom_in_progress = True
+        try:
+            # Restaurar a "heredar" para que el HTML quede sin tamaños escalados
+            cursor = QTextCursor(doc)
+            cursor.select(QTextCursor.SelectionType.Document)
+            if cursor.hasSelection():
+                fmt = QTextCharFormat()
+                fmt.clearProperty(QTextFormat.Property.FontPointSize)
+                cursor.mergeCharFormat(fmt)
+            html = super().toHtml()
+        finally:
+            self._zoom_in_progress = False
+
+        # Re-aplicar zoom visual
+        self._apply_zoom()
+        return html
+
+    def _update_document_font(self, family: str):
+        """Sincroniza la familia de fuente en todo el documento."""
+        doc = self.document()
+        if doc.isEmpty():
+            return
+        if getattr(self, '_zoom_in_progress', False):
+            return
+
+        self._zoom_in_progress = True
+        try:
+            cursor = QTextCursor(doc)
+            cursor.select(QTextCursor.SelectionType.Document)
+            if cursor.hasSelection():
+                fmt = QTextCharFormat()
+                fmt.setFontFamily(family)
+                try:
+                    fmt.setFontFamilies([family])
+                except Exception:
+                    pass
+                cursor.mergeCharFormat(fmt)
+        finally:
+            self._zoom_in_progress = False
+
+        # Re-aplicar zoom para que los nuevos fragmentos también estén escalados
+        self._apply_zoom()
+
+
+    def get_zoom_percentage(self) -> int:
+        return self._zoom_percentage
+
+    def set_zoom_percentage(self, percentage: int):
+        self._zoom_percentage = max(50, min(300, percentage))
+        self._apply_zoom()
+        try:
+            from core.config_manager import ConfigManager
+            ConfigManager.set("editor_zoom", self._zoom_percentage)
+        except Exception:
+            pass
+
+    def zoom_in(self):
+        self.set_zoom_percentage(self._zoom_percentage + 10)
+
+    def zoom_out(self):
+        self.set_zoom_percentage(self._zoom_percentage - 10)
+
+    def zoom_reset(self):
+        self.set_zoom_percentage(100)
+
+    def get_work_font_family(self) -> str:
+        return self._work_font_family
+
+    def set_work_font_family(self, family: str):
+        self._work_font_family = family
+        self._apply_appearance()  # actualiza QSS + font base
+        # Ahora sí propagar la familia al texto existente en el doc
+        self._update_document_font(family)
+        try:
+            from core.config_manager import ConfigManager
+            ConfigManager.set("editor_font", family)
+        except Exception:
+            pass
+
+    def get_paper_style(self) -> str:
+        return self._paper_style
+
+    def set_paper_style(self, style_id: str):
+        self._paper_style = style_id
+        self._apply_appearance()
+        try:
+            from core.config_manager import ConfigManager
+            ConfigManager.set("editor_paper", style_id)
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Formato de texto
@@ -455,8 +636,20 @@ class AuraEditor(QTextEdit):
                     is_space=is_space,
                     is_backspace=is_backspace
                 )
-        except Exception:
-            pass
+        except Exception as _snd_err:
+            import logging
+            logging.getLogger(__name__).debug("Fallo en sonido mecánico: %s", _snd_err)
+
+        # ── Atajos de formato y símbolos (Ctrl+B, Ctrl+I, Ctrl+U, Ctrl+K, Ctrl+\, Ctrl+.) ──
+        # ── Atajos de accesibilidad y zoom (Ctrl++, Ctrl+-, Ctrl+0) ──
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            key = event.key()
+            if key in (Qt.Key.Key_Plus, Qt.Key.Key_Equal):
+                self.zoom_in()
+                return
+            elif key == Qt.Key.Key_0:
+                self.zoom_reset()
+                return
 
         # ── Atajos de formato y símbolos (Ctrl+B, Ctrl+I, Ctrl+U, Ctrl+K, Ctrl+\, Ctrl+.) ──
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
@@ -529,3 +722,15 @@ class AuraEditor(QTextEdit):
                 return
 
         super().keyPressEvent(event)
+
+    def wheelEvent(self, event):
+        """Permite hacer Zoom con Ctrl + Rueda del Ratón para accesibilidad visual."""
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            delta = event.angleDelta().y()
+            if delta > 0:
+                self.zoom_in()
+            elif delta < 0:
+                self.zoom_out()
+            event.accept()
+        else:
+            super().wheelEvent(event)

@@ -161,9 +161,16 @@ class NotesControllerMixin:
         self._current_chapter = chapter
         html = self.project_manager.read_chapter_content(chapter.content_file)
         self.editor.setHtml(html)
+        # Reaplicar estilo visual (papel, fuente base, zoom) al HTML cargado
+        if hasattr(self.editor, "_apply_appearance"):
+            self.editor._apply_appearance()
+        # Propagar la familia de tipografía activa al texto del HTML cargado
+        if hasattr(self.editor, "_update_document_font"):
+            self.editor._update_document_font(self.editor._work_font_family)
         self.statusBar().showMessage(f"Editando: {chapter.title}")
         self._detect_character_mentions(chapter)
         self._refresh_char_dock()
+        self.editor.setFocus()
 
     # ------------------------------------------------------------------
     # Preview de media

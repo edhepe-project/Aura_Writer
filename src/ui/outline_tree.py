@@ -70,11 +70,18 @@ class OutlineTree(QTreeView):
         for media in meta.medias:
             universe_item.appendRow(self._make("media", media.title, media.id))
 
-        # Aplanar: mostrar libros directamente bajo el universo (sin nodo Obra)
+        # Renderizar Obras completas en la jerarquía
         for obra in meta.obras:
+            obra_item = self._make("obra", obra.title, obra.id)
+            universe_item.appendRow(obra_item)
+
+            # Medias a nivel obra (mapas, portadas de saga)
+            for media in obra.medias:
+                obra_item.appendRow(self._make("media", media.title, media.id))
+
             for libro in obra.libros:
                 libro_item = self._make("libro", libro.title, libro.id)
-                universe_item.appendRow(libro_item)
+                obra_item.appendRow(libro_item)
 
                 # Renderizar hijos del libro en orden (content_order)
                 if libro.content_order:
@@ -118,6 +125,46 @@ class OutlineTree(QTreeView):
         self._model.blockSignals(False)
         self.expandAll()
 
+    def select_node_by_id(self, target_id: str) -> bool:
+        """Busca y selecciona visualmente el nodo con el ID dado en el árbol."""
+        def _search_item(parent_item):
+            for row in range(parent_item.rowCount()):
+                child = parent_item.child(row)
+                if child:
+                    if child.data(Qt.ItemDataRole.UserRole) == target_id:
+                        idx = child.index()
+                        self.setCurrentIndex(idx)
+                        self.selectionModel().select(idx, self.selectionModel().SelectionFlag.ClearAndSelect)
+                        self.item_selected.emit(target_id, child.data(Qt.ItemDataRole.UserRole + 1))
+                        return True
+                    if _search_item(child):
+                        return True
+            return False
+
+        root = self._model.invisibleRootItem()
+        return _search_item(root)
+
+    def select_first_chapter(self) -> bool:
+        """Busca y selecciona el primer capítulo del árbol narrativo."""
+        def _search_first_chap(parent_item):
+            for row in range(parent_item.rowCount()):
+                child = parent_item.child(row)
+                if child:
+                    node_type = child.data(Qt.ItemDataRole.UserRole + 1)
+                    if node_type == "chapter":
+                        node_id = child.data(Qt.ItemDataRole.UserRole)
+                        idx = child.index()
+                        self.setCurrentIndex(idx)
+                        self.selectionModel().select(idx, self.selectionModel().SelectionFlag.ClearAndSelect)
+                        self.item_selected.emit(node_id, "chapter")
+                        return True
+                    if _search_first_chap(child):
+                        return True
+            return False
+
+        root = self._model.invisibleRootItem()
+        return _search_first_chap(root)
+
     def clear(self):
         self._model.clear()
 
@@ -139,11 +186,15 @@ class OutlineTree(QTreeView):
         # ── Sección: Añadir (opciones contextuales según el tipo de nodo) ───────
         add_menu = menu.addMenu("➕ Añadir…")
 
-        if item_type in ("universe", "libro"):
+        if item_type == "universe":
+            add_menu.addAction("🏛️ Nueva Obra / Saga", lambda: self.node_add_requested.emit(
+                item_id, item_type, "obra"))
+
+        if item_type in ("universe", "obra"):
             add_menu.addAction("📘 Nuevo Libro", lambda: self.node_add_requested.emit(
                 item_id, item_type, "libro"))
 
-        if item_type in ("universe", "libro", "chapter"):
+        if item_type in ("universe", "obra", "libro", "chapter"):
             add_menu.addAction("📑 Nuevo Capítulo", lambda: self.node_add_requested.emit(
                 item_id, item_type, "chapter"))
 

@@ -104,6 +104,29 @@ class MainMenuBuilderMixin:
         view_menu.addAction(graph_act)
 
         view_menu.addSeparator()
+        self._appearance_act = QAction("🎨 Apariencia…", self)
+        self._appearance_act.setShortcut("Ctrl+,")
+        self._appearance_act.triggered.connect(self.open_editor_appearance_dialog)
+        view_menu.addAction(self._appearance_act)
+
+        # Submenú de Zoom
+        zoom_menu = view_menu.addMenu("🔍 Zoom de Lectura")
+        zoom_in_act = QAction("➕ Aumentar Zoom", self)
+        zoom_in_act.setShortcut("Ctrl++")
+        zoom_in_act.triggered.connect(self._on_zoom_in)
+        zoom_menu.addAction(zoom_in_act)
+
+        zoom_out_act = QAction("➖ Reducir Zoom", self)
+        zoom_out_act.setShortcut("Ctrl+-")
+        zoom_out_act.triggered.connect(self._on_zoom_out)
+        zoom_menu.addAction(zoom_out_act)
+
+        zoom_reset_act = QAction("↺ Restablecer Zoom (100%)", self)
+        zoom_reset_act.setShortcut("Ctrl+0")
+        zoom_reset_act.triggered.connect(self._on_zoom_reset)
+        zoom_menu.addAction(zoom_reset_act)
+
+        view_menu.addSeparator()
         self._zen_act = QAction("🧘 Modo Zen (Sin Distracciones)", self)
         self._zen_act.setShortcut("F11")
         self._zen_act.setCheckable(True)
@@ -117,19 +140,55 @@ class MainMenuBuilderMixin:
         view_menu.addAction(self._theme_act)
         self._update_theme_action_label()
 
-        # ── Sonido Aura Singularity ──────────────────────────────────
+        # ── Sonido Aura ──────────────────────────────────────────────
         sound_menu = mb.addMenu("&Sonido")
         from core.sound_manager import AuraSoundEngine
         engine = AuraSoundEngine.instance()
 
-        self._sound_toggle_act = QAction("✨ Aura Singularity (528 Hz)", self)
+        self._sound_toggle_act = QAction("🔊 Activar Sonido de Teclado", self)
         self._sound_toggle_act.setShortcut("Ctrl+M")
         self._sound_toggle_act.setCheckable(True)
         self._sound_toggle_act.setChecked(engine.enabled)
         self._sound_toggle_act.toggled.connect(self._set_sound_enabled)
         sound_menu.addAction(self._sound_toggle_act)
 
-        bell_act = QAction("🔔 Campanilla al borde de página", self)
+        sound_menu.addSeparator()
+
+        # Selector de perfil acústico
+        theme_grp = QActionGroup(self)
+        theme_grp.setExclusive(True)
+
+        self._snd_yt_act = QAction("🎵 Sonido 1 (Martilleo Mecánico)", self)
+        self._snd_yt_act.setCheckable(True)
+        self._snd_yt_act.setChecked(engine.get_theme() == "youtube")
+        self._snd_yt_act.triggered.connect(lambda: self._set_sound_theme("youtube"))
+        theme_grp.addAction(self._snd_yt_act)
+        sound_menu.addAction(self._snd_yt_act)
+
+        self._snd_electric_act = QAction("🎵 Sonido 2 (Electro-Táctil)", self)
+        self._snd_electric_act.setCheckable(True)
+        self._snd_electric_act.setChecked(engine.get_theme() == "electric")
+        self._snd_electric_act.triggered.connect(lambda: self._set_sound_theme("electric"))
+        theme_grp.addAction(self._snd_electric_act)
+        sound_menu.addAction(self._snd_electric_act)
+
+        self._snd_vintage_act = QAction("🎵 Sonido 3 (Vintage Clásico)", self)
+        self._snd_vintage_act.setCheckable(True)
+        self._snd_vintage_act.setChecked(engine.get_theme() == "vintage")
+        self._snd_vintage_act.triggered.connect(lambda: self._set_sound_theme("vintage"))
+        theme_grp.addAction(self._snd_vintage_act)
+        sound_menu.addAction(self._snd_vintage_act)
+
+        self._snd_thock_act = QAction("🎵 Sonido 4 (Thock ASMR / Punto Dulce)", self)
+        self._snd_thock_act.setCheckable(True)
+        self._snd_thock_act.setChecked(engine.get_theme() == "thock")
+        self._snd_thock_act.triggered.connect(lambda: self._set_sound_theme("thock"))
+        theme_grp.addAction(self._snd_thock_act)
+        sound_menu.addAction(self._snd_thock_act)
+
+        sound_menu.addSeparator()
+
+        bell_act = QAction("🔔 Campanilla al pulsar Punto + Enter", self)
         bell_act.setCheckable(True)
         bell_act.setChecked(engine.bell_enabled)
         def _toggle_bell(checked):
@@ -179,6 +238,23 @@ class MainMenuBuilderMixin:
         usb_status_act = QAction("📊 Estado de USB", self)
         usb_status_act.triggered.connect(self.show_usb_status)
         usb_menu.addAction(usb_status_act)
+
+        # ── Ayuda ────────────────────────────────────────────────────
+        help_menu = mb.addMenu("A&yuda")
+
+        update_act = QAction("🔄 Buscar Actualizaciones…", self)
+        update_act.triggered.connect(self.check_for_updates_manual)
+        help_menu.addAction(update_act)
+
+        help_menu.addSeparator()
+
+        web_act = QAction("🌐 Sitio Web del Proyecto…", self)
+        web_act.triggered.connect(self.open_project_website)
+        help_menu.addAction(web_act)
+
+        about_act = QAction("ℹ️ Acerca de Aura Writer…", self)
+        about_act.triggered.connect(self.show_about_dialog)
+        help_menu.addAction(about_act)
 
     def setup_toolbar(self):
         """Construye la barra de herramientas principal."""
@@ -245,6 +321,8 @@ class MainMenuBuilderMixin:
                 qta.icon("fa5s.sun" if is_dark else "fa5s.moon", color="#ffd60a" if is_dark else "#2563eb"),
                 "Cambiar Tema", self._toggle_theme
             )
+            self._appearance_act.setIcon(qta.icon("fa5s.paint-brush", color="#bf5af2" if is_dark else "#9333ea"))
+            self._main_toolbar.addAction(self._appearance_act)
             self._update_theme_action_label()
         except Exception:
             self._main_toolbar.addAction("Guardar", self.save_project)
@@ -313,8 +391,25 @@ class MainMenuBuilderMixin:
             from core.sound_manager import AuraSoundEngine
             engine = AuraSoundEngine.instance()
             engine.enabled = enabled
-            status = "Sonido Aura Singularity: ACTIVADO" if enabled else "Sonido Aura Singularity: SILENCIADO"
+            status = "Sonido de Teclado: ACTIVADO" if enabled else "Sonido de Teclado: SILENCIADO"
             self.statusBar().showMessage(status, 2500)
+        except Exception:
+            pass
+
+    def _set_sound_theme(self, theme_name: str):
+        """Cambia el perfil acústico del teclado ('youtube', 'electric' o 'vintage')."""
+        try:
+            from core.sound_manager import AuraSoundEngine
+            engine = AuraSoundEngine.instance()
+            engine.set_theme(theme_name)
+            labels = {
+                "youtube": "Sonido 1 (Martilleo Mecánico)",
+                "electric": "Sonido 2 (Electro-Táctil)",
+                "vintage": "Sonido 3 (Vintage Clásico)",
+                "thock": "Sonido 4 (Thock ASMR / Punto Dulce)"
+            }
+            name_str = labels.get(theme_name, "Personalizado")
+            self.statusBar().showMessage(f"Perfil de Sonido: {name_str}", 3000)
         except Exception:
             pass
 

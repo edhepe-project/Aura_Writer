@@ -260,6 +260,8 @@ class UniverseMetadata(BaseModel):
     totp_enabled: bool = False
     totp_secret: str = ""               # secreto base32 para TOTP
     totp_recovery_codes: List[str] = Field(default_factory=list)
+    # ── Estado de sesión (para reabrir exactamente donde te quedaste) ────
+    last_selected_node_id: str = ""
     # Timestamps
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)

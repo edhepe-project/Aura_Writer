@@ -25,18 +25,30 @@ class TreeControllerMixin:
         if new_type == "obra":
             title, ok = QInputDialog.getText(self, "Nueva Obra", "Título de la obra:")
             if ok and title.strip():
-                meta.obras.append(Obra(title=title.strip()))
+                chapter = self.project_manager.create_chapter("Prólogo")
+                self.project_manager.write_chapter_content(
+                    chapter.content_file, "<h1>Prólogo</h1><p>Tu historia comienza aquí…</p>"
+                )
+                book = Book(title="Libro I", capitulos=[chapter])
+                meta.obras.append(Obra(title=title.strip(), libros=[book]))
                 self._refresh_tree()
-                self.statusBar().showMessage(f"Obra '{title}' añadida ✓", 3000)
+                self.outline_tree.select_node_by_id(chapter.id)
+                self.statusBar().showMessage(f"Obra '{title}' añadida con su Libro y Prólogo ✓", 3000)
 
         elif new_type == "libro":
             title, ok = QInputDialog.getText(self, "Nuevo Libro", "Título del libro:")
             if not ok or not title.strip():
                 return
             obra = self._resolve_obra(parent_id, parent_type)
-            obra.libros.append(Book(title=title.strip()))
+            chapter = self.project_manager.create_chapter("Prólogo")
+            self.project_manager.write_chapter_content(
+                chapter.content_file, "<h1>Prólogo</h1><p>Tu historia comienza aquí…</p>"
+            )
+            new_book = Book(title=title.strip(), capitulos=[chapter])
+            obra.libros.append(new_book)
             self._refresh_tree()
-            self.statusBar().showMessage(f"Libro '{title}' añadido ✓", 3000)
+            self.outline_tree.select_node_by_id(chapter.id)
+            self.statusBar().showMessage(f"Libro '{title}' añadido con su Prólogo ✓", 3000)
 
         elif new_type == "chapter":
             title, ok = QInputDialog.getText(self, "Nuevo Capítulo", "Título del capítulo:")
