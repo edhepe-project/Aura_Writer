@@ -19,6 +19,7 @@ class ProjectManager:
         self.metadata: UniverseMetadata | None = None
         self.is_locked = True
         self.password: str | None = None
+        self._totp_secret: str = ""          # secreto TOTP en memoria para cifrado V3
         self.usb_sync: USBSync = USBSync()
         self._last_usb_error: str = ""
 
@@ -51,26 +52,42 @@ class ProjectManager:
         self.save_project()
         log.info("Proyecto nuevo creado: %s", export_path)
 
-    def open_project(self, file_path: str, password: str):
-        """Abre un proyecto existente descifrándolo en un directorio temporal."""
+    def open_project(self, file_path: str, password: str, totp_code: str = ""):
+        """
+        Abre un proyecto existente descifrándolo en un directorio temporal.
+
+        Args:
+            file_path:  Ruta del archivo .aura.
+            password:   Contraseña del usuario.
+            totp_code:  Código TOTP de 6 dígitos o código de recuperación.
+                        Requerido para proyectos V3 (3FA). Ignorado para V1/V2.
+        """
         self.temp_dir = tempfile.mkdtemp(prefix="aura_")
         try:
-            # Detectar si es formato v1 y migrar a v2 automáticamente
+            # Detectar si es formato V1 y migrar a V2 automáticamente
             with open(file_path, 'rb') as f:
                 header = f.read(6)
-            needs_migration = not SecurityManager.is_v2_format(header)
+            needs_v1_migration = not (SecurityManager.is_v2_format(header)
+                                      or SecurityManager.is_v3_format(header))
 
-            SecurityManager.unpackage_project(password, file_path, self.temp_dir)
+            SecurityManager.unpackage_project(password, file_path, self.temp_dir,
+                                              totp_code=totp_code)
             self.password = password
             self.current_project_path = file_path
             self.load_metadata()
             self.is_locked = False
 
-            # Migrar v1 → v2 (re-cifrar con llave maestra)
-            if needs_migration:
-                log.info("Migrando archivo v1 → v2 (llave maestra)...")
-                self.save_project()  # Re-guardar en formato v2
-                log.info("Migración completada: %s", file_path)
+            # Cargar secreto TOTP en memoria (para re-cifrar en V3 al guardar)
+            if self.metadata and self.metadata.totp_enabled and self.metadata.totp_secret:
+                self._totp_secret = self.metadata.totp_secret
+            else:
+                self._totp_secret = ""
+
+            # Migrar V1 → V2 (re-cifrar con llave maestra)
+            if needs_v1_migration:
+                log.info("Migrando archivo V1 → V2 (llave maestra)...")
+                self.save_project()  # Re-guardar en formato V2 (o V3 si ya tiene TOTP)
+                log.info("Migración V1→V2 completada: %s", file_path)
 
             # Inicializar sincronización USB
             self.usb_sync = USBSync(file_path)
@@ -79,7 +96,7 @@ class ProjectManager:
         except Exception as e:
             shutil.rmtree(self.temp_dir, ignore_errors=True)
             self.temp_dir = None
-            raise ValueError("Contraseña incorrecta o archivo corrupto.") from e
+            raise ValueError("Contraseña incorrecta, código TOTP inválido, o archivo corrupto.") from e
 
     def save_project(self):
         """Cifra el estado actual al archivo local Y sincroniza con USB."""
@@ -87,8 +104,12 @@ class ProjectManager:
             log.warning("save_project() llamado sin proyecto abierto.")
             return
         self.save_metadata()
-        SecurityManager.package_project(self.password, self.temp_dir, self.current_project_path)
-        log.info("Proyecto guardado (local): %s", self.current_project_path)
+        SecurityManager.package_project(
+            self.password, self.temp_dir, self.current_project_path,
+            totp_secret=self._totp_secret  # V3 si hay TOTP, V2 si no
+        )
+        fmt = "V3 (3FA)" if self._totp_secret else "V2"
+        log.info("Proyecto guardado en formato %s (local): %s", fmt, self.current_project_path)
 
         # ── Respaldo automático rotativo ────────────────────────────
         try:
@@ -359,22 +380,28 @@ class ProjectManager:
         return success
 
     def enable_2fa(self, secret: str, recovery_codes: list[str]):
-        """Activa 2FA en el proyecto actual."""
+        """Activa 2FA en el proyecto actual y migra el archivo a formato V3 (3FA)."""
         if not self.metadata:
             return
         self.metadata.totp_enabled = True
         self.metadata.totp_secret = secret
         self.metadata.totp_recovery_codes = recovery_codes
-        self.save_project()
-        log.info("2FA activado para el proyecto")
+
+        # Guardar secreto en memoria para que save_project use V3
+        self._totp_secret = secret
+        self.save_project()  # Ahora guarda en V3 automáticamente
+        log.info("2FA activado y archivo migrado a formato V3 (3FA) para el proyecto")
 
     def disable_2fa(self):
-        """Desactiva 2FA del proyecto actual."""
+        """Desactiva 2FA del proyecto actual y vuelve al formato V2."""
         if not self.metadata:
             return
         self.metadata.totp_enabled = False
         self.metadata.totp_secret = ""
         self.metadata.totp_recovery_codes = []
-        self.save_project()
-        log.info("2FA desactivado para el proyecto")
+
+        # Limpiar secreto en memoria → save_project usará V2 en adelante
+        self._totp_secret = ""
+        self.save_project()  # Ahora guarda en V2 (sin TOTP en KDF)
+        log.info("2FA desactivado y archivo vuelto a formato V2 para el proyecto")
 

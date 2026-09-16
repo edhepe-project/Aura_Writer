@@ -5,12 +5,26 @@ import ctypes
 from PyQt6.QtWidgets import QApplication, QMessageBox
 from PyQt6.QtGui import QIcon
 
-# ── Logging ────────────────────────────────────────────────────────────
-logging.basicConfig(
-    filename="aura_error.log",
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-)
+# ── Logging Seguro (Guarda en APPDATA para nunca fallar por permisos) ──
+def _setup_logging():
+    if sys.platform == "win32":
+        appdata = os.environ.get("APPDATA")
+        log_dir = os.path.join(appdata, "AuraWriter") if appdata else os.path.expanduser("~/.aurawriter")
+    else:
+        log_dir = os.path.expanduser("~/.config/aura_writer")
+    
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+        log_file = os.path.join(log_dir, "aura_error.log")
+        logging.basicConfig(
+            filename=log_file,
+            level=logging.INFO,
+            format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+        )
+    except Exception:
+        logging.basicConfig(level=logging.INFO)
+
+_setup_logging()
 log = logging.getLogger(__name__)
 
 # ── Path de importaciones ──────────────────────────────────────────────
@@ -24,6 +38,11 @@ from core.theme_manager import ThemeManager
 
 
 def main():
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        bundle_dir = getattr(sys, "_MEIPASS")
+    else:
+        bundle_dir = os.path.dirname(current_dir)
+
     if sys.platform == "win32":
         try:
             myappid = "aura.writer.app.1.0"
@@ -33,18 +52,23 @@ def main():
 
     app = QApplication(sys.argv)
     
-    icon_path = os.path.join(os.path.dirname(current_dir), "aura_writer.ico")
-    app.setWindowIcon(QIcon(icon_path))
+    icon_path = os.path.join(bundle_dir, "aura_writer.ico")
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
     
     app.setStyle("Fusion")
 
     # ── Tema global (lee preferencia guardada) ──────────────────────────
     ThemeManager.apply(app, ThemeManager.load())
 
+    # Detectar si se pasó un archivo .aura como argumento (Doble clic en Windows)
+    initial_file = None
+    if len(sys.argv) > 1 and sys.argv[1].lower().endswith(".aura") and os.path.exists(sys.argv[1]):
+        initial_file = os.path.abspath(sys.argv[1])
 
     attempts = 0
     max_attempts = 3
-    last_project_path = None
+    last_project_path = initial_file
 
     while attempts < max_attempts:
         try:
@@ -89,14 +113,19 @@ def main():
                                 )
 
                 else:
-                    main_win.project_manager.open_project(project_path, password)
+                    # Obtener el código TOTP que el usuario pudo haber ingresado
+                    totp_code = login.get_totp_code() or ""
 
-                    # ── Verificar 2FA si está activo ────────────────────
-                    if main_win.project_manager.is_2fa_enabled():
-                        totp_code = login.get_totp_code()
-
-                        if not totp_code:
-                            # El campo TOTP no estaba visible — volver a pedir
+                    # Para archivos V3 (3FA), el TOTP se verifica DENTRO del descifrado.
+                    # Si falta el código y el archivo es V3, el descifrado fallará con
+                    # un mensaje claro, y pedimos el código al usuario para reintentar.
+                    try:
+                        main_win.project_manager.open_project(project_path, password,
+                                                              totp_code=totp_code)
+                    except ValueError as ve:
+                        err_lower = str(ve).lower()
+                        if "totp" in err_lower or "código" in err_lower or "autenticación" in err_lower:
+                            # Pedir código TOTP y reintentar
                             login2 = LoginDialog()
                             login2.project_path = project_path
                             login2.open_pass_input.setText(password)
@@ -105,17 +134,69 @@ def main():
                             login2._validate()
                             if not login2.exec():
                                 sys.exit(0)
-                            totp_code = login2.get_totp_code()
+                            totp_code = login2.get_totp_code() or ""
+                            # Segundo intento con código TOTP
+                            main_win.project_manager.open_project(project_path, password,
+                                                                   totp_code=totp_code)
+                        else:
+                            raise  # otro error (contraseña incorrecta, corrupto, etc.)
 
-                        if totp_code:
-                            # Intentar código TOTP normal
-                            if not main_win.project_manager.verify_totp(totp_code):
-                                # Intentar como código de recuperación
+                    # ── Post-apertura: manejar 2FA según versión del formato ──────
+                    if main_win.project_manager.is_2fa_enabled():
+                        # Leer el header del archivo recién abierto para saber la versión
+                        with open(project_path, 'rb') as _f:
+                            _hdr = _f.read(6)
+                        from core.security import SecurityManager as _SM
+
+                        if _SM.is_v2_format(_hdr):
+                            # Archivo V2: TOTP solo en UI, verificar ahora
+                            if not totp_code:
+                                login2 = LoginDialog()
+                                login2.project_path = project_path
+                                login2.open_pass_input.setText(password)
+                                login2.btn_select_file.setText(os.path.basename(project_path))
+                                login2.show_totp_field()
+                                login2._validate()
+                                if not login2.exec():
+                                    sys.exit(0)
+                                totp_code = login2.get_totp_code() or ""
+
+                            if totp_code:
+                                if not main_win.project_manager.verify_totp(totp_code):
+                                    if not main_win.project_manager.use_recovery_code(totp_code):
+                                        QMessageBox.critical(
+                                            None, "2FA",
+                                            "Código de autenticación incorrecto.\n"
+                                            "Verifica tu app de autenticación e intenta de nuevo."
+                                        )
+                                        main_win.project_manager.close_project()
+                                        sys.exit(0)
+                                    else:
+                                        remaining = len(main_win.project_manager.metadata.totp_recovery_codes)
+                                        QMessageBox.information(
+                                            None, "Código de recuperación",
+                                            f"Código de recuperación usado.\n"
+                                            f"Quedan {remaining} códigos de recuperación."
+                                        )
+                            else:
+                                QMessageBox.critical(None, "2FA",
+                                                     "Se requiere un código de autenticación.")
+                                main_win.project_manager.close_project()
+                                sys.exit(0)
+
+                        else:
+                            # Archivo V3: TOTP ya validado criptográficamente en open_project.
+                            # Si fue código de recuperación (XXXX-XXXX), consumirlo ahora.
+                            is_recovery = (
+                                len(totp_code.replace("-", "").replace(" ", "")) == 8
+                                and "-" in totp_code
+                            )
+                            if is_recovery:
                                 if not main_win.project_manager.use_recovery_code(totp_code):
                                     QMessageBox.critical(
-                                        None, "2FA",
-                                        "Código de autenticación incorrecto.\n"
-                                        "Verifica tu app de autenticación e intenta de nuevo."
+                                        None, "Código de recuperación",
+                                        "El código de recuperación no es válido o ya fue usado.\n"
+                                        "Verifica tus códigos de respaldo."
                                     )
                                     main_win.project_manager.close_project()
                                     sys.exit(0)
@@ -126,10 +207,6 @@ def main():
                                         f"Código de recuperación usado.\n"
                                         f"Quedan {remaining} códigos de recuperación."
                                     )
-                        else:
-                            QMessageBox.critical(None, "2FA", "Se requiere un código de autenticación.")
-                            main_win.project_manager.close_project()
-                            sys.exit(0)
 
                 meta = main_win.project_manager.metadata
                 main_win.setWindowTitle(f"Aura Writer - {meta.title}")
