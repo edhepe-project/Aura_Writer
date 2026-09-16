@@ -88,10 +88,20 @@ Filename: "{app}\{#MyAppExeName}"; \
 
 [Code]
 // ─────────────────────────────────────────────────────────────────────────────
-// Detecta si hay una versión anterior instalada y la cierra antes de instalar
+// Limpia variables de entorno de PyInstaller para que cualquier ejecutable
+// lanzado desde el instalador no busque DLLs en carpetas temporales viejas
 // ─────────────────────────────────────────────────────────────────────────────
+function SetEnvironmentVariable(lpName: String; lpValue: String): Boolean;
+external 'SetEnvironmentVariableW@kernel32.dll stdcall';
+
 function InitializeSetup(): Boolean;
 begin
+  // Limpiar variables de PyInstaller heredadas de la app que invocó la actualización
+  SetEnvironmentVariable('_MEIPASS', '');
+  SetEnvironmentVariable('_MEIPASS2', '');
+  SetEnvironmentVariable('PYI_CHILD_SUBPROCESS', '');
+  SetEnvironmentVariable('PYTHONPATH', '');
+  SetEnvironmentVariable('PYTHONHOME', '');
   Result := True;
 end;
 
@@ -101,3 +111,4 @@ begin
     // Asegurarse de que no queden archivos del instalador anterior colgados
   end;
 end;
+
