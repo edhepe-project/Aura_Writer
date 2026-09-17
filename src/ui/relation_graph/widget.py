@@ -320,6 +320,10 @@ class RelationGraphWidget(QWidget):
             is_dark=self._is_dark_theme
         )
 
+        # Sincronizar estado de la casilla 'Mostrar todas las líneas'
+        if hasattr(self, "_toolbar") and hasattr(self._toolbar, "chk_show_all"):
+            self._scene.set_show_all_edges(self._toolbar.chk_show_all.isChecked())
+
         # Auto-fit: deferred so Qt processes layout events first
         QTimer.singleShot(100, self._view.fit_all)
 

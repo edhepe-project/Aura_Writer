@@ -197,6 +197,23 @@ class GraphScene(QGraphicsScene):
     def set_show_all_edges(self, show_all: bool):
         """Alterna dinámicamente entre ver todas las líneas globales o solo las de foco."""
         self._show_all_edges_enabled = show_all
+        
+        # Si no se habían instanciado las aristas globales (ej: en universos grandes), las instanciamos ahora
+        if show_all and not self._all_edges and self._raw_relations:
+            seen_pairs = set()
+            for src_id, rel_list in self._raw_relations.items():
+                s_node = self._nodes.get(src_id)
+                if not s_node: continue
+                for tgt_id, label, intensity, rel_type in rel_list:
+                    if tgt_id not in self._nodes: continue
+                    pair_key = tuple(sorted([src_id, tgt_id]))
+                    if pair_key in seen_pairs: continue
+                    seen_pairs.add(pair_key)
+                    t_node = self._nodes[tgt_id]
+                    edge = RelationEdge(s_node, t_node, label, intensity, rel_type)
+                    self.addItem(edge)
+                    self._all_edges.append(edge)
+
         if self._all_edges:
             for edge in self._all_edges:
                 if show_all:
