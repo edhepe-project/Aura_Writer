@@ -324,6 +324,15 @@ class MainMenuBuilderMixin:
             self._appearance_act.setIcon(qta.icon("fa5s.paint-brush", color="#bf5af2" if is_dark else "#9333ea"))
             self._main_toolbar.addAction(self._appearance_act)
             self._update_theme_action_label()
+
+            # ── Evitar que los botones de la toolbar roben el foco del editor ──
+            # Sin esto, al actualizar setChecked() en las acciones de formato el
+            # QToolButton puede tomar el foco visual y "absorber" el siguiente Enter.
+            from PyQt6.QtWidgets import QToolButton
+            from PyQt6.QtCore import Qt as _Qt
+            self._main_toolbar.setFocusPolicy(_Qt.FocusPolicy.NoFocus)
+            for _btn in self._main_toolbar.findChildren(QToolButton):
+                _btn.setFocusPolicy(_Qt.FocusPolicy.NoFocus)
         except Exception:
             self._main_toolbar.addAction("Guardar", self.save_project)
             self._main_toolbar.addSeparator()
@@ -413,14 +422,24 @@ class MainMenuBuilderMixin:
         except Exception:
             pass
 
-    def _update_format_actions(self, fmt: QTextCharFormat):
+    def _update_format_actions(self, fmt: QTextCharFormat = None):
         """Sincroniza el estado visual de los botones de formato con el formato bajo el cursor."""
+        if fmt is None or not isinstance(fmt, QTextCharFormat):
+            fmt = self.editor.currentCharFormat()
         if hasattr(self, '_bold_act'):
             weight = fmt.fontWeight()
+            self._bold_act.blockSignals(True)
             self._bold_act.setChecked(weight >= 600 or self.editor.fontWeight() >= 600)
+            self._bold_act.blockSignals(False)
         if hasattr(self, '_italic_act'):
+            self._italic_act.blockSignals(True)
             self._italic_act.setChecked(fmt.fontItalic() or self.editor.fontItalic())
+            self._italic_act.blockSignals(False)
         if hasattr(self, '_underline_act'):
+            self._underline_act.blockSignals(True)
             self._underline_act.setChecked(fmt.fontUnderline() or self.editor.fontUnderline())
+            self._underline_act.blockSignals(False)
         if hasattr(self, '_strike_act'):
+            self._strike_act.blockSignals(True)
             self._strike_act.setChecked(fmt.fontStrikeOut())
+            self._strike_act.blockSignals(False)

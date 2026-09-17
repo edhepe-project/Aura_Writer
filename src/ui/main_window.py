@@ -82,6 +82,7 @@ class AuraMainWindow(
 
         self.editor.textChanged.connect(self._on_editor_text_changed)
         self.editor.currentCharFormatChanged.connect(self._update_format_actions)
+        self.editor.cursorPositionChanged.connect(self._update_format_actions)
 
         # Auto-guardado cada 2 minutos
         self._autosave_timer = QTimer(self)
@@ -115,7 +116,7 @@ class AuraMainWindow(
             w = min(1360, int(screen.width() * 0.92))
             h = min(860, int(screen.height() * 0.90))
             dlg.resize(w, h)
-            dlg.setStyleSheet(f"background-color: {bg_col};")
+            dlg.setStyleSheet(f"QDialog {{ background-color: {bg_col}; }}")
             layout = QVBoxLayout(dlg)
             layout.setContentsMargins(0, 0, 0, 0)
             gw = RelationGraphWidget(dlg)
@@ -125,7 +126,8 @@ class AuraMainWindow(
             self._graph_dialog = dlg
             self._graph_widget = gw
 
-        self._graph_dialog.setStyleSheet(f"background-color: {bg_col};")
+        self._graph_dialog.setStyleSheet(f"QDialog {{ background-color: {bg_col}; }}")
+        self._graph_widget.update_theme(is_dark)
         self._graph_widget.build_from_metadata(self.project_manager.metadata)
         self._graph_dialog.exec()
 
@@ -293,6 +295,13 @@ class AuraMainWindow(
         self._update_theme_action_label()
         if hasattr(self, "_refresh_toolbar_icons"):
             self._refresh_toolbar_icons()
+        if hasattr(self, "char_dock") and self.char_dock is not None:
+            self.char_dock.update_theme()
+        if self._graph_widget is not None:
+            self._graph_widget.update_theme(ThemeManager.is_dark())
+        if self._graph_dialog is not None:
+            bg_col = '#1c1c1e' if ThemeManager.is_dark() else '#f5f0ea'
+            self._graph_dialog.setStyleSheet(f"QDialog {{ background-color: {bg_col}; }}")
         label = "Claro" if new_theme == "light" else "Oscuro"
         self.statusBar().showMessage(f"Tema cambiado a {label}", 3000)
 
@@ -488,6 +497,8 @@ class AuraMainWindow(
             html = self.project_manager.read_chapter_content(self._current_chapter.content_file)
             self.editor.blockSignals(True)
             self.editor.setHtml(html)
+            if hasattr(self.editor, "_apply_paragraph_spacing"):
+                self.editor._apply_paragraph_spacing()
             self.editor.blockSignals(False)
             self.update_stats()
 

@@ -1,14 +1,34 @@
-"""
-_GraphToolbar: Top toolbar for RelationGraphWidget.
-Houses title, character search completer, relation filter combo, and zoom controls.
-"""
+import os
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QLineEdit, QComboBox,
     QToolButton, QCompleter, QCheckBox, QGraphicsDropShadowEffect
 )
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QCursor
+from PyQt6.QtCore import Qt, pyqtSignal, QPointF
+from PyQt6.QtGui import QColor, QCursor, QPixmap, QPainter, QPolygonF, QBrush
 import qtawesome as qta
+
+
+def _get_arrow_icon_path(is_dark: bool) -> str:
+    color_name = "dark" if is_dark else "light"
+    assets_dir = os.path.join(os.path.dirname(__file__), "assets")
+    os.makedirs(assets_dir, exist_ok=True)
+    icon_path = os.path.join(assets_dir, f"combo_arrow_{color_name}.png")
+    
+    pixmap = QPixmap(16, 16)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    
+    arrow_color = QColor("#8e8e93" if is_dark else "#5c5c66")
+    painter.setBrush(arrow_color)
+    painter.setPen(Qt.PenStyle.NoPen)
+    
+    points = [QPointF(3.5, 6.0), QPointF(12.5, 6.0), QPointF(8.0, 11.0)]
+    painter.drawPolygon(QPolygonF(points))
+    painter.end()
+    
+    pixmap.save(icon_path, "PNG")
+    return icon_path.replace("\\", "/")
 
 
 class _GraphToolbar(QWidget):
@@ -160,42 +180,64 @@ class _GraphToolbar(QWidget):
         self.btn_fit.clicked.connect(self.zoom_fit_requested.emit)
         layout.addWidget(self.btn_fit)
 
-    def _combo_style(self) -> str:
-        return """
-            QComboBox {
-                background: #2c2c2e;
-                color: #f5f5f7;
-                border: 1px solid rgba(255, 255, 255, 0.12);
+    def _combo_style(self, is_dark: bool = True) -> str:
+        bg = "#2c2c2e" if is_dark else "#faf7f3"
+        hover_bg = "#3a3a3c" if is_dark else "#ede8e1"
+        fg = "#f5f5f7" if is_dark else "#1a1a2e"
+        border = "#3a3a3c" if is_dark else "#c4bfb8"
+        hover_border = "#ffd60a" if is_dark else "#9a5c00"
+        popup_bg = "#1c1c1e" if is_dark else "#faf7f3"
+        popup_border = "#3a3a3c" if is_dark else "#d4cfc8"
+        sel_bg = "#ffd60a" if is_dark else "#ede8e1"
+        sel_fg = "#000000" if is_dark else "#1a1a2e"
+        tip_bg = "#2c2c2e" if is_dark else "#faf7f3"
+        tip_fg = "#f2f2f7" if is_dark else "#1a1a2e"
+        tip_border = "#3a3a3c" if is_dark else "#c4bfb8"
+        arrow_icon = _get_arrow_icon_path(is_dark)
+
+        return f"""
+            QToolTip {{
+                background-color: {tip_bg};
+                color: {tip_fg};
+                border: 1px solid {tip_border};
+                border-radius: 4px;
+                padding: 4px 8px;
+                font-size: 11px;
+            }}
+            QComboBox {{
+                background: {bg};
+                color: {fg};
+                border: 1px solid {border};
                 border-radius: 6px;
-                padding: 0 12px 0 10px;
+                padding: 0 24px 0 10px;
                 font-size: 11px;
                 font-weight: 500;
-            }
-            QComboBox:hover {
-                border-color: rgba(255, 255, 255, 0.25);
-                background: #3a3a3c;
-            }
-            QComboBox::drop-down {
+            }}
+            QComboBox:hover {{
+                border-color: {hover_border};
+                background: {hover_bg};
+            }}
+            QComboBox::drop-down {{
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 22px;
                 border: none;
-                width: 20px;
-            }
-            QComboBox::down-arrow {
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 5px solid #8e8e93;
-                margin-right: 6px;
-            }
-            QComboBox QAbstractItemView {
-                background: #1c1c1e;
-                color: #f5f5f7;
-                border: 1px solid rgba(255, 255, 255, 0.12);
+            }}
+            QComboBox::down-arrow {{
+                image: url("{arrow_icon}");
+                width: 10px;
+                height: 10px;
+            }}
+            QComboBox QAbstractItemView {{
+                background: {popup_bg};
+                color: {fg};
+                border: 1px solid {popup_border};
                 border-radius: 6px;
-                selection-background-color: #ffd60a;
-                selection-color: #000000;
+                selection-background-color: {sel_bg};
+                selection-color: {sel_fg};
                 padding: 4px;
                 outline: none;
-            }
+            }}
         """
 
     def set_characters_list(self, characters: list):
@@ -230,21 +272,33 @@ class _GraphToolbar(QWidget):
         completer = QCompleter(names, self)
         completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
         completer.setFilterMode(Qt.MatchFlag.MatchContains)
-        if completer.popup():
-            completer.popup().setStyleSheet("""
-                QListView {
-                    background: #1c1c1e;
-                    color: #f5f5f7;
-                    border: 1px solid rgba(255, 255, 255, 0.15);
-                    border-radius: 6px;
-                    padding: 4px;
-                    selection-background-color: #ffd60a;
-                    selection-color: #000000;
-                    font-size: 11px;
-                }
-            """)
+        self._update_completer_style(completer)
         completer.activated.connect(self.search_submitted.emit)
         self.search_input.setCompleter(completer)
+
+    def _update_completer_style(self, completer: QCompleter = None):
+        if completer is None:
+            completer = self.search_input.completer()
+        if completer and completer.popup():
+            from core.theme_manager import ThemeManager
+            is_dark = ThemeManager.is_dark()
+            bg = "#1c1c1e" if is_dark else "#faf7f3"
+            fg = "#f5f5f7" if is_dark else "#1a1a2e"
+            border = "#3a3a3c" if is_dark else "#c4bfb8"
+            sel_bg = "#ffd60a" if is_dark else "#ede8e1"
+            sel_fg = "#000000" if is_dark else "#1a1a2e"
+            completer.popup().setStyleSheet(f"""
+                QListView {{
+                    background: {bg};
+                    color: {fg};
+                    border: 1px solid {border};
+                    border-radius: 6px;
+                    padding: 4px;
+                    selection-background-color: {sel_bg};
+                    selection-color: {sel_fg};
+                    font-size: 11px;
+                }}
+            """)
 
     def _on_search_enter(self):
         text = self.search_input.text().strip()
@@ -255,14 +309,26 @@ class _GraphToolbar(QWidget):
         self.filter_changed.emit(text)
 
     def update_theme(self, is_dark: bool):
-        bg = "#161618" if is_dark else "#f2f2f7"
-        border = "rgba(255, 255, 255, 0.08)" if is_dark else "rgba(0, 0, 0, 0.08)"
-        text_color = "#f5f5f7" if is_dark else "#1c1c1e"
-        inp_bg = "#2c2c2e" if is_dark else "#ffffff"
-        inp_border = "rgba(255, 255, 255, 0.12)" if is_dark else "rgba(0, 0, 0, 0.12)"
-        icon_color = "#d1d1d6" if is_dark else "#3a3a3c"
+        bg = "#161618" if is_dark else "#ede8e1"
+        border = "#3a3a3c" if is_dark else "#d4cfc8"
+        text_color = "#f5f5f7" if is_dark else "#1a1a2e"
+        inp_bg = "#2c2c2e" if is_dark else "#faf7f3"
+        inp_border = "#3a3a3c" if is_dark else "#c4bfb8"
+        icon_color = "#d1d1d6" if is_dark else "#4a4a5a"
+        accent_focus = "#ffd60a" if is_dark else "#9a5c00"
+        tip_bg = "#2c2c2e" if is_dark else "#faf7f3"
+        tip_fg = "#f2f2f7" if is_dark else "#1a1a2e"
+        tip_border = "#3a3a3c" if is_dark else "#c4bfb8"
 
         self.setStyleSheet(f"""
+            QToolTip {{
+                background-color: {tip_bg};
+                color: {tip_fg};
+                border: 1px solid {tip_border};
+                border-radius: 4px;
+                padding: 4px 8px;
+                font-size: 11px;
+            }}
             #GraphToolbar {{
                 background: {bg};
                 border-bottom: 1px solid {border};
@@ -274,7 +340,61 @@ class _GraphToolbar(QWidget):
             color: {text_color};
             letter-spacing: 0.3px;
         """)
+
+        # Checkbox: Mostrar todas las líneas
+        chk_color = "#e5e5ea" if is_dark else "#1a1a2e"
+        chk_bg = "#2c2c2e" if is_dark else "#faf7f3"
+        chk_border = "rgba(255, 255, 255, 0.30)" if is_dark else "#b4afa8"
+        chk_hover_border = "#ffd60a" if is_dark else "#9a5c00"
+        chk_hover_bg = "#3a3a3c" if is_dark else "#ede8e1"
+        chk_checked_bg = "#ffd60a" if is_dark else "#9a5c00"
+
+        self.chk_show_all.setStyleSheet(f"""
+            QToolTip {{
+                background-color: {tip_bg};
+                color: {tip_fg};
+                border: 1px solid {tip_border};
+                border-radius: 4px;
+                padding: 4px 8px;
+                font-size: 11px;
+            }}
+            QCheckBox {{
+                color: {chk_color};
+                font-size: 11px;
+                font-weight: 600;
+                spacing: 6px;
+            }}
+            QCheckBox::indicator {{
+                width: 16px;
+                height: 16px;
+                border-radius: 4px;
+                border: 1.5px solid {chk_border};
+                background: {chk_bg};
+            }}
+            QCheckBox::indicator:hover {{
+                border-color: {chk_hover_border};
+                background: {chk_hover_bg};
+            }}
+            QCheckBox::indicator:checked {{
+                background: {chk_checked_bg};
+                border-color: {chk_checked_bg};
+                image: none;
+            }}
+            QCheckBox::indicator:checked:hover {{
+                background: {'#ffe84d' if is_dark else '#b36e00'};
+                border-color: {'#ffe84d' if is_dark else '#b36e00'};
+            }}
+        """)
+
         self.search_input.setStyleSheet(f"""
+            QToolTip {{
+                background-color: {tip_bg};
+                color: {tip_fg};
+                border: 1px solid {tip_border};
+                border-radius: 4px;
+                padding: 4px 8px;
+                font-size: 11px;
+            }}
             QLineEdit {{
                 background: {inp_bg};
                 color: {text_color};
@@ -285,46 +405,15 @@ class _GraphToolbar(QWidget):
                 font-weight: 500;
             }}
             QLineEdit:focus {{
-                border: 1px solid #ffd60a;
+                border: 1px solid {accent_focus};
                 background: {'#3a3a3c' if is_dark else '#ffffff'};
             }}
         """)
-        self.combo.setStyleSheet(f"""
-            QComboBox {{
-                background: {inp_bg};
-                color: {text_color};
-                border: 1px solid {inp_border};
-                border-radius: 6px;
-                padding: 0 12px 0 10px;
-                font-size: 11px;
-                font-weight: 500;
-            }}
-            QComboBox:hover {{
-                border-color: {'rgba(255, 255, 255, 0.25)' if is_dark else 'rgba(0, 0, 0, 0.25)'};
-                background: {'#3a3a3c' if is_dark else '#f5f5f7'};
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                width: 20px;
-            }}
-            QComboBox::down-arrow {{
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 5px solid #8e8e93;
-                margin-right: 6px;
-            }}
-            QComboBox QAbstractItemView {{
-                background: {bg};
-                color: {text_color};
-                border: 1px solid {inp_border};
-                border-radius: 6px;
-                selection-background-color: #ffd60a;
-                selection-color: #000000;
-                padding: 4px;
-                outline: none;
-            }}
-        """)
+
+        combo_css = self._combo_style(is_dark)
+        self.char_combo.setStyleSheet(combo_css)
+        self.combo.setStyleSheet(combo_css)
+
         btn_style = self._btn_style(is_dark)
         self.btn_out.setIcon(qta.icon("fa5s.search-minus", color=icon_color))
         self.btn_out.setStyleSheet(btn_style)
@@ -333,11 +422,26 @@ class _GraphToolbar(QWidget):
         self.btn_fit.setIcon(qta.icon("fa5s.expand-arrows-alt", color=icon_color))
         self.btn_fit.setStyleSheet(btn_style)
 
+        self._update_completer_style()
+
     def _btn_style(self, is_dark: bool = True) -> str:
-        bg = "#2c2c2e" if is_dark else "#e5e5ea"
-        bg_hover = "#3a3a3c" if is_dark else "#d1d1d6"
-        border = "rgba(255, 255, 255, 0.12)" if is_dark else "rgba(0, 0, 0, 0.12)"
+        bg = "#2c2c2e" if is_dark else "#ede8e1"
+        bg_hover = "#3a3a3c" if is_dark else "#dedad2"
+        border = "#3a3a3c" if is_dark else "#c4bfb8"
+        accent_hover = "#ffd60a" if is_dark else "#9a5c00"
+        tip_bg = "#2c2c2e" if is_dark else "#faf7f3"
+        tip_fg = "#f2f2f7" if is_dark else "#1a1a2e"
+        tip_border = "#3a3a3c" if is_dark else "#c4bfb8"
+
         return f"""
+            QToolTip {{
+                background-color: {tip_bg};
+                color: {tip_fg};
+                border: 1px solid {tip_border};
+                border-radius: 4px;
+                padding: 4px 8px;
+                font-size: 11px;
+            }}
             QToolButton {{
                 background: {bg};
                 border: 1px solid {border};
@@ -346,9 +450,9 @@ class _GraphToolbar(QWidget):
             }}
             QToolButton:hover {{
                 background: {bg_hover};
-                border-color: #ffd60a;
+                border-color: {accent_hover};
             }}
             QToolButton:pressed {{
-                background: #ffd60a;
+                background: {accent_hover};
             }}
         """

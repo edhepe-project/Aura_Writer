@@ -167,6 +167,9 @@ class NotesControllerMixin:
         # Propagar la familia de tipografía activa al texto del HTML cargado
         if hasattr(self.editor, "_update_document_font"):
             self.editor._update_document_font(self.editor._work_font_family)
+        # Aplicar espaciado armónico de párrafo a los párrafos cargados
+        if hasattr(self.editor, "_apply_paragraph_spacing"):
+            self.editor._apply_paragraph_spacing()
         self.statusBar().showMessage(f"Editando: {chapter.title}")
         self._detect_character_mentions(chapter)
         self._refresh_char_dock()

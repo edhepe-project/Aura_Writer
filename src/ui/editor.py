@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QTextEdit, QMessageBox, QMenu, QInputDialog, QApplication
 from PyQt6.QtGui import (QTextCharFormat, QTextFormat, QFont, QTextCursor, QImage,
-                         QTextImageFormat, QAction, QTextBlock)
+                         QTextImageFormat, QAction, QTextBlock, QTextBlockFormat, QColor)
 from PyQt6.QtCore import Qt, QUrl, QMimeData
 import os
 import uuid
@@ -23,6 +23,7 @@ class AuraEditor(QTextEdit):
 
         # Margen de página nativo en el documento (cero overhead en repintado)
         self.document().setDocumentMargin(35)
+        self._paragraph_spacing: float = 8.0
 
         # Cache de imágenes para evitar destrucción por GC
         self._image_cache: list[QImage] = []
@@ -162,6 +163,22 @@ class AuraEditor(QTextEdit):
         # Re-aplicar zoom para que los nuevos fragmentos también estén escalados
         self._apply_zoom()
 
+    def _apply_paragraph_spacing(self):
+        """Aplica un espaciado sutil y armonioso (8px) al final de cada párrafo de texto."""
+        doc = self.document()
+        if doc.isEmpty():
+            return
+        block = doc.begin()
+        while block.isValid():
+            text = block.text()
+            # No alterar márgenes especiales de saltos de página o páginas en blanco
+            if "— Salto de Página —" not in text and "[ Página en Blanco ]" not in text:
+                bfmt = block.blockFormat()
+                if bfmt.bottomMargin() != self._paragraph_spacing:
+                    bfmt.setBottomMargin(self._paragraph_spacing)
+                    cursor = QTextCursor(block)
+                    cursor.setBlockFormat(bfmt)
+            block = block.next()
 
     def get_zoom_percentage(self) -> int:
         return self._zoom_percentage
@@ -251,14 +268,20 @@ class AuraEditor(QTextEdit):
         self.setFocus()
 
     def clear_formatting(self):
-        """Restablece el texto seleccionado o cursor al formato editorial estándar (Georgia 12pt Normal)."""
+        """Restablece el texto seleccionado o cursor al formato editorial estándar con la fuente de trabajo configurada."""
         fmt = QTextCharFormat()
-        fmt.setFontFamily("Georgia")
+        family = getattr(self, '_work_font_family', 'Georgia')
+        fmt.setFontFamily(family)
+        try:
+            fmt.setFontFamilies([family])
+        except Exception:
+            pass
         fmt.setFontPointSize(12)
         fmt.setFontWeight(QFont.Weight.Normal)
         fmt.setFontItalic(False)
         fmt.setFontUnderline(False)
         fmt.setFontStrikeOut(False)
+        fmt.clearProperty(QTextFormat.Property.ForegroundBrush)
         cursor = self.textCursor()
         if cursor.hasSelection():
             cursor.setCharFormat(fmt)
@@ -287,39 +310,131 @@ class AuraEditor(QTextEdit):
     # ------------------------------------------------------------------
 
     def insert_scene_separator(self):
+        """Inserta un separador de escena (* * *) centrado y deja el cursor listo en un bloque limpio."""
         cursor = self.textCursor()
-        cursor.insertBlock()
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        fmt = QTextCharFormat()
-        fmt.setFontWeight(QFont.Weight.Bold)
-        cursor.insertText("* * *", fmt)
-        cursor.insertBlock()
-        self.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        cursor.beginEditBlock()
+        try:
+            cursor.insertBlock()
+            sep_block_fmt = cursor.blockFormat()
+            sep_block_fmt.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            cursor.setBlockFormat(sep_block_fmt)
+            
+            sep_fmt = QTextCharFormat()
+            sep_fmt.setFontWeight(QFont.Weight.Bold)
+            cursor.insertText("* * *", sep_fmt)
+            
+            # Nuevo bloque limpio para continuar redactando
+            cursor.insertBlock()
+            body_block_fmt = cursor.blockFormat()
+            body_block_fmt.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            cursor.setBlockFormat(body_block_fmt)
+            
+            clean_fmt = QTextCharFormat()
+            family = getattr(self, '_work_font_family', 'Georgia')
+            clean_fmt.setFontFamily(family)
+            clean_fmt.setFontWeight(QFont.Weight.Normal)
+            clean_fmt.setFontItalic(False)
+            clean_fmt.setFontUnderline(False)
+            clean_fmt.setFontStrikeOut(False)
+            clean_fmt.clearProperty(QTextFormat.Property.ForegroundBrush)
+            cursor.setCharFormat(clean_fmt)
+        finally:
+            cursor.endEditBlock()
+            
+        self.setTextCursor(cursor)
+        self.setCurrentCharFormat(clean_fmt)
+        self.ensureCursorVisible()
+        self.setFocus()
 
     def insert_page_break(self):
-        """Inserta un salto de página para exportación PDF/EPUB."""
+        """Inserta un salto de página con espaciado visual simétrico arriba y abajo."""
         cursor = self.textCursor()
-        cursor.insertBlock()
-        cursor.insertHtml(
-            '<p style="page-break-after:always; text-align:center; color:#8e8e93;'
-            ' margin:16px 0; border-top:1px dashed #a1a1aa; border-bottom:1px dashed #a1a1aa;'
-            ' padding:4px 0; font-size:11px; font-style:italic; user-select:none;">'
-            '— Salto de Página —</p>'
-        )
-        cursor.insertBlock()
+        family = getattr(self, '_work_font_family', 'Georgia')
+        clean_fmt = QTextCharFormat()
+        clean_fmt.setFontFamily(family)
+        clean_fmt.setFontWeight(QFont.Weight.Normal)
+        clean_fmt.setFontItalic(False)
+        clean_fmt.setFontUnderline(False)
+        clean_fmt.setFontStrikeOut(False)
+        clean_fmt.clearProperty(QTextFormat.Property.ForegroundBrush)
+        clean_fmt.clearProperty(QTextFormat.Property.FontPointSize)
+
+        cursor.beginEditBlock()
+        try:
+            # Bloque del marcador con margen abajo para separar visualmente el texto siguiente
+            cursor.insertBlock()
+            marker_bfmt = cursor.blockFormat()
+            marker_bfmt.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            marker_bfmt.setTopMargin(16)
+            marker_bfmt.setBottomMargin(16)
+            cursor.setBlockFormat(marker_bfmt)
+
+            marker_cfmt = QTextCharFormat()
+            marker_cfmt.setFontFamily(family)
+            marker_cfmt.setFontPointSize(10)
+            marker_cfmt.setFontItalic(True)
+            marker_cfmt.setForeground(QColor("#8e8e93"))
+            cursor.insertText("— Salto de Página —", marker_cfmt)
+
+            # Bloque limpio donde queda el cursor listo para escribir (sin spacer extra)
+            cursor.insertBlock()
+            post_bfmt = cursor.blockFormat()
+            post_bfmt.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            post_bfmt.setTopMargin(0)
+            post_bfmt.setBottomMargin(0)
+            cursor.setBlockFormat(post_bfmt)
+            cursor.setCharFormat(clean_fmt)
+        finally:
+            cursor.endEditBlock()
+
+        self.setTextCursor(cursor)
+        self.setCurrentCharFormat(clean_fmt)
+        self.ensureCursorVisible()
         self.setFocus()
 
     def insert_blank_page(self):
-        """Inserta una página en blanco para control de paginación editorial."""
+        """Inserta una página en blanco con espaciado visual simétrico."""
         cursor = self.textCursor()
-        cursor.insertBlock()
-        cursor.insertHtml(
-            '<p style="page-break-after:always; text-align:center; color:#8e8e93;'
-            ' margin:20px 0; border:1px dashed #a1a1aa; border-radius:4px;'
-            ' padding:12px 0; font-size:12px; font-style:italic; background:rgba(128,128,128,0.08); user-select:none;">'
-            '[ Página en Blanco ]</p>'
-        )
-        cursor.insertBlock()
+        family = getattr(self, '_work_font_family', 'Georgia')
+        clean_fmt = QTextCharFormat()
+        clean_fmt.setFontFamily(family)
+        clean_fmt.setFontWeight(QFont.Weight.Normal)
+        clean_fmt.setFontItalic(False)
+        clean_fmt.setFontUnderline(False)
+        clean_fmt.setFontStrikeOut(False)
+        clean_fmt.clearProperty(QTextFormat.Property.ForegroundBrush)
+        clean_fmt.clearProperty(QTextFormat.Property.FontPointSize)
+
+        cursor.beginEditBlock()
+        try:
+            cursor.insertBlock()
+            marker_bfmt = cursor.blockFormat()
+            marker_bfmt.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            marker_bfmt.setTopMargin(16)
+            marker_bfmt.setBottomMargin(16)
+            cursor.setBlockFormat(marker_bfmt)
+
+            marker_cfmt = QTextCharFormat()
+            marker_cfmt.setFontFamily(family)
+            marker_cfmt.setFontPointSize(10)
+            marker_cfmt.setFontItalic(True)
+            marker_cfmt.setForeground(QColor("#8e8e93"))
+            cursor.insertText("[ Página en Blanco ]", marker_cfmt)
+
+            # Bloque limpio donde queda el cursor listo para escribir
+            cursor.insertBlock()
+            post_bfmt = cursor.blockFormat()
+            post_bfmt.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            post_bfmt.setTopMargin(0)
+            post_bfmt.setBottomMargin(0)
+            cursor.setBlockFormat(post_bfmt)
+            cursor.setCharFormat(clean_fmt)
+        finally:
+            cursor.endEditBlock()
+
+        self.setTextCursor(cursor)
+        self.setCurrentCharFormat(clean_fmt)
+        self.ensureCursorVisible()
         self.setFocus()
 
     # ------------------------------------------------------------------
@@ -491,10 +606,28 @@ class AuraEditor(QTextEdit):
         menu.addSeparator()
 
         # ── Formato de Texto ──
-        act_bold = menu.addAction(qta.icon("fa5s.bold", color=_ic), "Negrita\tCtrl+B")
-        act_italic = menu.addAction(qta.icon("fa5s.italic", color=_ic), "Cursiva\tCtrl+I")
-        act_underline = menu.addAction(qta.icon("fa5s.underline", color=_ic), "Subrayado\tCtrl+U")
-        act_strike = menu.addAction(qta.icon("fa5s.strikethrough", color=_ic), "Tachado\tCtrl+K")
+        curr_fmt = self.currentCharFormat()
+        is_bold = (curr_fmt.fontWeight() >= 600 or self.fontWeight() >= 600)
+        is_italic = (curr_fmt.fontItalic() or self.fontItalic())
+        is_underline = (curr_fmt.fontUnderline() or self.fontUnderline())
+        is_strike = curr_fmt.fontStrikeOut()
+
+        act_bold = menu.addAction(qta.icon("fa5s.bold", color=_accent if is_bold else _ic), "Negrita\tCtrl+B")
+        act_bold.setCheckable(True)
+        act_bold.setChecked(is_bold)
+
+        act_italic = menu.addAction(qta.icon("fa5s.italic", color=_accent if is_italic else _ic), "Cursiva\tCtrl+I")
+        act_italic.setCheckable(True)
+        act_italic.setChecked(is_italic)
+
+        act_underline = menu.addAction(qta.icon("fa5s.underline", color=_accent if is_underline else _ic), "Subrayado\tCtrl+U")
+        act_underline.setCheckable(True)
+        act_underline.setChecked(is_underline)
+
+        act_strike = menu.addAction(qta.icon("fa5s.strikethrough", color=_accent if is_strike else _ic), "Tachado\tCtrl+K")
+        act_strike.setCheckable(True)
+        act_strike.setChecked(is_strike)
+
         act_clean = menu.addAction(qta.icon("fa5s.eraser", color=_clean_ic), "Limpiar formato\tCtrl+\\")
 
         menu.addSeparator()
@@ -503,6 +636,7 @@ class AuraEditor(QTextEdit):
         act_dot = menu.addAction(qta.icon("fa5s.circle", color=_accent), "Punto medio conlang (·)\tCtrl+.")
         act_dash = menu.addAction(qta.icon("fa5s.minus", color=_accent), "Raya de diálogo (—)\tCtrl+-")
         act_sep = menu.addAction(qta.icon("fa5s.asterisk", color=_accent), "Separador de escena (* * *)\tCtrl+Shift+S")
+        act_pb = menu.addAction(qta.icon("fa5s.cut", color=_danger), "Salto de página")
 
         chosen = menu.exec(self.viewport().mapToGlobal(pos))
         if not chosen:
@@ -537,7 +671,9 @@ class AuraEditor(QTextEdit):
         elif chosen == act_dash:
             self.insert_em_dash()
         elif chosen == act_sep:
-            self.insert_scene_break()
+            self.insert_scene_separator()
+        elif chosen == act_pb:
+            self.insert_page_break()
 
     def _delete_image_at_cursor(self, cursor: QTextCursor):
         """Selecciona y borra el carácter de imagen bajo el cursor.
@@ -608,11 +744,14 @@ class AuraEditor(QTextEdit):
 
     def insert_em_dash(self):
         """Inserta la raya / guion largo (—) de diálogo literario."""
-        self.textCursor().insertText("—")
+        self.insertPlainText("—")
+        self.ensureCursorVisible()
+        self.setFocus()
 
     def insert_middle_dot(self):
         """Inserta el punto medio (·) para conlangs, morfología y fonética."""
-        self.textCursor().insertText("·")
+        self.insertPlainText("·")
+        self.ensureCursorVisible()
         self.setFocus()
 
     # ------------------------------------------------------------------
@@ -621,6 +760,39 @@ class AuraEditor(QTextEdit):
 
     def keyPressEvent(self, event):
         """Intercepta Delete/Backspace para imágenes, atajos de guion largo, atajos de formato y auto-conversión de '--' a '—'."""
+
+        # ── Enter / Retorno: manejo explícito garantizado ──────────────────────
+        # Qt puede a veces "perder" el Enter en medio de la cadena de señales
+        # (cursorPositionChanged → _update_format_actions → lecturas de formato).
+        # Al insertar el bloque directamente aquí nos aseguramos de que siempre baje.
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and not event.modifiers():
+            # Reproducir sonido de Enter antes de procesar
+            try:
+                from core.sound_manager import AuraSoundEngine
+                engine = AuraSoundEngine.instance()
+                if engine.enabled:
+                    engine.on_key_pressed(text=event.text(), is_enter=True)
+            except Exception:
+                pass
+            cursor = self.textCursor()
+            if cursor.hasSelection():
+                cursor.removeSelectedText()
+            # Asegurar que el párrafo previo mantenga la separación
+            curr_bfmt = cursor.blockFormat()
+            curr_text = cursor.block().text()
+            if "— Salto de Página —" not in curr_text and "[ Página en Blanco ]" not in curr_text:
+                curr_bfmt.setBottomMargin(self._paragraph_spacing)
+                cursor.setBlockFormat(curr_bfmt)
+
+            # Insertar nuevo párrafo con espaciado de párrafo
+            new_bfmt = QTextBlockFormat()
+            new_bfmt.setAlignment(curr_bfmt.alignment())
+            new_bfmt.setBottomMargin(self._paragraph_spacing)
+            cursor.insertBlock(new_bfmt)
+            self.setTextCursor(cursor)
+            self.ensureCursorVisible()
+            return
+
         # ── Motor de sonido Aura Singularity ──
         try:
             from core.sound_manager import AuraSoundEngine
@@ -693,7 +865,8 @@ class AuraEditor(QTextEdit):
                 check.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.KeepAnchor, 1)
                 if check.selectedText() == "-":
                     check.removeSelectedText()
-                    cursor.insertText("—")
+                    check.insertText("—")
+                    self.setTextCursor(check)
                     return
 
         # ── Manejo de imágenes con Delete / Backspace ──

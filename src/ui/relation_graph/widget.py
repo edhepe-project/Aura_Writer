@@ -43,6 +43,7 @@ class RelationGraphWidget(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
+        self._root_layout = root
 
         # Toolbar
         self._toolbar = _GraphToolbar(self)
@@ -92,7 +93,19 @@ class RelationGraphWidget(QWidget):
         is_dark = self._is_dark_theme
         bg_bar = "#161618" if is_dark else "#ede8e1"
         b_border = "#2c2c2e" if is_dark else "#d4cfc8"
+        tip_bg = "#2c2c2e" if is_dark else "#faf7f3"
+        tip_fg = "#f2f2f7" if is_dark else "#1a1a2e"
+        tip_b = "#3a3a3c" if is_dark else "#c4bfb8"
+
         bar.setStyleSheet(f"""
+            QToolTip {{
+                background-color: {tip_bg};
+                color: {tip_fg};
+                border: 1px solid {tip_b};
+                border-radius: 4px;
+                padding: 4px 8px;
+                font-size: 11px;
+            }}
             QFrame {{
                 background-color: {bg_bar};
                 border-top: 1px solid {b_border};
@@ -427,9 +440,18 @@ class RelationGraphWidget(QWidget):
     # ------------------------------------------------------------------
     # Theme Support
     # ------------------------------------------------------------------
+    def _update_legend_bar_theme(self, is_dark: bool):
+        if hasattr(self, "_legend_bar") and self._legend_bar is not None and hasattr(self, "_root_layout"):
+            self._root_layout.removeWidget(self._legend_bar)
+            self._legend_bar.setParent(None)
+            self._legend_bar.deleteLater()
+            self._legend_bar = self._build_legend_bar()
+            self._root_layout.addWidget(self._legend_bar)
+
     def update_theme(self, is_dark: bool):
         self._is_dark_theme = is_dark
         self._toolbar.update_theme(is_dark)
         self._side_panel.update_theme(is_dark)
         self._scene.update_theme(is_dark)
+        self._update_legend_bar_theme(is_dark)
 

@@ -41,6 +41,8 @@ class CharacterDock(QWidget):
         self._obras: list = []
         self._current_char: Character | None = None
         self._loading = False
+        self._last_context_type: str | None = None
+        self._last_context_args: tuple | None = None
 
         self._build_ui()
 
@@ -103,18 +105,7 @@ class CharacterDock(QWidget):
         self._search_input = QLineEdit()
         self._search_input.setPlaceholderText("🔍 Buscar personaje...")
         self._search_input.setClearButtonEnabled(True)
-        self._search_input.setStyleSheet("""
-            QLineEdit {
-                border-radius: 4px;
-                padding: 4px 8px;
-                font-size: 11px;
-                background-color: rgba(255, 255, 255, 0.07);
-                border: 1px solid rgba(255, 255, 255, 0.12);
-            }
-            QLineEdit:focus {
-                border: 1px solid #30d158;
-            }
-        """)
+        self._update_search_style(ThemeManager.is_dark())
         self._search_input.textChanged.connect(self._on_search_text_changed)
         tl.addWidget(self._search_input)
 
@@ -153,6 +144,26 @@ class CharacterDock(QWidget):
     # ------------------------------------------------------------------
     # Helpers de estilo
     # ------------------------------------------------------------------
+
+    def _update_search_style(self, is_dark: bool = True):
+        bg = "#2c2c2e" if is_dark else "#faf7f3"
+        fg = "#f2f2f7" if is_dark else "#1a1a2e"
+        border = "#3a3a3c" if is_dark else "#c4bfb8"
+        focus_border = "#30d158" if is_dark else "#16a34a"
+        if hasattr(self, "_search_input"):
+            self._search_input.setStyleSheet(f"""
+                QLineEdit {{
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                    font-size: 11px;
+                    background-color: {bg};
+                    color: {fg};
+                    border: 1px solid {border};
+                }}
+                QLineEdit:focus {{
+                    border: 1px solid {focus_border};
+                }}
+            """)
 
     def _icon_btn(self, icon_name: str, color: str, tooltip: str) -> QPushButton:
         btn = QPushButton()
@@ -566,6 +577,8 @@ class CharacterDock(QWidget):
 
     def update_appearances(self, chapters_data: list[tuple]):
         """Muestra las apariciones del personaje seleccionado."""
+        self._last_context_type = "appearances"
+        self._last_context_args = (chapters_data,)
         self._list_appear.clear()
         if not self._current_char:
             return
@@ -584,6 +597,8 @@ class CharacterDock(QWidget):
                                     characters_in_chapter: list[Character],
                                     obra_title: str, libro_title: str):
         """Muestra qué personajes interactúan en el capítulo seleccionado."""
+        self._last_context_type = "chapter"
+        self._last_context_args = (chapter_title, characters_in_chapter, obra_title, libro_title)
         self._list_appear.clear()
         self._context_label.setText("PERSONAJES EN CAPÍTULO")
         self._context_sublabel.setText(
@@ -593,7 +608,8 @@ class CharacterDock(QWidget):
         self._context_sublabel.show()
         if not characters_in_chapter:
             item = QListWidgetItem("  (ningún personaje detectado)")
-            item.setForeground(QColor("#636366"))
+            is_dark = ThemeManager.is_dark()
+            item.setForeground(QColor("#8e8e93" if is_dark else "#6b7280"))
             self._list_appear.addItem(item)
             return
         self._populate_character_list_items(characters_in_chapter)
@@ -602,6 +618,8 @@ class CharacterDock(QWidget):
                                  characters_in_obra: list[Character],
                                  chapter_count: int):
         """Muestra qué personajes aparecen en la obra seleccionada."""
+        self._last_context_type = "obra"
+        self._last_context_args = (obra_title, characters_in_obra, chapter_count)
         self._list_appear.clear()
         self._context_label.setText("PERSONAJES EN OBRA")
         self._context_sublabel.setText(
@@ -611,7 +629,8 @@ class CharacterDock(QWidget):
         self._context_sublabel.show()
         if not characters_in_obra:
             item = QListWidgetItem("  (ningún personaje detectado)")
-            item.setForeground(QColor("#636366"))
+            is_dark = ThemeManager.is_dark()
+            item.setForeground(QColor("#8e8e93" if is_dark else "#6b7280"))
             self._list_appear.addItem(item)
             return
         self._populate_character_list_items(characters_in_obra)
@@ -620,6 +639,8 @@ class CharacterDock(QWidget):
                                   characters_in_libro: list[Character],
                                   chapter_count: int):
         """Muestra qué personajes aparecen en el libro seleccionado."""
+        self._last_context_type = "libro"
+        self._last_context_args = (libro_title, obra_title, characters_in_libro, chapter_count)
         self._list_appear.clear()
         self._context_label.setText("PERSONAJES EN LIBRO")
         self._context_sublabel.setText(
@@ -629,7 +650,8 @@ class CharacterDock(QWidget):
         self._context_sublabel.show()
         if not characters_in_libro:
             item = QListWidgetItem("  (ningún personaje detectado)")
-            item.setForeground(QColor("#636366"))
+            is_dark = ThemeManager.is_dark()
+            item.setForeground(QColor("#8e8e93" if is_dark else "#6b7280"))
             self._list_appear.addItem(item)
             return
         self._populate_character_list_items(characters_in_libro)
@@ -638,6 +660,8 @@ class CharacterDock(QWidget):
                                      all_characters: list[Character],
                                      total_chapters: int, total_obras: int):
         """Muestra un resumen de todos los personajes del universo."""
+        self._last_context_type = "universe"
+        self._last_context_args = (title, all_characters, total_chapters, total_obras)
         self._list_appear.clear()
         self._context_label.setText("RESUMEN DEL UNIVERSO")
         self._context_sublabel.setText(
@@ -649,21 +673,31 @@ class CharacterDock(QWidget):
 
     def _populate_character_list_items(self, char_list: list[Character]):
         """Helper para renderizar una lista de personajes en el panel inferior."""
+        is_dark = ThemeManager.is_dark()
         role_icons = {
             "Protagonista": "⭐", "Antagonista": "🔴",
             "Secundario": "🔵", "Misterioso": "🟣", "Otro": "⚪"
         }
-        role_colors = {
-            "Protagonista": "#ffd60a", "Antagonista": "#ff453a",
-            "Misterioso": "#bf5af2", "Secundario": "#f2f2f7",
-            "Otro": "#8e8e93"
-        }
+        if is_dark:
+            role_colors = {
+                "Protagonista": "#ffd60a", "Antagonista": "#ff453a",
+                "Misterioso":   "#bf5af2", "Secundario":   "#f2f2f7",
+                "Otro":         "#aeaeb2"
+            }
+        else:
+            role_colors = {
+                "Protagonista": "#b45309", "Antagonista": "#dc2626",
+                "Misterioso":   "#7c3aed", "Secundario":   "#111827",
+                "Otro":         "#4b5563"
+            }
+        default_color = "#f2f2f7" if is_dark else "#111827"
+
         for char in char_list:
             icon = role_icons.get(char.role, "⚪")
             item = QListWidgetItem(f"{icon} {char.name}  ·  {char.role}")
             item.setData(Qt.ItemDataRole.UserRole, char.id)
             item.setData(Qt.ItemDataRole.UserRole + 1, "character")
-            item.setForeground(QColor(role_colors.get(char.role, "#f2f2f7")))
+            item.setForeground(QColor(role_colors.get(char.role, default_color)))
             self._list_appear.addItem(item)
 
     def _on_appearance_clicked(self, item: QListWidgetItem):
@@ -689,6 +723,27 @@ class CharacterDock(QWidget):
         if char:
             self._current_char = char
             self._select_tree_by_char_id(char_id)
+
+    # ------------------------------------------------------------------
+    # Soporte de Tema
+    # ------------------------------------------------------------------
+
+    def update_theme(self):
+        """Actualiza todos los colores del árbol y panel contextual al cambiar de tema."""
+        is_dark = ThemeManager.is_dark()
+        self._update_search_style(is_dark)
+        self._rebuild_tree()
+
+        if self._last_context_type == "appearances" and self._last_context_args:
+            self.update_appearances(*self._last_context_args)
+        elif self._last_context_type == "chapter" and self._last_context_args:
+            self.update_context_for_chapter(*self._last_context_args)
+        elif self._last_context_type == "obra" and self._last_context_args:
+            self.update_context_for_obra(*self._last_context_args)
+        elif self._last_context_type == "libro" and self._last_context_args:
+            self.update_context_for_libro(*self._last_context_args)
+        elif self._last_context_type == "universe" and self._last_context_args:
+            self.update_context_for_universe(*self._last_context_args)
 
     # ------------------------------------------------------------------
     # Compatibilidad: _save_current_card (lo llama main_window)

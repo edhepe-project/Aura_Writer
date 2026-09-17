@@ -129,7 +129,7 @@ class CharacterNode(QGraphicsEllipseItem):
 
         # Opacidad reducida si otro nodo está seleccionado
         if self._is_dimmed and not self._is_focused:
-            painter.setOpacity(0.12)
+            painter.setOpacity(0.12 if is_dark else 0.28)
         else:
             painter.setOpacity(1.0)
 
@@ -139,19 +139,19 @@ class CharacterNode(QGraphicsEllipseItem):
         if lod >= 0.15:
             if self._is_focused:
                 aura_spread = r * 0.75 + 16.0
-                aura_alpha = 0.55
+                aura_alpha = 0.55 if is_dark else 0.40
             elif shape == "circle":
                 aura_spread = r * 0.65 + 14.0
-                aura_alpha = 0.45
+                aura_alpha = 0.45 if is_dark else 0.32
             elif self._tier == "core":
                 aura_spread = r * 0.50 + 10.0
-                aura_alpha = 0.35
+                aura_alpha = 0.35 if is_dark else 0.25
             elif self._tier == "primary":
                 aura_spread = r * 0.40 + 6.0
-                aura_alpha = 0.22
+                aura_alpha = 0.22 if is_dark else 0.16
             else:
                 aura_spread = r * 0.30 + 4.0
-                aura_alpha = 0.14
+                aura_alpha = 0.14 if is_dark else 0.10
 
             aura_r = r + aura_spread
             hgrad = QRadialGradient(0, 0, aura_r)
@@ -180,16 +180,19 @@ class CharacterNode(QGraphicsEllipseItem):
         grad = QRadialGradient(-r * 0.35, -r * 0.35, r * 1.35)
         if self._tier == "core":
             grad.setColorAt(0.00, QColor("#ffffff"))
-            grad.setColorAt(0.35, c.lighter(160))
+            grad.setColorAt(0.35, c.lighter(160) if is_dark else c.lighter(125))
             grad.setColorAt(0.75, c)
-            grad.setColorAt(1.00, c.darker(140))
+            grad.setColorAt(1.00, c.darker(140) if is_dark else c.darker(120))
         else:
-            grad.setColorAt(0.00, c.lighter(140))
+            grad.setColorAt(0.00, c.lighter(140) if is_dark else c.lighter(120))
             grad.setColorAt(0.60, c)
-            grad.setColorAt(1.00, c.darker(150))
+            grad.setColorAt(1.00, c.darker(150) if is_dark else c.darker(125))
 
         painter.setBrush(QBrush(grad))
-        border_pen = QPen(c.lighter(160) if self._tier == "core" else c.lighter(130), 2.0 if self._tier == "core" else 1.2)
+        if is_dark:
+            border_pen = QPen(c.lighter(160) if self._tier == "core" else c.lighter(130), 2.0 if self._tier == "core" else 1.2)
+        else:
+            border_pen = QPen(c.darker(130) if self._tier == "core" else c.darker(120), 2.2 if self._tier == "core" else 1.6)
         painter.setPen(border_pen)
         if shape == "circle":
             painter.drawEllipse(QPointF(0, 0), r, r)
@@ -199,7 +202,8 @@ class CharacterNode(QGraphicsEllipseItem):
         # 3. Anillo de enfoque / selección
         if self._is_focused:
             ring_r = r + 7
-            painter.setPen(QPen(c.lighter(180), 3.0))
+            ring_pen = QPen(c.lighter(180) if is_dark else c.darker(135), 3.0)
+            painter.setPen(ring_pen)
             painter.setBrush(QBrush(Qt.BrushStyle.NoBrush))
             if shape == "circle":
                 painter.drawEllipse(QPointF(0, 0), ring_r, ring_r)
@@ -218,9 +222,9 @@ class CharacterNode(QGraphicsEllipseItem):
         if show_name:
             font_to_use = self._font_name_large if (lod < 0.40 or self._is_focused) else self._font_name
             painter.setFont(font_to_use)
-            name_col = QColor("#ffffff" if is_dark else "#111118")
+            name_col = QColor("#ffffff" if is_dark else "#1a1a2e")
             if self._is_dimmed and not self._is_focused:
-                name_col.setAlphaF(0.35)
+                name_col.setAlphaF(0.35 if is_dark else 0.45)
             painter.setPen(QPen(name_col))
             
             text_w = max(240.0, r * 4.5)

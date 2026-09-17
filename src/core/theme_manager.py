@@ -72,10 +72,12 @@ DARK_STYLESHEET = """
     }
     QToolBar QToolButton {
         background: transparent; color: #aeaeb2;
-        border: none; border-radius: 6px; padding: 4px 8px;
+        border: 1px solid transparent; border-radius: 6px; padding: 4px 8px;
     }
     QToolBar QToolButton:hover { background: #2c2c2e; color: #f2f2f7; }
     QToolBar QToolButton:pressed { background: #3a3a3c; }
+    QToolBar QToolButton:checked { background: #3a3a3c; color: #ffd60a; border: 1px solid #ffd60a; }
+    QToolBar QToolButton:checked:hover { background: #48484a; border-color: #ffe84d; }
 
     QStatusBar {
         background: #1c1c1e; color: #8e8e93;
@@ -290,10 +292,12 @@ LIGHT_STYLESHEET = """
     }
     QToolBar QToolButton {
         background: transparent; color: #4a4a5a;
-        border: none; border-radius: 6px; padding: 4px 8px;
+        border: 1px solid transparent; border-radius: 6px; padding: 4px 8px;
     }
     QToolBar QToolButton:hover { background: #dedad2; color: #1a1a2e; }
     QToolBar QToolButton:pressed { background: #cfc9c0; }
+    QToolBar QToolButton:checked { background: #dedad2; color: #9a5c00; border: 1px solid #b36e00; }
+    QToolBar QToolButton:checked:hover { background: #cfc9c0; border-color: #804c00; }
 
     QStatusBar {
         background: #ede8e1; color: #7a7a8a;
