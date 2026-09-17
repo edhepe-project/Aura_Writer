@@ -77,6 +77,105 @@ class RelationGraphWidget(QWidget):
 
         root.addWidget(content_widget, stretch=1)
 
+        # Barra Inferior de Leyenda de Relaciones (Memoria ultra-ligera y fácil lectura)
+        self._legend_bar = self._build_legend_bar()
+        root.addWidget(self._legend_bar)
+
+    def _build_legend_bar(self) -> QWidget:
+        from PyQt6.QtWidgets import QLabel, QFrame
+        from core.models import RELATION_ICONS
+        from .models import RELATION_STYLES
+
+        bar = QFrame(self)
+        bar.setFixedHeight(34)
+        is_dark = self._is_dark_theme
+        bg_bar = "#161618" if is_dark else "#ede8e1"
+        b_border = "#2c2c2e" if is_dark else "#d4cfc8"
+        bar.setStyleSheet(f"""
+            QFrame {{
+                background-color: {bg_bar};
+                border-top: 1px solid {b_border};
+            }}
+        """)
+
+        layout = QHBoxLayout(bar)
+        layout.setContentsMargins(12, 0, 12, 0)
+        layout.setSpacing(10)
+
+        title = QLabel("LÍNEAS:")
+        fg_title = "#8e8e93" if is_dark else "#7a7a8a"
+        title.setStyleSheet(f"color: {fg_title}; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;")
+        layout.addWidget(title)
+
+        # Tipos de relación compactos
+        legend_types = [
+            ("pareja", "Pareja"),
+            ("familiar", "Familiar"),
+            ("descendiente", "Descend."),
+            ("amigo", "Amigo"),
+            ("mentor", "Mentor"),
+            ("rival", "Rival"),
+            ("otro", "Otro"),
+        ]
+
+        for r_key, r_name in legend_types:
+            style = RELATION_STYLES.get(r_key, RELATION_STYLES["otro"])
+            color = style["color"]
+            icon = RELATION_ICONS.get(r_key, "•")
+
+            item_widget = QWidget(bar)
+            item_layout = QHBoxLayout(item_widget)
+            item_layout.setContentsMargins(0, 0, 0, 0)
+            item_layout.setSpacing(4)
+
+            # Muestra de línea
+            line_sample = QFrame(item_widget)
+            line_sample.setFixedSize(14, 3)
+            line_sample.setStyleSheet(f"background-color: {color}; border-radius: 1px;")
+            item_layout.addWidget(line_sample)
+
+            lbl = QLabel(f"{icon} {r_name}", item_widget)
+            fg_item = "#d1d1d6" if is_dark else "#2c2c2e"
+            lbl.setStyleSheet(f"color: {fg_item}; font-size: 10.5px; font-weight: 600;")
+            item_layout.addWidget(lbl)
+            layout.addWidget(item_widget)
+
+        layout.addStretch()
+
+        # Separador vertical
+        sep = QFrame(bar)
+        sep.setFrameShape(QFrame.Shape.VLine)
+        sep.setStyleSheet(f"background-color: {b_border}; max-height: 14px;")
+        layout.addWidget(sep)
+
+        # Leyenda de Jerarquía Geométrica Compacta con Tooltip
+        geom_title = QLabel("JERARQUÍA:", bar)
+        geom_title.setStyleSheet(f"color: {fg_title}; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;")
+        geom_title.setToolTip(
+            "Escala Geométrica por Conexiones:\n"
+            "▲ 3L (1-2) | ⯁ 4L (3-5) | ⬟ 5L (6-9)\n"
+            "⬢ 6L (10-14) | ⬡ 7L (15-22) | 🛑 8L (23-35)\n"
+            "💎 10L (36-55) | 🔷 12L (56-79) | 🔮 20L (80-99)\n"
+            "● Círculo Radiante (100+ conexiones / Núcleo Mítico)"
+        )
+        layout.addWidget(geom_title)
+
+        geom_chips = [
+            ("▲", "3L"),
+            ("⯁", "4L"),
+            ("⬢", "6L"),
+            ("🛑", "8L"),
+            ("💎", "10L"),
+            ("●", "100+"),
+        ]
+        for symbol, g_label in geom_chips:
+            g_lbl = QLabel(f"{symbol} {g_label}", bar)
+            g_lbl.setStyleSheet(f"color: {'#a1a1a6' if is_dark else '#48484a'}; font-size: 10.5px; font-weight: 600;")
+            g_lbl.setToolTip("Pasa el cursor sobre JERARQUÍA para ver todos los niveles detallados.")
+            layout.addWidget(g_lbl)
+
+        return bar
+
     # ------------------------------------------------------------------
     # Data Loading & Layout
     # ------------------------------------------------------------------
@@ -203,17 +302,12 @@ class RelationGraphWidget(QWidget):
             else:
                 rel_objs.append(r)
 
-        if len(filtered_characters) > 150:
-            worker = LayoutWorker(char_map, self._metrics_map, rel_objs)
-            worker.signals.finished.connect(lambda pos, cr: self._apply_layout_result(pos, filtered_characters, filtered_relations))
-            QThreadPool.globalInstance().start(worker)
-        else:
-            positions, core_radius = compute_graph_layout(
-                char_map,
-                self._metrics_map,
-                rel_objs
-            )
-            self._apply_layout_result(positions, filtered_characters, filtered_relations)
+        positions, core_radius = compute_graph_layout(
+            char_map,
+            self._metrics_map,
+            rel_objs
+        )
+        self._apply_layout_result(positions, filtered_characters, filtered_relations)
 
     def _apply_layout_result(self, positions: dict, filtered_characters: list, filtered_relations: list):
         # Populate scene
@@ -264,20 +358,30 @@ class RelationGraphWidget(QWidget):
             self._on_background_clicked()
 
     def _jump_to_character(self, char_id: str):
-        """Focus on character node, center view, and update side panel."""
+        """Vuela la cámara al personaje y hace zoom en su radio de influencia (él + vecinos directos)."""
         self._active_focus_id = char_id
         self._toolbar.select_character_id(char_id)
-        node = self._scene.get_node(char_id)
-        if node:
-            self._view.centerOn(node)
         self._scene._set_focus(char_id)
         self.character_clicked.emit(char_id)
+
+        node = self._scene.get_node(char_id)
+        if node:
+            # Recopilar nodos vecinos directos para calcular el radio de influencia
+            neighbor_nodes = []
+            for edge in self._scene._edges:
+                if edge.source.char_id == char_id:
+                    neighbor_nodes.append(edge.target)
+                elif edge.target.char_id == char_id:
+                    neighbor_nodes.append(edge.source)
+            # Animar cámara al radio de influencia
+            self._view.center_on_character(node, neighbor_nodes, animate=True)
 
         char = next((c for c in self._characters if str(c.get("id") if isinstance(c, dict) else getattr(c, "id", "")) == str(char_id)), None)
         if char:
             rels = [r for r in self._relations if str(r.get("source") if isinstance(r, dict) else getattr(r, "char_id_a", getattr(r, "source", ""))) == str(char_id) or str(r.get("target") if isinstance(r, dict) else getattr(r, "char_id_b", getattr(r, "target", ""))) == str(char_id)]
             m = self._metrics_map.get(str(char_id), CharacterMetrics())
             self._side_panel.display_character(char, rels, self._characters, m)
+
 
     def _on_node_clicked(self, char_id: str):
         self._active_focus_id = char_id

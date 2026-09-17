@@ -2,13 +2,19 @@
 Módulo de Escena y Vista Gráfica: GraphScene y RelationGraphView.
 """
 
-from typing import Optional
+from typing import Optional, Dict, Set, List
 from PyQt6.QtWidgets import (
     QGraphicsScene, QGraphicsView, QGraphicsItem,
     QGraphicsEllipseItem, QGraphicsTextItem, QFrame,
 )
-from PyQt6.QtCore import Qt, QRectF, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor, QPainter
+from PyQt6.QtCore import Qt, QRectF, QPointF, QTimeLine, pyqtSignal
+from PyQt6.QtGui import QBrush, QColor, QPainter, QTransform, QSurfaceFormat
+
+try:
+    from PyQt6.QtOpenGLWidgets import QOpenGLWidget
+    _OPENGL_AVAILABLE = True
+except Exception:
+    _OPENGL_AVAILABLE = False
 
 from core.models import Character
 from core.theme_manager import ThemeManager
@@ -16,7 +22,7 @@ from .models import DIM_ALPHA, CHARACTER_PALETTE, CharacterMetrics
 from .items import CharacterNode, RelationEdge, CleanBackground
 
 
-# ── Escena Gráfica ────────────────────────────────────────────────────────────
+# ── Escena Gráfica de Alto Rendimiento ────────────────────────────────────────
 
 class GraphScene(QGraphicsScene):
     character_focused = pyqtSignal(str)
@@ -28,16 +34,21 @@ class GraphScene(QGraphicsScene):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setItemIndexMethod(QGraphicsScene.ItemIndexMethod.BspTreeIndex)
-        self.setBspTreeDepth(14)
+        self.setBspTreeDepth(16)
         self._focused_id: Optional[str] = None
         self._nodes: dict[str, CharacterNode] = {}
         self._edges: list[RelationEdge] = []
-        self._bg_item: Optional[CleanBackground] = None
+        # Índices de adyacencia O(1) para navegación instantánea
+        self._adj_nodes: Dict[str, Set[str]] = {}
+        self._adj_edges: Dict[str, List[RelationEdge]] = {}
 
     def populate(self, characters: list, relations: list, positions: dict, metrics_map: dict, is_dark: bool = True):
+        self.setItemIndexMethod(QGraphicsScene.ItemIndexMethod.NoIndex)
         self.clear()
         self._nodes.clear()
         self._edges.clear()
+        self._adj_nodes.clear()
+        self._adj_edges.clear()
 
         # Dynamic bounding calculation
         min_x, max_x = -1000.0, 1000.0
@@ -51,10 +62,6 @@ class GraphScene(QGraphicsScene):
         bound_w = max(4000.0, max_x - min_x)
         bound_h = max(4000.0, max_y - min_y)
         self.setSceneRect(min_x, min_y, bound_w, bound_h)
-
-        # Add clean background with appropriate bounds
-        self._bg_item = CleanBackground(QRectF(min_x, min_y, bound_w, bound_h), is_dark=is_dark)
-        self.addItem(self._bg_item)
 
         # 1. Create nodes
         for idx, char_data in enumerate(characters):
@@ -71,28 +78,32 @@ class GraphScene(QGraphicsScene):
             node = CharacterNode(char, metrics, color, pos[0], pos[1])
             self.addItem(node)
             self._nodes[char_id] = node
+            self._adj_nodes[char_id] = set()
+            self._adj_edges[char_id] = []
 
-        # 2. Create edges (with LOD handling for high counts)
-        show_all_labels = len(relations) < 400
+        # 2. Store relation records for Lazy Edge Instantiation (Cero consumo de memoria al inicio)
+        self._raw_relations: Dict[str, List[tuple]] = {}  # char_id -> [(other_id, label, intensity, rel_type)]
         for rel in relations:
             if isinstance(rel, dict):
                 src_id = str(rel.get("source") or rel.get("char_id_a") or "")
                 tgt_id = str(rel.get("target") or rel.get("char_id_b") or "")
-                label = rel.get("label", "") if show_all_labels else ""
+                label = rel.get("label", "")
                 intensity = int(rel.get("intensity", 3))
                 rel_type = str(rel.get("relation_type", "otro"))
             else:
                 src_id = str(getattr(rel, "char_id_a", getattr(rel, "source", "")))
                 tgt_id = str(getattr(rel, "char_id_b", getattr(rel, "target", "")))
-                label = getattr(rel, "label", "") if show_all_labels else ""
+                label = getattr(rel, "label", "")
                 intensity = int(getattr(rel, "intensity", 3))
                 rel_type = str(getattr(rel, "relation_type", "otro"))
 
             if src_id in self._nodes and tgt_id in self._nodes and src_id != tgt_id:
-                edge = RelationEdge(self._nodes[src_id], self._nodes[tgt_id], label, intensity, rel_type)
-                edge.add_to_scene(self)
-                self.addItem(edge)
-                self._edges.append(edge)
+                self._adj_nodes[src_id].add(tgt_id)
+                self._adj_nodes[tgt_id].add(src_id)
+                self._raw_relations.setdefault(src_id, []).append((tgt_id, label, intensity, rel_type))
+                self._raw_relations.setdefault(tgt_id, []).append((src_id, label, intensity, rel_type))
+
+        self.setItemIndexMethod(QGraphicsScene.ItemIndexMethod.BspTreeIndex)
 
     def get_node(self, char_id: str) -> Optional[CharacterNode]:
         return self._nodes.get(str(char_id))
@@ -111,12 +122,16 @@ class GraphScene(QGraphicsScene):
             self._clear_focus()
             return
 
-        self._focused_id = char_id
-        connected = {char_id}
-        for e in self._edges:
-            if e.source.char_id == char_id: connected.add(e.target.char_id)
-            elif e.target.char_id == char_id: connected.add(e.source.char_id)
+        # 1. Destruir aristas previas instanciadas (mantener memoria en ~0 KB)
+        for edge in self._edges:
+            self.removeItem(edge)
+        self._edges.clear()
 
+        self._focused_id = char_id
+        neighbors = self._adj_nodes.get(char_id, set())
+        connected = {char_id} | neighbors
+
+        # 2. Ajuste de estado visual rápido
         for nid, node in self._nodes.items():
             if nid == char_id:
                 node.setZValue(12)
@@ -128,44 +143,58 @@ class GraphScene(QGraphicsScene):
                 node.setZValue(4)
                 node.set_focused_ring(False, dim_others=True)
 
-        for edge in self._edges:
-            is_adj = (edge.source.char_id == char_id or edge.target.char_id == char_id)
-            edge.set_active_focus(active=is_adj, dim_others=True)
+        # 3. Instanciación Perezosa (Lazy) ÚNICAMENTE de las 5-20 aristas activas
+        src_node = self._nodes.get(char_id)
+        if src_node:
+            seen_pairs = set()
+            for other_id, label, intensity, rel_type in self._raw_relations.get(char_id, []):
+                if other_id not in self._nodes or other_id in seen_pairs:
+                    continue
+                seen_pairs.add(other_id)
+                tgt_node = self._nodes[other_id]
+                edge = RelationEdge(src_node, tgt_node, label, intensity, rel_type)
+                self.addItem(edge)
+                edge.set_active_focus(active=True, dim_others=True)
+                self._edges.append(edge)
 
     def _clear_focus(self):
         self._focused_id = None
+        # Destruir aristas activas para dejar el lienzo 100% libre
+        for edge in self._edges:
+            self.removeItem(edge)
+        self._edges.clear()
+
         for node in self._nodes.values():
             node.setZValue(10 if node.metrics.tier == "core" else (7 if node.metrics.tier == "primary" else 5))
             node.set_focused_ring(False, dim_others=False)
-        for edge in self._edges:
-            edge.set_active_focus(active=False, dim_others=False)
 
     def update_theme(self, is_dark: bool):
-        if self._bg_item:
-            self._bg_item._is_dark = is_dark
-            self._bg_item.update()
         for node in self._nodes.values():
             node.update()
+        for edge in self._edges:
+            edge.update()
+
+    def clear_selection_and_focus(self):
+        self._clear_focus()
+        self.background_clicked.emit()
+        self.character_clicked.emit("")
 
     def mousePressEvent(self, event):
-        from PyQt6.QtGui import QTransform
-        t = self.views()[0].transform() if self.views() else QTransform()
-        item = self.itemAt(event.scenePos(), t)
-        is_node = isinstance(item, CharacterNode)
-        if not is_node:
-            self._clear_focus()
-            self.background_clicked.emit()
-            self.character_clicked.emit("")
         super().mousePressEvent(event)
 
 
-# ── Vista de Alto Rendimiento ─────────────────────────────────────────────────
+# ── Vista de Alto Rendimiento con Aceleración Adaptativa ───────────────────────
 
 class RelationGraphView(QGraphicsView):
     def __init__(self, scene, parent=None):
         super().__init__(scene, parent)
+        
+        bg_color = "#1c1c1e" if ThemeManager.is_dark() else "#f5f0ea"
+        self.setStyleSheet(f"QGraphicsView {{ background-color: {bg_color}; border: none; }}")
+
         self.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        self.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
@@ -174,10 +203,37 @@ class RelationGraphView(QGraphicsView):
         self.setOptimizationFlag(QGraphicsView.OptimizationFlag.DontSavePainterState, True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        bg = "#1c1c1e" if ThemeManager.is_dark() else "#f5f0ea"
-        self.setBackgroundBrush(QBrush(QColor(bg)))
+        self.setBackgroundBrush(QBrush(QColor(bg_color)))
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setFocusPolicy(Qt.FocusPolicy.WheelFocus)
+        self._press_pos = None
+        # Animación de cámara suave
+        self._anim_timeline: Optional[QTimeLine] = None
+        self._anim_start_transform: Optional[QTransform] = None
+        self._anim_target_center: Optional[QPointF] = None
+        self._anim_target_zoom: float = 1.0
+
+    def drawBackground(self, painter: QPainter, rect: QRectF):
+        bg = "#1c1c1e" if ThemeManager.is_dark() else "#f5f0ea"
+        painter.fillRect(rect, QColor(bg))
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._press_pos = event.pos()
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+        if event.button() == Qt.MouseButton.LeftButton and self._press_pos is not None:
+            dist = (event.pos() - self._press_pos).manhattanLength()
+            self._press_pos = None
+            # Solo si fue un clic estático (sin arrastrar el lienzo con la manita)
+            if dist < 6:
+                scene_pos = self.mapToScene(event.pos())
+                item = self.scene().itemAt(scene_pos, self.transform()) if self.scene() else None
+                if not isinstance(item, CharacterNode):
+                    if hasattr(self.scene(), "clear_selection_and_focus"):
+                        self.scene().clear_selection_and_focus()
 
     # ── Zoom ──────────────────────────────────────────────────────────────────
     _ZOOM_MIN = 0.005
@@ -222,20 +278,79 @@ class RelationGraphView(QGraphicsView):
             super().keyPressEvent(event)
 
     def fit_all(self):
-        """Ajustar todos los nodos de la escena a la vista de manera instantánea."""
+        """Ajustar vista: encuadra automáticamente todo el grafo dentro del viewport."""
         scene = self.scene()
-        if scene:
-            nodes = getattr(scene, "_nodes", {})
-            if nodes:
-                xs = [n.pos().x() for n in nodes.values()]
-                ys = [n.pos().y() for n in nodes.values()]
-                if xs and ys:
-                    rect = QRectF(min(xs) - 80, min(ys) - 80, (max(xs) - min(xs)) + 160, (max(ys) - min(ys)) + 160)
-                    self.fitInView(rect, Qt.AspectRatioMode.KeepAspectRatio)
-                    return
-            r = scene.sceneRect()
-            if not r.isEmpty():
-                self.fitInView(r, Qt.AspectRatioMode.KeepAspectRatio)
+        if not scene:
+            return
+        rect = scene.itemsBoundingRect()
+        if rect.isValid() and not rect.isEmpty() and rect.width() > 50:
+            self.fitInView(rect.adjusted(-80, -80, 80, 80), Qt.AspectRatioMode.KeepAspectRatio)
+        else:
+            self.resetTransform()
+
+    def center_on_character(self, node, neighbors: list, animate: bool = True):
+        """
+        Centra y hace zoom al radio de influencia del personaje:
+        el nodo seleccionado + todos sus vecinos directos.
+        Si animate=True hace una transición suave (~350ms).
+        """
+        all_nodes = [node] + [n for n in neighbors if n is not None]
+        if not all_nodes:
+            return
+
+        xs = [n.pos().x() for n in all_nodes]
+        ys = [n.pos().y() for n in all_nodes]
+        pad = max(120.0, node._radius * 4)
+        rect = QRectF(
+            min(xs) - pad, min(ys) - pad,
+            (max(xs) - min(xs)) + pad * 2,
+            (max(ys) - min(ys)) + pad * 2
+        )
+        # Calcular zoom necesario para que el rect quepa en la viewport
+        vw = self.viewport().width()  or 800
+        vh = self.viewport().height() or 600
+        zoom_x = vw / rect.width()  if rect.width()  > 0 else 1.0
+        zoom_y = vh / rect.height() if rect.height() > 0 else 1.0
+        target_zoom = min(zoom_x, zoom_y, self._ZOOM_MAX) * 0.88  # pequeño margen
+        target_zoom = max(target_zoom, self._ZOOM_MIN)
+        target_center = rect.center()
+
+        if not animate:
+            self.resetTransform()
+            self.scale(target_zoom, target_zoom)
+            self.centerOn(target_center)
+            return
+
+        # Detener animación anterior si existe
+        if self._anim_timeline and self._anim_timeline.state() != QTimeLine.State.NotRunning:
+            self._anim_timeline.stop()
+
+        self._anim_start_transform = QTransform(self.transform())
+        self._anim_start_center    = QPointF(self.mapToScene(self.viewport().rect().center()))
+        self._anim_target_center   = target_center
+        self._anim_target_zoom     = target_zoom
+
+        tl = QTimeLine(380, self)
+        tl.setUpdateInterval(16)   # ~60fps
+        tl.valueChanged.connect(self._on_anim_step)
+        tl.setEasingCurve = lambda *_: None   # usamos interpolación manual
+        self._anim_timeline = tl
+        tl.start()
+
+    def _on_anim_step(self, t: float):
+        """t va de 0.0 a 1.0 (ease-out suave)."""
+        # Ease-out cúbico: rápido al inicio, lento al final
+        t = 1.0 - (1.0 - t) ** 3
+        start_zoom = self._anim_start_transform.m11() if self._anim_start_transform else self.current_zoom()
+        zoom_now   = start_zoom + (self._anim_target_zoom - start_zoom) * t
+        cx_start   = self._anim_start_center.x()  if self._anim_start_center  else 0.0
+        cy_start   = self._anim_start_center.y()  if self._anim_start_center  else 0.0
+        cx_now     = cx_start + (self._anim_target_center.x() - cx_start) * t
+        cy_now     = cy_start + (self._anim_target_center.y() - cy_start) * t
+
+        self.resetTransform()
+        self.scale(zoom_now, zoom_now)
+        self.centerOn(QPointF(cx_now, cy_now))
 
     def mouseDoubleClickEvent(self, event):
         """Ignora el reseteo automático de vista para preservar la posición del usuario."""

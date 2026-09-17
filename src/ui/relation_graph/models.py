@@ -45,23 +45,44 @@ def get_race(char: "Character") -> str:
     return ""
 
 
-def bezier_path(p1: QPointF, p2: QPointF, curv: float = 0.16) -> QPainterPath:
-    """Genera una curva bezier suave entre dos puntos para las aristas."""
+def bezier_path(p1: QPointF, p2: QPointF, curv: float = 0.16, r1: float = 0.0, r2: float = 0.0) -> QPainterPath:
+    """Genera una curva bezier suave que nace y termina exactamente en el perímetro/borde de cada esfera."""
     dx, dy = p2.x() - p1.x(), p2.y() - p1.y()
-    dist = max(math.hypot(dx, dy), 1.0)
+    dist = math.hypot(dx, dy)
+    if dist < 1.0:
+        return QPainterPath()
+
+    # Vector normal para la curvatura
     nx = -dy / dist * dist * curv
     ny =  dx / dist * dist * curv
     ctrl = QPointF((p1.x() + p2.x()) / 2 + nx, (p1.y() + p2.y()) / 2 + ny)
-    path = QPainterPath(p1)
-    path.quadTo(ctrl, p2)
+
+    # Recortar el punto inicial al borde de la esfera 1 (hacia el punto de control)
+    if r1 > 0:
+        v1x, v1y = ctrl.x() - p1.x(), ctrl.y() - p1.y()
+        d1 = max(math.hypot(v1x, v1y), 1.0)
+        start_pt = QPointF(p1.x() + (v1x / d1) * r1, p1.y() + (v1y / d1) * r1)
+    else:
+        start_pt = p1
+
+    # Recortar el punto final al borde de la esfera 2 (desde el punto de control)
+    if r2 > 0:
+        v2x, v2y = ctrl.x() - p2.x(), ctrl.y() - p2.y()
+        d2 = max(math.hypot(v2x, v2y), 1.0)
+        end_pt = QPointF(p2.x() + (v2x / d2) * r2, p2.y() + (v2y / d2) * r2)
+    else:
+        end_pt = p2
+
+    path = QPainterPath(start_pt)
+    path.quadTo(ctrl, end_pt)
     return path
 
 
 # ── Jerarquía y Métricas del Personaje ──────────────────────────────────────
 
 ROLE_BONUS = {
-    "protagonista": 12.0,
-    "antagonista":  10.0,
+    "protagonista": 20.0,
+    "antagonista":  18.0,
     "secundario":    4.0,
     "misterioso":    5.0,
     "otro":          1.0,
@@ -80,21 +101,79 @@ class CharacterMetrics:
         role_key = (role or "").strip().lower()
         self.role_bonus = ROLE_BONUS.get(role_key, 1.0)
 
-        # Peso o relevancia continua
+        # Peso de ordenación (solo para ordenar nodos, NO determina el tamaño)
         self.weight = (
-            (chapters_count * 2.2) +
-            (connections_count * 1.6) +
-            (intensity_sum * 1.0) +
-            self.role_bonus
+            (chapters_count * 3.5) +
+            (connections_count * 1.8) +
+            (intensity_sum * 0.8) +
+            self.role_bonus * 0.5   # rol: influencia mínima en ordenación
         )
 
-        # Nivel jerárquico y dimensionamiento de nodo
-        if self.weight >= 22.0 or role_key == "protagonista":
-            self.tier = "core"      # Protagonista / Eje central
-            self.base_radius = min(38.0, 28.0 + (self.weight - 22.0) * 0.3)
-        elif self.weight >= 9.0 or connections_count >= 4 or chapters_count >= 3:
-            self.tier = "primary"   # Secundario principal / conector
-            self.base_radius = 20.0 + min(6.0, (self.weight - 9.0) * 0.4)
+        # ── Tamaño y Tier basado SOLO en actividad narrativa real ─────────────
+        # Fórmula: activity_score = sqrt(conexiones * 3 + apariciones * 2)
+        # Esto garantiza crecimiento sublineal: doblar conexiones NO dobla el tamaño.
+        # Rangos esperados con 200 personajes (distribución de ley de potencias):
+        #   Titán     (35+ conex, 10 caps): score ≈ sqrt(105+20) = 11.2  → ~46 px
+        #   Protagonista normal (15 conex, 5 caps): score ≈ 8.4          → ~42 px
+        #   Secundario (6-8 conex, 2-3 caps): score ≈ 5.3-5.7            → ~22-24 px
+        #   Menor (1-2 conex, 0 caps): score ≈ 1.7-2.4                   → ~11-12 px
+        activity_score = math.sqrt(
+            max(0.0, connections_count * 3.0 + chapters_count * 2.0)
+        )
+
+        # Tier: refleja la densidad de conexiones, no el rol declarado
+        if connections_count >= 20 or (connections_count >= 10 and chapters_count >= 4):
+            # Mega-hub o pilar narrativo real
+            self.tier = "core"
+        elif connections_count >= 3 or chapters_count >= 2 or role_key in ("secundario", "misterioso"):
+            # Personaje con presencia narrativa real
+            self.tier = "primary"
         else:
-            self.tier = "minor"     # Satélite / menor
-            self.base_radius = max(11.0, 11.0 + self.weight * 0.35)
+            # Satélite / personaje de fondo
+            self.tier = "minor"
+
+        # Radio: 100% basado en activity_score con techo duro por tier
+        # Techo minor=14, primary=26, core=46 → diferencia visual clara pero no monstruosa
+        if self.tier == "core":
+            self.base_radius = min(46.0, 28.0 + activity_score * 1.6)
+        elif self.tier == "primary":
+            self.base_radius = min(26.0, 14.0 + activity_score * 2.2)
+        else:
+            self.base_radius = min(14.0, 8.0 + activity_score * 1.8)
+
+        # ── Forma Geométrica Progresiva (Polígonos regulares -> Círculo como Hito Legendario 100+) ──
+        # ▲ Triángulo (3 lados)   : 1-2 conex.   (Terciario / Incidental)
+        # ⯁ Rombo (4 lados)       : 3-5 conex.   (Secundario Menor)
+        # ⬟ Pentágono (5 lados)   : 6-9 conex.   (Secundario Recurrente)
+        # ⬢ Hexágono (6 lados)    : 10-14 conex. (Notable)
+        # ⬡ Heptágono (7 lados)   : 15-22 conex. (Importante)
+        # 🛑 Octágono (8 lados)    : 23-35 conex. (Pilar de Facción)
+        # 💎 Decágono (10 lados)   : 36-55 conex. (Co-protagonista / Rival Mayor)
+        # 🔷 Dodecágono (12 lados) : 56-79 conex. (Protagonista de Arco)
+        # 🔮 Icoságono (20 lados)  : 80-99 conex. (Casi esférico)
+        # ● Círculo Radiante       : 100+ conex.  (Hito Mítico / Núcleo Absoluto)
+        if connections_count >= 100:
+            self.shape = "circle"
+        elif connections_count >= 80:
+            self.shape = "icosagon"
+        elif connections_count >= 56:
+            self.shape = "dodecagon"
+        elif connections_count >= 36:
+            self.shape = "decagon"
+        elif connections_count >= 23:
+            self.shape = "octagon"
+        elif connections_count >= 15:
+            self.shape = "heptagon"
+        elif connections_count >= 10:
+            self.shape = "hexagon"
+        elif connections_count >= 6:
+            self.shape = "pentagon"
+        elif connections_count >= 3:
+            self.shape = "diamond"
+        else:
+            self.shape = "triangle"
+
+
+
+
+

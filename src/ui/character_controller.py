@@ -52,6 +52,39 @@ class CharacterControllerMixin:
         self.char_dock.select_character_by_id(char_id)
         self.statusBar().showMessage("Personaje enfocado en el panel", 2000)
 
+    def _on_graph_open_character_sheet(self, char_id: str):
+        """Abre el editor completo del personaje desde el boton de edicion en el grafo."""
+        from ui.character_edit_dialog import CharacterEditDialog
+        if not self.project_manager.metadata:
+            return
+        meta = self.project_manager.metadata
+        char = next((c for c in meta.characters if str(c.id) == str(char_id)), None)
+        if not char:
+            return
+
+        char_rels = [r for r in meta.relations
+                     if str(r.char_id_a) == str(char_id)
+                     or str(r.char_id_b) == str(char_id)]
+
+        dlg = CharacterEditDialog(
+            character=char,
+            obras=meta.obras,
+            characters=meta.characters,
+            relations=char_rels,
+            parent=self
+        )
+        if dlg.exec():
+            # Actualizar relaciones del personaje en el metadata
+            other_rels = [r for r in meta.relations
+                          if str(r.char_id_a) != str(char_id)
+                          and str(r.char_id_b) != str(char_id)]
+            meta.relations = other_rels + dlg.get_relations()
+            self._dirty = True
+            self.statusBar().showMessage(f"Personaje '{char.name}' actualizado", 3000)
+            # Refrescar el grafo con los datos actualizados
+            if self._graph_widget:
+                self._graph_widget.build_from_metadata(meta)
+
     def _on_chapter_requested_from_dock(self, chapter_id: str):
         """Navega al capitulo solicitado desde la lista de apariciones del dock."""
         self._flush_content_to_metadata()

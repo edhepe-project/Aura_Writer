@@ -75,36 +75,54 @@ def compute_graph_layout(char_map: Dict[str, Character],
                          metrics_map: Dict[str, CharacterMetrics],
                          vis_rels: List[CharacterRelation]) -> Tuple[Dict[str, Tuple[float, float]], float]:
     """
-    Calcula la distribución gravitatoria jerárquica y aplica relajación de separación
-    optimizada con partición espacial en cuadrícula (O(N) en vez de O(N^2)).
+    Layout espacioso y navegable — pensado para zoom/pan, NO para caber en pantalla.
+    Con N=200 nodos el canvas resultante mide ~4000-6000px de diámetro.
+    Los personajes tienen espacio para 'respirar' y crecer con su arco narrativo.
     """
-    core_nodes   = [cid for cid in char_map if metrics_map[cid].tier == "core"]
-    primary_nodes= [cid for cid in char_map if metrics_map[cid].tier == "primary"]
-    minor_nodes  = [cid for cid in char_map if metrics_map[cid].tier == "minor"]
+    total_count = len(char_map)
+    if total_count == 0:
+        return {}, 800.0
 
-    if not core_nodes and char_map:
-        sorted_chars = sorted(char_map.keys(), key=lambda c: metrics_map[c].weight, reverse=True)
-        core_nodes = sorted_chars[:max(1, min(2, len(sorted_chars)))]
-        primary_nodes = [c for c in sorted_chars[len(core_nodes):] if metrics_map[c].tier == "primary"]
-        minor_nodes = [c for c in sorted_chars[len(core_nodes):] if c not in primary_nodes]
+    # Ordenar por peso narrativo
+    sorted_chars = sorted(char_map.keys(),
+                          key=lambda c: metrics_map.get(c, CharacterMetrics()).weight,
+                          reverse=True)
+
+    # 1. Clasificar en Core / Primary / Minor
+    core_nodes = [c for c in sorted_chars if metrics_map.get(c, CharacterMetrics()).tier == "core"]
+    if not core_nodes:
+        core_nodes = sorted_chars[:max(1, min(6, total_count // 10))]
+    core_set = set(core_nodes)
+
+    primary_nodes = [c for c in sorted_chars
+                     if c not in core_set and metrics_map.get(c, CharacterMetrics()).tier == "primary"]
+    minor_nodes   = [c for c in sorted_chars
+                     if c not in core_set and c not in primary_nodes]
 
     positions: Dict[str, Tuple[float, float]] = {}
-    n_core = len(core_nodes)
-    
-    # Radio adaptativo para la distribución según cantidad de personajes
-    total_count = len(char_map)
-    scale_factor = math.sqrt(max(1.0, total_count / 30.0))
-    core_radius = max(420.0, n_core * 240.0) * scale_factor
 
-    for si, scid in enumerate(core_nodes):
-        if n_core == 1:
-            positions[scid] = (0.0, 0.0)
-        else:
-            ang = 2.0 * math.pi * si / n_core
-            positions[scid] = (math.cos(ang) * core_radius, math.sin(ang) * core_radius)
+    # ── Peso narrativo por tipo de relación ─────────────────────────────────
+    # Cuanto mayor el peso, más fuerte es la "gravedad" entre ambos personajes.
+    _TYPE_WEIGHT: Dict[str, float] = {
+        "familia":     3.0,   # vínculo de sangre → siempre cerca
+        "familiar":    3.0,
+        "amor":        2.8,   # máxima proximidad emocional
+        "pareja":      2.8,
+        "mentor":      2.5,   # el aprendiz gravita al maestro
+        "aliado":      2.0,   # causa compartida → espacio compartido
+        "rival":       1.8,   # los enemigos también se orbitan
+        "enemigo":     1.8,
+        "descendiente":2.2,
+        "amigo":       1.8,
+        "otro":        1.0,
+        "pacto":       2.0,
+    }
+    # Bonus multiplicador según el tier del ancla
+    _TIER_BONUS: Dict[str, float] = {"core": 1.4, "primary": 1.0, "minor": 0.6}
 
-    # Pre-indexar relaciones en un mapa de adyacencia O(1) para evitar bucles O(N*R)
+    # Construir: adj_map (vecinos) + rel_score_map (score narrativo de cada par)
     adj_map: Dict[str, List[str]] = {}
+    rel_score_map: Dict[Tuple[str, str], float] = {}   # (a,b) → score
     for rel in vis_rels:
         a = getattr(rel, "char_id_a", getattr(rel, "source", None))
         b = getattr(rel, "char_id_b", getattr(rel, "target", None))
@@ -112,146 +130,172 @@ def compute_graph_layout(char_map: Dict[str, Character],
             sa, sb = str(a), str(b)
             adj_map.setdefault(sa, []).append(sb)
             adj_map.setdefault(sb, []).append(sa)
+            # Score = intensidad × peso del tipo de relación
+            rtype = str(getattr(rel, "relation_type", "otro")).lower()
+            intensity = max(1, int(getattr(rel, "intensity", 3)))
+            score = intensity * _TYPE_WEIGHT.get(rtype, 1.0)
+            pair = (min(sa, sb), max(sa, sb))
+            # Si hay relaciones múltiples entre el mismo par, sumamos (son más fuertes juntas)
+            rel_score_map[pair] = rel_score_map.get(pair, 0.0) + score
 
-    # Posicionamiento de secundarios
-    for pi, pcid in enumerate(primary_nodes):
-        best_core = None
-        for neighbor in adj_map.get(pcid, []):
-            if neighbor in core_nodes:
-                best_core = neighbor
-                break
+    def _narrative_score(a: str, b: str) -> float:
+        """Score narrativo entre dos personajes (simétrico)."""
+        pair = (min(a, b), max(a, b))
+        base = rel_score_map.get(pair, 0.0)
+        # Multiplicar por bonus del tier del posible ancla (b)
+        tier_b = metrics_map.get(b, CharacterMetrics()).tier
+        return base * _TIER_BONUS.get(tier_b, 1.0)
 
-        if best_core and best_core in positions:
-            center_x, center_y = positions[best_core]
-            p_angle = 2.0 * math.pi * pi / max(len(primary_nodes), 1)
-            p_dist = (240.0 + (pi % 4) * 60.0) * min(scale_factor, 2.5)
-            positions[pcid] = (
-                center_x + math.cos(p_angle) * p_dist,
-                center_y + math.sin(p_angle) * p_dist
-            )
+    # ── 2. Colocar nodos Core en un anillo generoso ────────────────────────────
+    # Escala: cada nodo necesita ~200px de 'zona personal'
+    # Para 200 nodos → canvas de ~2800px radio mínimo
+    n_core = len(core_nodes)
+    # Radio del anillo de titanes — grande para separar sus galaxias satélites
+    core_ring_r = max(700.0, 150.0 + math.sqrt(total_count) * 150.0)
+
+    for si, scid in enumerate(core_nodes):
+        if n_core == 1:
+            positions[scid] = (0.0, 0.0)
+        elif n_core == 2:
+            # Dos titanes: polo izquierdo / polo derecho con amplio espacio entre ellos
+            offset = core_ring_r * 0.60
+            positions[scid] = (-offset if si == 0 else offset, 0.0)
         else:
-            p_angle = 2.0 * math.pi * pi / max(len(primary_nodes), 1)
-            p_dist = core_radius * 0.85
-            positions[pcid] = (math.cos(p_angle) * p_dist, math.sin(p_angle) * p_dist)
+            ang = 2.0 * math.pi * si / n_core - math.pi / 2
+            positions[scid] = (math.cos(ang) * core_ring_r * 0.65,
+                               math.sin(ang) * core_ring_r * 0.65)
 
-    # Posicionamiento de personajes menores
-    host_minors: Dict[str, List[str]] = {}
-    unanchored: List[str] = []
+    # ── 3. Secundarios (Primary): galaxia orbital alrededor de su titán ────────
+    # Cada titán tiene su propia 'galaxia' de secundarios orbitando a distancia generosa
+    # ── 3. Secundarios (Primary): galaxia orbital expandida con zona de exclusión
+    # Agrupar primaries por su titán de mayor gravedad narrativa
+    primary_set = set(primary_nodes)
+    titan_primaries: Dict[str, List[str]] = {c: [] for c in core_nodes}
+    unanchored_primaries: List[str] = []
+
+    for pcid in primary_nodes:
+        best_titan = None
+        best_score = -1.0
+        for nb in adj_map.get(pcid, []):
+            if nb in core_set:
+                sc = _narrative_score(pcid, nb)
+                if sc > best_score:
+                    best_score = sc
+                    best_titan = nb
+        if best_titan:
+            titan_primaries[best_titan].append(pcid)
+        else:
+            unanchored_primaries.append(pcid)
+
+    for pcid in unanchored_primaries:
+        best_titan = max(core_nodes, key=lambda c: metrics_map.get(c, CharacterMetrics()).weight)
+        titan_primaries[best_titan].append(pcid)
+
+    GOLDEN_ANGLE = 2.39996322972865332  # radianes (~137.5 grados)
+
+    for titan_id, sats in titan_primaries.items():
+        tx, ty = positions[titan_id]
+        r_titan = metrics_map.get(titan_id, CharacterMetrics()).base_radius
+        # Zona de exclusión amplia alrededor del Titán (mínimo 600px de radio libre)
+        inner_deadzone = max(550.0, r_titan * 5.0)
+        for idx, pcid in enumerate(sats):
+            r_dist = inner_deadzone + math.sqrt(idx + 1) * 220.0
+            theta = (idx + 1) * GOLDEN_ANGLE
+            positions[pcid] = (tx + math.cos(theta) * r_dist, ty + math.sin(theta) * r_dist)
+
+    # ── 4. Menores: órbita con zona de exclusión alrededor de su ancla ────────
+    anchor_minors: Dict[str, List[str]] = {}
+    unanchored_minors: List[str] = []
 
     for m_id in minor_nodes:
-        anchor = None
-        for neighbor in adj_map.get(m_id, []):
-            if neighbor in positions:
-                anchor = neighbor
-                break
-        if anchor:
-            host_minors.setdefault(anchor, []).append(m_id)
+        best_anchor = None
+        best_score = -1.0
+        for nb in adj_map.get(m_id, []):
+            if nb in positions:
+                sc = _narrative_score(m_id, nb)
+                if sc > best_score:
+                    best_score = sc
+                    best_anchor = nb
+        if best_anchor:
+            anchor_minors.setdefault(best_anchor, []).append(m_id)
         else:
-            unanchored.append(m_id)
+            unanchored_minors.append(m_id)
 
-    # Satélites alrededor de su nodo principal
-    for host_id, m_list in host_minors.items():
-        hx, hy = positions[host_id]
-        nm = len(m_list)
-        for mi, m_id in enumerate(m_list):
-            ring_layer = mi // 8
-            ring_dist = 110.0 + (ring_layer * 46.0)
-            m_ang = 2.0 * math.pi * (mi % 8) / min(nm, 8) + (ring_layer * 0.35)
-            positions[m_id] = (
-                hx + math.cos(m_ang) * ring_dist,
-                hy + math.sin(m_ang) * ring_dist
-            )
+    # Distribuir menores en espiral áurea con zona de seguridad alrededor del ancla
+    for anchor_id, m_list in anchor_minors.items():
+        ax, ay = positions[anchor_id]
+        r_anchor = metrics_map.get(anchor_id, CharacterMetrics()).base_radius
+        anchor_deadzone = max(320.0, r_anchor * 4.0)
+        for m_idx, m_id in enumerate(m_list):
+            m_dist = anchor_deadzone + math.sqrt(m_idx + 1) * 160.0
+            m_theta = (m_idx + 1) * GOLDEN_ANGLE
+            positions[m_id] = (ax + math.cos(m_theta) * m_dist, ay + math.sin(m_theta) * m_dist)
 
-    num_un = len(unanchored)
-    for ui, u_id in enumerate(unanchored):
-        u_ang = 2.0 * math.pi * ui / max(num_un, 1)
-        u_dist = core_radius + (260.0 * scale_factor) + (ui % 5) * 35.0
-        positions[u_id] = (math.cos(u_ang) * u_dist, math.sin(u_ang) * u_dist)
+    # Menores sin ninguna relación: gran halo exterior de la galaxia
+    for u_idx, u_id in enumerate(unanchored_minors):
+        u_dist = core_ring_r * 1.8 + math.sqrt(u_idx + 1) * 180.0
+        u_theta = (u_idx + 1) * GOLDEN_ANGLE
+        positions[u_id] = (math.cos(u_theta) * u_dist, math.sin(u_theta) * u_dist)
 
-    # ── Relajación Espacial Rápida y Adaptativa ──────────────────────────────
+    # ── 5. Relajación por repulsión anti-superposición ─────────────────────────
+    # ── 5. Física Planetaria Real de Repulsión (Ley de Coulomb / N-Body) ───────
+    # Todos los personajes se repelen como planetas con carga del mismo signo
     nodes_list = list(char_map.keys())
     n = len(nodes_list)
-    
-    # Para grafos masivos (>800 personajes), la colocación orbital gravitatoria
-    # calculada arriba ya es matemáticamente óptima y balanceada. 
-    # Hacemos una relajación ultra ligera de 3-4 iteraciones vectorizadas.
-    if 1 < n <= 800:
-        max_it = 12 if n > 300 else 20
-    elif n > 800:
-        max_it = 3  # Micro-ajuste instantáneo sin coste
-    else:
-        max_it = 0
+    max_it = 28 if n <= 300 else (18 if n <= 700 else 12)
 
     if max_it > 0:
-        edge_pairs = []
-        for r in vis_rels:
-            a = getattr(r, "char_id_a", getattr(r, "source", None))
-            b = getattr(r, "char_id_b", getattr(r, "target", None))
-            if a and b:
-                edge_pairs.append((str(a), str(b)))
-
-        cell_size = 200.0
+        # Precomputar radios físicos y zonas de exclusión mínimas de cada planeta
+        radius_dict = {nid: metrics_map.get(nid, CharacterMetrics()).base_radius for nid in nodes_list}
+        cell_size = 600.0
 
         for it in range(max_it):
-            temp = 24.0 * (1.0 - it / float(max_it))
+            temp = 60.0 * (1.0 - it / float(max_it))
             disp = {nid: [0.0, 0.0] for nid in nodes_list}
 
-            # 1. Agrupar nodos en cuadrícula espacial
+            # Spatial hash grid
             grid: Dict[Tuple[int, int], List[str]] = {}
             for nid in nodes_list:
                 px, py = positions[nid]
-                gx = int(px // cell_size)
-                gy = int(py // cell_size)
+                gx, gy = int(px // cell_size), int(py // cell_size)
                 grid.setdefault((gx, gy), []).append(nid)
 
-            # 2. Comprobación de repulsión por celdas
-            checked_pairs = set()
             for (gx, gy), cell_nodes in grid.items():
-                neighbor_nodes = []
+                neighbors = []
                 for dx in (-1, 0, 1):
                     for dy in (-1, 0, 1):
-                        neighbor_nodes.extend(grid.get((gx + dx, gy + dy), []))
+                        neighbors.extend(grid.get((gx + dx, gy + dy), []))
 
                 for u in cell_nodes:
-                    pos_u = positions[u]
-                    rad_u = metrics_map[u].base_radius
-                    for v in neighbor_nodes:
-                        if u == v:
-                            continue
-                        pair = (u, v) if u < v else (v, u)
-                        if pair in checked_pairs:
-                            continue
-                        checked_pairs.add(pair)
-
-                        pos_v = positions[v]
-                        dx = pos_u[0] - pos_v[0]
-                        dy = pos_u[1] - pos_v[1]
+                    pu = positions[u]
+                    ru = radius_dict[u]
+                    for v in neighbors:
+                        if u >= v: continue
+                        pv = positions[v]
+                        dx = pu[0] - pv[0]
+                        dy = pu[1] - pv[1]
                         if abs(dx) > cell_size or abs(dy) > cell_size:
                             continue
+
                         dist_sq = dx * dx + dy * dy
-                        if dist_sq < 1.0: dist_sq = 1.0
-                        min_sep = rad_u + metrics_map[v].base_radius + 40.0
-                        min_sep_sq = (min_sep * 1.8) ** 2
-                        if dist_sq < min_sep_sq:
+                        if dist_sq < 1.0:
+                            dx, dy = 1.0, 0.0
+                            dist_sq = 1.0
+
+                        rv = radius_dict[v]
+                        # Distancia mínima obligatoria: suma de sus radios + colchón de aire amplio
+                        min_distance = (ru + rv) * 2.4 + 160.0
+
+                        if dist_sq < min_distance * min_distance:
                             dist = math.sqrt(dist_sq)
-                            rep = (min_sep * min_sep * 5.0) / dist
-                            ux, uy = dx / dist * rep, dy / dist * rep
-                            disp[u][0] += ux;  disp[u][1] += uy
-                            disp[v][0] -= ux;  disp[v][1] -= uy
+                            # Fuerza de repulsión gravitatoria inversa / choque elástico
+                            overlap = (min_distance - dist)
+                            force = (overlap / min_distance) * 45.0 + 8.0
+                            ux, uy = (dx / dist) * force, (dy / dist) * force
+                            disp[u][0] += ux; disp[u][1] += uy
+                            disp[v][0] -= ux; disp[v][1] -= uy
 
-            # 3. Atracción por aristas
-            for u, v in edge_pairs:
-                if u in positions and v in positions:
-                    dx = positions[u][0] - positions[v][0]
-                    dy = positions[u][1] - positions[v][1]
-                    dist = math.hypot(dx, dy)
-                    if dist > 180.0:
-                        att = (dist - 130.0) * 0.04
-                        ux, uy = dx / dist * att, dy / dist * att
-                        disp[u][0] -= ux;  disp[u][1] += uy
-                        disp[v][0] += ux;  disp[v][1] += uy
-
-            # 4. Aplicar paso limitado por temperatura
+            # Aplicar desplazamientos limitados por la temperatura
             for nid in nodes_list:
                 d = math.hypot(disp[nid][0], disp[nid][1])
                 if d > 0:
@@ -261,4 +305,6 @@ def compute_graph_layout(char_map: Dict[str, Character],
                         positions[nid][1] + disp[nid][1] / d * step
                     )
 
-    return positions, core_radius
+    return positions, core_ring_r
+
+

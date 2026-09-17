@@ -88,14 +88,46 @@ class AuraMainWindow(
         self._autosave_timer.timeout.connect(self._auto_save)
         self._autosave_timer.start(120_000)
 
-        # Monitor USB cada 15 segundos
-        self._usb_monitor_timer = QTimer(self)
-        self._usb_monitor_timer.timeout.connect(self._update_usb_indicator)
-        self._usb_monitor_timer.start(15_000)
+        # Reutilización de diálogo para apertura instantánea sin recreación
+        self._graph_dialog: QDialog | None = None
+        self._graph_widget: RelationGraphWidget | None = None
 
-    # ------------------------------------------------------------------
-    # Construccion de la interfaz
-    # ------------------------------------------------------------------
+    def open_relation_graph(self):
+        """Abre el Grafo de Relaciones al instante sin parpadeos."""
+        if not self.project_manager.metadata:
+            QMessageBox.warning(self, "Relaciones", "No hay un proyecto abierto.")
+            return
+        self._sync_relations_to_metadata()
+
+        is_dark = ThemeManager.is_dark()
+        bg_col = '#1c1c1e' if is_dark else '#f5f0ea'
+
+        if self._graph_dialog is None or self._graph_widget is None:
+            dlg = QDialog(self)
+            dlg.setWindowTitle("Relaciones entre Personajes")
+            dlg.setWindowFlags(
+                Qt.WindowType.Window |
+                Qt.WindowType.WindowMinMaxButtonsHint |
+                Qt.WindowType.WindowCloseButtonHint
+            )
+            from PyQt6.QtWidgets import QApplication
+            screen = QApplication.primaryScreen().availableGeometry()
+            w = min(1360, int(screen.width() * 0.92))
+            h = min(860, int(screen.height() * 0.90))
+            dlg.resize(w, h)
+            dlg.setStyleSheet(f"background-color: {bg_col};")
+            layout = QVBoxLayout(dlg)
+            layout.setContentsMargins(0, 0, 0, 0)
+            gw = RelationGraphWidget(dlg)
+            gw.character_focused.connect(self._on_graph_character_focused)
+            gw.open_character_sheet.connect(self._on_graph_open_character_sheet)
+            layout.addWidget(gw)
+            self._graph_dialog = dlg
+            self._graph_widget = gw
+
+        self._graph_dialog.setStyleSheet(f"background-color: {bg_col};")
+        self._graph_widget.build_from_metadata(self.project_manager.metadata)
+        self._graph_dialog.exec()
 
     def setup_ui(self):
         """Construye todos los paneles y la barra de estado."""
@@ -242,22 +274,6 @@ class AuraMainWindow(
         map_widget.build_from_metadata(self.project_manager.metadata)
         dlg.exec()
 
-    def open_relation_graph(self):
-        """Abre el Grafo de Relaciones en una ventana emergente."""
-        if not self.project_manager.metadata:
-            QMessageBox.warning(self, "Relaciones", "No hay un proyecto abierto.")
-            return
-        self._sync_relations_to_metadata()
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Relaciones entre Personajes")
-        dlg.resize(1100, 750)
-        layout = QVBoxLayout(dlg)
-        layout.setContentsMargins(0, 0, 0, 0)
-        graph_widget = RelationGraphWidget(dlg)
-        graph_widget.character_focused.connect(self._on_graph_character_focused)
-        layout.addWidget(graph_widget)
-        graph_widget.build_from_metadata(self.project_manager.metadata)
-        dlg.exec()
 
     def _on_map_chapter_requested(self, chapter_id: str, dlg: QDialog):
         """Cierra el mapa y abre el capitulo al hacer doble clic en un nodo."""

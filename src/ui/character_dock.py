@@ -11,7 +11,7 @@ from __future__ import annotations
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTreeWidget, QTreeWidgetItem, QSplitter, QFrame, QInputDialog, QMessageBox,
-    QListWidget, QListWidgetItem, QMenu
+    QListWidget, QListWidgetItem, QMenu, QLineEdit
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSize, QPoint
 from PyQt6.QtGui import QFont, QColor
@@ -99,6 +99,25 @@ class CharacterDock(QWidget):
         tree_header.addWidget(self._btn_del_char)
         tl.addLayout(tree_header)
 
+        # Barra de búsqueda rápida para 1000+ personajes
+        self._search_input = QLineEdit()
+        self._search_input.setPlaceholderText("🔍 Buscar personaje...")
+        self._search_input.setClearButtonEnabled(True)
+        self._search_input.setStyleSheet("""
+            QLineEdit {
+                border-radius: 4px;
+                padding: 4px 8px;
+                font-size: 11px;
+                background-color: rgba(255, 255, 255, 0.07);
+                border: 1px solid rgba(255, 255, 255, 0.12);
+            }
+            QLineEdit:focus {
+                border: 1px solid #30d158;
+            }
+        """)
+        self._search_input.textChanged.connect(self._on_search_text_changed)
+        tl.addWidget(self._search_input)
+
         self._tree = QTreeWidget()
         self._tree.setHeaderHidden(True)
         self._tree.setAnimated(True)
@@ -162,13 +181,30 @@ class CharacterDock(QWidget):
             self._select_tree_by_char_id(prev_id)
         self._loading = False
 
+    def get_relations(self) -> list[CharacterRelation]:
+        """Devuelve la lista actual de relaciones del dock."""
+        return list(self._relations)
+
     def _rebuild_tree(self):
         self._tree.blockSignals(True)
         self._tree.clear()
         char_map = {c.id: c for c in self._characters}
         is_dark = ThemeManager.is_dark()
 
-        for char in self._characters:
+        # Pre-indexar relaciones O(R) en lugar de O(N*R)
+        rels_by_char: dict[str, list[tuple[str, CharacterRelation, bool]]] = {}
+        for rel in self._relations:
+            rels_by_char.setdefault(rel.char_id_a, []).append((rel.char_id_b, rel, True))
+            rels_by_char.setdefault(rel.char_id_b, []).append((rel.char_id_a, rel, False))
+
+        # Ordenar alfabéticamente por nombre (con prioridad por jerarquía de rol)
+        _ROLE_ORDER = {"Protagonista": 0, "Antagonista": 1, "Secundario": 2, "Misterioso": 3, "Otro": 4}
+        sorted_characters = sorted(
+            self._characters,
+            key=lambda c: (_ROLE_ORDER.get(c.role, 5), (c.name or "").lower())
+        )
+
+        for char in sorted_characters:
             root_item = QTreeWidgetItem()
             root_item.setText(0, f"  {char.name}")
             root_item.setData(0, Qt.ItemDataRole.UserRole, char.id)
@@ -210,10 +246,9 @@ class CharacterDock(QWidget):
             # Relaciones agrupadas con claridad de dirección
             grouped_rels: dict[str, tuple[str, str, list[tuple[Character, CharacterRelation]]]] = {}
 
-            for rel in self._relations:
-                if rel.char_id_a == char.id:
-                    other_id = rel.char_id_b
-                    rtype = rel.relation_type
+            for other_id, rel, is_source in rels_by_char.get(char.id, []):
+                rtype = rel.relation_type
+                if is_source:
                     if rtype == "descendiente":
                         g_key, g_lbl, g_col = "es_descendiente", "👶 Es descendiente de:", "#2ecc71"
                     elif rtype == "mentor":
@@ -228,9 +263,7 @@ class CharacterDock(QWidget):
                         g_key, g_lbl, g_col = "amigo", "🤝 Amigo de:", "#9b59b6"
                     else:
                         g_key, g_lbl, g_col = "otro", "👥 Vínculo con:", "#95a5a6"
-                elif rel.char_id_b == char.id:
-                    other_id = rel.char_id_a
-                    rtype = rel.relation_type
+                else:
                     if rtype == "descendiente":
                         g_key, g_lbl, g_col = "es_antepasado", "👴 Es progenitor / antepasado de:", "#27ae60"
                     elif rtype == "mentor":
@@ -245,8 +278,6 @@ class CharacterDock(QWidget):
                         g_key, g_lbl, g_col = "amigo", "🤝 Amigo de:", "#9b59b6"
                     else:
                         g_key, g_lbl, g_col = "otro", "👥 Vínculo con:", "#95a5a6"
-                else:
-                    continue
 
                 if other_id and other_id in char_map:
                     if g_key not in grouped_rels:
@@ -275,8 +306,26 @@ class CharacterDock(QWidget):
 
             self._tree.addTopLevelItem(root_item)
 
-        self._tree.expandAll()
+        if len(self._characters) < 25:
+            self._tree.expandAll()
         self._tree.blockSignals(False)
+
+        # Si hay texto de búsqueda, re-aplicar filtro
+        if hasattr(self, "_search_input") and self._search_input.text().strip():
+            self._on_search_text_changed(self._search_input.text())
+
+    def _on_search_text_changed(self, text: str):
+        query = text.strip().lower()
+        for i in range(self._tree.topLevelItemCount()):
+            item = self._tree.topLevelItem(i)
+            if not query:
+                item.setHidden(False)
+            else:
+                name_text = item.text(0).strip().lower()
+                matches = query in name_text
+                item.setHidden(not matches)
+                if matches and len(query) >= 2:
+                    item.setExpanded(True)
 
     def _select_tree_by_char_id(self, char_id: str):
         for i in range(self._tree.topLevelItemCount()):
