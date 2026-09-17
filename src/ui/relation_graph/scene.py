@@ -4,22 +4,15 @@ Módulo de Escena y Vista Gráfica: GraphScene y RelationGraphView.
 
 from typing import Optional, Dict, Set, List
 from PyQt6.QtWidgets import (
-    QGraphicsScene, QGraphicsView, QGraphicsItem,
-    QGraphicsEllipseItem, QGraphicsTextItem, QFrame,
+    QGraphicsScene, QGraphicsView, QFrame,
 )
 from PyQt6.QtCore import Qt, QRectF, QPointF, QTimeLine, QEasingCurve, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor, QPainter, QTransform, QSurfaceFormat
-
-try:
-    from PyQt6.QtOpenGLWidgets import QOpenGLWidget
-    _OPENGL_AVAILABLE = True
-except Exception:
-    _OPENGL_AVAILABLE = False
+from PyQt6.QtGui import QBrush, QColor, QPainter, QTransform
 
 from core.models import Character
 from core.theme_manager import ThemeManager
-from .models import DIM_ALPHA, CHARACTER_PALETTE, CharacterMetrics
-from .items import CharacterNode, RelationEdge, CleanBackground
+from .models import CHARACTER_PALETTE, CharacterMetrics
+from .items import CharacterNode, RelationEdge
 
 
 # ── Escena Gráfica de Alto Rendimiento ────────────────────────────────────────
@@ -94,12 +87,16 @@ class GraphScene(QGraphicsScene):
             if isinstance(rel, dict):
                 src_id = str(rel.get("source") or rel.get("char_id_a") or "")
                 tgt_id = str(rel.get("target") or rel.get("char_id_b") or "")
+                char_a = str(rel.get("char_id_a") or src_id)
+                char_b = str(rel.get("char_id_b") or tgt_id)
                 label = rel.get("label", "")
                 intensity = int(rel.get("intensity", 3))
                 rel_type = str(rel.get("relation_type", "otro"))
             else:
                 src_id = str(getattr(rel, "char_id_a", getattr(rel, "source", "")))
                 tgt_id = str(getattr(rel, "char_id_b", getattr(rel, "target", "")))
+                char_a = str(getattr(rel, "char_id_a", src_id))
+                char_b = str(getattr(rel, "char_id_b", tgt_id))
                 label = getattr(rel, "label", "")
                 intensity = int(getattr(rel, "intensity", 3))
                 rel_type = str(getattr(rel, "relation_type", "otro"))
@@ -107,13 +104,13 @@ class GraphScene(QGraphicsScene):
             if src_id in self._nodes and tgt_id in self._nodes and src_id != tgt_id:
                 self._adj_nodes[src_id].add(tgt_id)
                 self._adj_nodes[tgt_id].add(src_id)
-                self._raw_relations.setdefault(src_id, []).append((tgt_id, label, intensity, rel_type))
-                self._raw_relations.setdefault(tgt_id, []).append((src_id, label, intensity, rel_type))
+                self._raw_relations.setdefault(src_id, []).append((tgt_id, label, intensity, rel_type, char_a, char_b))
+                self._raw_relations.setdefault(tgt_id, []).append((src_id, label, intensity, rel_type, char_a, char_b))
 
         self.setItemIndexMethod(QGraphicsScene.ItemIndexMethod.BspTreeIndex)
 
     def get_node(self, char_id: str) -> Optional[CharacterNode]:
-        return self._nodes.get(str(char_id))
+        return self._nodes.get(char_id)
 
     def _node_clicked(self, char_id: str):
         self._set_focus(char_id)
@@ -174,12 +171,15 @@ class GraphScene(QGraphicsScene):
             src_node = self._nodes.get(char_id)
             if src_node:
                 seen_pairs = set()
-                for other_id, label, intensity, rel_type in self._raw_relations.get(char_id, []):
+                for item in self._raw_relations.get(char_id, []):
+                    other_id, label, intensity, rel_type = item[0], item[1], item[2], item[3]
+                    char_a = item[4] if len(item) > 4 else char_id
+                    char_b = item[5] if len(item) > 5 else other_id
                     if other_id not in self._nodes or other_id in seen_pairs:
                         continue
                     seen_pairs.add(other_id)
                     tgt_node = self._nodes[other_id]
-                    edge = RelationEdge(src_node, tgt_node, label, intensity, rel_type)
+                    edge = RelationEdge(src_node, tgt_node, label, intensity, rel_type, char_id_a=char_a, char_id_b=char_b)
                     self.addItem(edge)
                     edge.set_active_focus(active=True, dim_others=False)
                     self._edges.append(edge)
@@ -225,13 +225,16 @@ class GraphScene(QGraphicsScene):
             for src_id, rel_list in self._raw_relations.items():
                 s_node = self._nodes.get(src_id)
                 if not s_node: continue
-                for tgt_id, label, intensity, rel_type in rel_list:
+                for item in rel_list:
+                    tgt_id, label, intensity, rel_type = item[0], item[1], item[2], item[3]
+                    char_a = item[4] if len(item) > 4 else src_id
+                    char_b = item[5] if len(item) > 5 else tgt_id
                     if tgt_id not in self._nodes: continue
                     pair_key = tuple(sorted([src_id, tgt_id]))
                     if pair_key in seen_pairs: continue
                     seen_pairs.add(pair_key)
                     t_node = self._nodes[tgt_id]
-                    edge = RelationEdge(s_node, t_node, label, intensity, rel_type)
+                    edge = RelationEdge(s_node, t_node, label, intensity, rel_type, char_id_a=char_a, char_id_b=char_b)
                     self.addItem(edge)
                     self._all_edges.append(edge)
 
@@ -301,7 +304,9 @@ class RelationGraphView(QGraphicsView):
         self._anim_target_center: Optional[QPointF] = None
         self._anim_target_zoom: float = 1.0
 
-    def drawBackground(self, painter: QPainter, rect: QRectF):
+    def drawBackground(self, painter: "QPainter | None", rect: QRectF):
+        if painter is None:
+            return
         bg = "#1c1c1e" if ThemeManager.is_dark() else "#f5f0ea"
         painter.fillRect(rect, QColor(bg))
 

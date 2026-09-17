@@ -15,7 +15,6 @@ Herencia (MRO):
 """
 
 import os
-import sys
 import logging
 from datetime import datetime
 
@@ -25,7 +24,7 @@ from PyQt6.QtWidgets import (
     QFileDialog, QListWidget,
 )
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QTextCharFormat, QImage
+from PyQt6.QtGui import QImage
 import qtawesome as qta
 
 from ui.outline_tree import OutlineTree
@@ -42,7 +41,7 @@ from ui.character_controller import CharacterControllerMixin
 from ui.exporter_controller import ExporterControllerMixin
 
 from core.project_manager import ProjectManager
-from core.models import Chapter, MediaNode, AuthorNote, Obra, Book, Character
+from core.models import Chapter, MediaNode, AuthorNote
 from core.theme_manager import ThemeManager
 
 log = logging.getLogger(__name__)
@@ -66,7 +65,7 @@ class AuraMainWindow(
         self.resize(1280, 850)
 
         self.project_manager = ProjectManager()
-        self._current_chapter: Chapter | None = None
+        self._current_chapter: "Chapter | None" = None
         self._current_note: AuthorNote | None = None
         self._current_container = None
         self._dirty = False
@@ -248,8 +247,9 @@ class AuraMainWindow(
         lbl.setStyleSheet(" ".join(styles))
         return lbl
 
-    def changeEvent(self, event):
+    def changeEvent(self, a0):  # noqa: N802  # Qt uses 'a0' in stubs
         """Devuelve el foco al editor al recuperar el foco desde Windows (Alt+Tab)."""
+        event = a0
         super().changeEvent(event)
         if event.type() == event.Type.ActivationChange and self.isActiveWindow():
             # Devolver foco al editor si hay un capítulo activo
@@ -638,7 +638,8 @@ class AuraMainWindow(
     # Cierre de la aplicacion
     # ------------------------------------------------------------------
 
-    def closeEvent(self, event):
+    def closeEvent(self, a0):  # noqa: N802  # Qt uses 'a0' in stubs
+        event = a0
         if self.project_manager.metadata and self._dirty:
             reply = QMessageBox.question(
                 self, "Guardar antes de salir",

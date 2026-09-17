@@ -19,15 +19,15 @@ class RelationDialog(QDialog):
     """Diálogo para crear o editar una relación entre dos personajes con dirección clara."""
 
     RELATION_CHOICES = [
-        ("👶 Es descendiente de... (hijo/a, nieto/a de)", "descendiente_de"),
-        ("👴 Es progenitor / antepasado de... (padre/madre de)", "antepasado_de"),
-        ("🎓 Es mentor / maestro de... (enseña a)", "mentor_de"),
-        ("📚 Es aprendiz / discípulo de... (aprende de)", "aprendiz_de"),
-        ("👫 Pareja / Cónyuge de...", "pareja"),
-        ("👨‍👩‍👧 Familiar (hermano/a, primo/a, etc.) de...", "familiar"),
-        ("⚔️ Rival / Enemigo de...", "rival"),
-        ("🤝 Amigo / Aliado de...", "amigo"),
-        ("👥 Otro vínculo con...", "otro"),
+        ("Es hijo/a (descendiente directo de)", "descendiente_de"),
+        ("Es padre/madre (progenitor de)", "antepasado_de"),
+        ("Pareja / Cónyuge de...", "pareja"),
+        ("Hermano/a o Familiar directo de...", "familiar"),
+        ("Es mentor / maestro de... (enseña a)", "mentor_de"),
+        ("Es aprendiz / discípulo de... (aprende de)", "aprendiz_de"),
+        ("Rival / Enemigo de...", "rival"),
+        ("Amigo / Aliado de...", "amigo"),
+        ("Otro vínculo con...", "otro"),
     ]
 
     def __init__(self, characters: list[Character], current_char_id: str,
@@ -159,25 +159,25 @@ class RelationDialog(QDialog):
         choice = self.combo_type.currentData()
 
         if choice == "descendiente_de":
-            sent = f"👶 <b>{name_a}</b> es descendiente (hijo/a, nieto/a) de <b>{name_b}</b>"
+            sent = f"<b>{name_a}</b> es hijo/a (descendiente directo) de <b>{name_b}</b>"
         elif choice == "antepasado_de":
-            sent = f"👴 <b>{name_a}</b> es progenitor / antepasado de <b>{name_b}</b>"
+            sent = f"<b>{name_a}</b> es padre/madre (progenitor directo) de <b>{name_b}</b>"
         elif choice == "mentor_de":
-            sent = f"🎓 <b>{name_a}</b> es mentor / maestro de <b>{name_b}</b>"
+            sent = f"<b>{name_a}</b> es mentor / maestro de <b>{name_b}</b>"
         elif choice == "aprendiz_de":
-            sent = f"📚 <b>{name_a}</b> es aprendiz / alumno de <b>{name_b}</b>"
+            sent = f"<b>{name_a}</b> es aprendiz / alumno de <b>{name_b}</b>"
         elif choice == "pareja":
-            sent = f"👫 <b>{name_a}</b> y <b>{name_b}</b> son pareja / cónyuges"
+            sent = f"<b>{name_a}</b> y <b>{name_b}</b> son pareja / cónyuges"
         elif choice == "familiar":
-            sent = f"👨‍👩‍👧 <b>{name_a}</b> y <b>{name_b}</b> son familiares (hermanos, primos...)"
+            sent = f"<b>{name_a}</b> y <b>{name_b}</b> son hermanos / familiares directos"
         elif choice == "rival":
-            sent = f"⚔️ <b>{name_a}</b> es rival / enemigo de <b>{name_b}</b>"
+            sent = f"<b>{name_a}</b> es rival / enemigo de <b>{name_b}</b>"
         elif choice == "amigo":
-            sent = f"🤝 <b>{name_a}</b> y <b>{name_b}</b> son amigos / aliados"
+            sent = f"<b>{name_a}</b> y <b>{name_b}</b> son amigos / aliados"
         else:
-            sent = f"👥 <b>{name_a}</b> tiene un vínculo con <b>{name_b}</b>"
+            sent = f"<b>{name_a}</b> tiene un vínculo con <b>{name_b}</b>"
 
-        self.preview_lbl.setText(f"💡 Vista previa: {sent}")
+        self.preview_lbl.setText(f"Vista previa: {sent}")
 
     def get_data(self) -> dict:
         target_id = self.combo_target.currentData()

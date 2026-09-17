@@ -16,7 +16,6 @@ Si pierdes el programa Y el código fuente, no podrás recuperar tus archivos.
 
 import os
 import io
-import json
 import hmac
 import hashlib
 import zipfile
@@ -122,11 +121,11 @@ class SecurityManager:
     def derive_key(password: str, salt: bytes) -> bytes:
         """
         Deriva una clave de 256 bits combinando contraseña + llave de app. (V2)
-        
+
         Proceso:
           1. PBKDF2(contraseña, salt) → clave del usuario
           2. HMAC-SHA256(clave_usuario, APP_KEY) → clave final
-        
+
         Sin la APP_KEY, la clave final es imposible de computar.
         """
         user_key = PBKDF2(
@@ -191,7 +190,7 @@ class SecurityManager:
     def encrypt_data(password: str, data: bytes) -> bytes:
         """
         Cifra datos usando AES-256-GCM con llave maestra (formato V2).
-        
+
         Formato del blob:
           MAGIC_V2 (6) + salt (16) + nonce (16) + tag (16) + ciphertext
         """
@@ -229,7 +228,7 @@ class SecurityManager:
 
         # ── Capa INTERIOR: password + totp_secret + APP_KEY ──────────────
         inner_salt = get_random_bytes(16)
-        inner_key  = SecurityManager.derive_key_v3(password, totp_secret, inner_salt)
+        inner_key = SecurityManager.derive_key_v3(password, totp_secret, inner_salt)
         inner_cipher = AES.new(inner_key, AES.MODE_GCM)
         inner_ct, inner_tag = inner_cipher.encrypt_and_digest(data)
         inner_blob = inner_salt + inner_cipher.nonce + inner_tag + inner_ct
@@ -246,7 +245,7 @@ class SecurityManager:
         outer_plaintext = padded_secret + inner_blob
 
         outer_salt = get_random_bytes(16)
-        outer_key  = SecurityManager.derive_key(password, outer_salt)
+        outer_key = SecurityManager.derive_key(password, outer_salt)
         outer_cipher = AES.new(outer_key, AES.MODE_GCM)
         outer_ct, outer_tag = outer_cipher.encrypt_and_digest(outer_plaintext)
 
@@ -336,13 +335,13 @@ class SecurityManager:
             raise ValueError("Datos V3 inválidos o corruptos.")
 
         offset = 6
-        outer_salt  = encrypted_blob[offset:offset + 16]
+        outer_salt = encrypted_blob[offset:offset + 16]
         outer_nonce = encrypted_blob[offset + 16:offset + 32]
-        outer_tag   = encrypted_blob[offset + 32:offset + 48]
-        outer_ct    = encrypted_blob[offset + 48:]
+        outer_tag = encrypted_blob[offset + 32:offset + 48]
+        outer_ct = encrypted_blob[offset + 48:]
 
         # ── Paso 1: Descifrar capa exterior con password + APP_KEY ────────
-        outer_key    = SecurityManager.derive_key(password, outer_salt)
+        outer_key = SecurityManager.derive_key(password, outer_salt)
         outer_cipher = AES.new(outer_key, AES.MODE_GCM, nonce=outer_nonce)
         try:
             outer_plaintext = outer_cipher.decrypt_and_verify(outer_ct, outer_tag)
@@ -354,8 +353,8 @@ class SecurityManager:
 
         # ── Extraer secreto TOTP (primeros _TOTP_SECRET_SLOT bytes) ──────
         secret_bytes = outer_plaintext[:SecurityManager._TOTP_SECRET_SLOT].rstrip(b"\x00")
-        totp_secret  = secret_bytes.decode("utf-8")
-        inner_blob   = outer_plaintext[SecurityManager._TOTP_SECRET_SLOT:]
+        totp_secret = secret_bytes.decode("utf-8")
+        inner_blob = outer_plaintext[SecurityManager._TOTP_SECRET_SLOT:]
 
         if not totp_secret:
             raise ValueError("El archivo V3 no contiene un secreto TOTP válido.")
@@ -381,12 +380,12 @@ class SecurityManager:
         if len(inner_blob) < 48:  # INNER_SALT(16) + INNER_NONCE(16) + INNER_TAG(16)
             raise ValueError("Blob interior V3 inválido o corrupto.")
 
-        inner_salt  = inner_blob[:16]
+        inner_salt = inner_blob[:16]
         inner_nonce = inner_blob[16:32]
-        inner_tag   = inner_blob[32:48]
-        inner_ct    = inner_blob[48:]
+        inner_tag = inner_blob[32:48]
+        inner_ct = inner_blob[48:]
 
-        inner_key    = SecurityManager.derive_key_v3(password, totp_secret, inner_salt)
+        inner_key = SecurityManager.derive_key_v3(password, totp_secret, inner_salt)
         inner_cipher = AES.new(inner_key, AES.MODE_GCM, nonce=inner_nonce)
         try:
             return inner_cipher.decrypt_and_verify(inner_ct, inner_tag)

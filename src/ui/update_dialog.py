@@ -8,13 +8,12 @@ import subprocess
 import webbrowser
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QTextBrowser, QProgressBar, QMessageBox, QWidget
+    QTextBrowser, QProgressBar, QMessageBox
 )
-from PyQt6.QtCore import Qt
 import qtawesome as qta
 
 from version import __version__, APP_NAME, APP_URL
-from core.updater import UpdateCheckWorker, DownloadWorker
+from core.updater import DownloadWorker
 
 
 class UpdateDialog(QDialog):

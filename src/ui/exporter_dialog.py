@@ -1,7 +1,6 @@
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout,
                              QLineEdit, QPushButton, QComboBox, QFileDialog,
                              QFormLayout, QCheckBox)
-from PyQt6.QtCore import Qt
 from core.models import UniverseMetadata
 
 

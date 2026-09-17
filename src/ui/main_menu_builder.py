@@ -3,9 +3,9 @@ Aura Writer — Main Menu & Toolbar Builder Mixin
 Construcción de menús, barras de herramientas con acciones reactivas y actualización de estado.
 """
 
-from PyQt6.QtWidgets import QToolBar, QMenu
+from PyQt6.QtWidgets import QToolBar
 from PyQt6.QtCore import QSize
-from PyQt6.QtGui import QKeySequence, QTextCharFormat, QFont, QAction, QActionGroup
+from PyQt6.QtGui import QKeySequence, QTextCharFormat, QAction, QActionGroup
 import qtawesome as qta
 
 

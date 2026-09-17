@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QLabel, QLineEdit, 
-                             QPushButton, QHBoxLayout, QMessageBox)
+                             QPushButton, QMessageBox)
 from PyQt6.QtCore import Qt
 import qtawesome as qta
 
@@ -10,7 +10,7 @@ class LockDialog(QDialog):
     Soporta desbloqueo con contraseña + código TOTP si 2FA está activo.
     """
     def __init__(self, correct_password: str, totp_enabled: bool = False, 
-                 totp_secret: str = "", recovery_codes: list = None, parent=None):
+                 totp_secret: str = "", recovery_codes: "list | None" = None, parent=None):
         super().__init__(parent)
         self.correct_password = correct_password
         self.totp_enabled = totp_enabled

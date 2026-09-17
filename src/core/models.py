@@ -28,11 +28,14 @@ import uuid
 from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
+
 def _new_id() -> str:
     return str(uuid.uuid4())
+
 
 # ======================================================================
 # Nodos hoja
@@ -143,7 +146,7 @@ class Character(BaseModel):
     deepest_fear: str = ""      # miedo más profundo
     core_values: str = ""       # valores y creencias fundamentales
     transformation_arc: str = ""  # arco de transformación (inicio → medio → final)
-    distinctive_voice: str = "" # tono o voz distintiva
+    distinctive_voice: str = ""   # tono o voz distintiva
     symbol_metaphor: str = ""   # símbolo o metáfora que representa
     # ── Atributos dinámicos ──────────────────────────────────────
     custom_attributes: Dict[str, str] = Field(default_factory=dict)
@@ -165,9 +168,9 @@ class Character(BaseModel):
                 entry.description = description
                 entry.notes = notes
                 return
-        self.description_history.append(DescriptionEntry(obra_id=obra_id,
-                                                          description=description,
-                                                          notes=notes))
+        self.description_history.append(
+            DescriptionEntry(obra_id=obra_id, description=description, notes=notes)
+        )
 
 
 class Place(BaseModel):
@@ -187,23 +190,23 @@ class Place(BaseModel):
 RELATION_TYPES = ["pareja", "familiar", "descendiente", "rival", "mentor", "amigo", "otro"]
 
 RELATION_COLORS = {
-    "pareja":      "#e84393",
-    "familiar":    "#27ae60",
-    "descendiente":"#2ecc71",
-    "rival":       "#e67e22",
-    "mentor":      "#3498db",
-    "amigo":       "#9b59b6",
-    "otro":        "#95a5a6",
+    "pareja": "#e84393",
+    "familiar": "#27ae60",
+    "descendiente": "#2ecc71",
+    "rival": "#e67e22",
+    "mentor": "#3498db",
+    "amigo": "#9b59b6",
+    "otro": "#95a5a6",
 }
 
 RELATION_ICONS = {
-    "pareja":      "👫",
-    "familiar":    "👨‍👩‍👧",
-    "descendiente":"👶",
-    "rival":       "⚔️",
-    "mentor":      "🎓",
-    "amigo":       "🤝",
-    "otro":        "👥",
+    "pareja": "",
+    "familiar": "",
+    "descendiente": "",
+    "rival": "",
+    "mentor": "",
+    "amigo": "",
+    "otro": "",
 }
 
 

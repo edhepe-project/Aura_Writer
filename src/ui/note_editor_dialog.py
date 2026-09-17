@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QLineEdit, QTextEdit, QPushButton, QFrame, QSizePolicy
 )
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QFont, QKeySequence, QShortcut
+from PyQt6.QtGui import QKeySequence, QShortcut
 
 
 class NoteEditorDialog(QDialog):
@@ -240,7 +240,7 @@ class NoteEditorDialog(QDialog):
                 min-width: 100px;
             }}
             QPushButton#btnDelete:hover {{
-                background: {danger};
+                background: {danger_hover};
                 color: #ffffff;
             }}
         """)

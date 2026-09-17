@@ -5,17 +5,15 @@ Maquetación profesional en tamaño A5 con ReportLab: cabeceras vivas, drop caps
 
 import os
 from datetime import datetime
-from bs4 import BeautifulSoup
-
 from reportlab.lib.pagesizes import A5
-from reportlab.lib.units import mm, cm
+from reportlab.lib.units import mm
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.colors import HexColor
 from reportlab.platypus import (
     Paragraph, Spacer, PageBreak, BaseDocTemplate, Frame,
     PageTemplate, Image as RLImage, Flowable, NextPageTemplate
 )
-from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER, TA_RIGHT, TA_LEFT
+from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER, TA_LEFT
 
 from tools.exporters.base_exporter import _COLORS, clean_html
 

@@ -5,7 +5,7 @@ Indicador de estado USB, configuracion, sincronizacion y reporte.
 import os
 import logging
 from datetime import datetime
-from PyQt6.QtWidgets import QMessageBox, QPushButton
+from PyQt6.QtWidgets import QMessageBox
 
 log = logging.getLogger(__name__)
 
@@ -118,7 +118,6 @@ class UsbControllerMixin:
 
     def _prompt_import_newer_usb(self, version_info: dict):
         """Diálogo cuando la USB tiene una versión más reciente que el local."""
-        from datetime import datetime
         usb_time = datetime.fromtimestamp(version_info["usb_mtime"]).strftime("%d/%m/%Y %H:%M")
         local_time = datetime.fromtimestamp(version_info["local_mtime"]).strftime("%d/%m/%Y %H:%M")
 
@@ -133,7 +132,7 @@ class UsbControllerMixin:
             "<small>(El archivo local actual se guardará como copia de respaldo .bak)</small>"
         )
         btn_import = msg.addButton("📥 Importar desde USB", QMessageBox.ButtonRole.AcceptRole)
-        btn_keep   = msg.addButton("📁 Mantener versión local", QMessageBox.ButtonRole.RejectRole)
+        msg.addButton("📁 Mantener versión local", QMessageBox.ButtonRole.RejectRole)
         msg.setDefaultButton(btn_import)
         msg.exec()
 
@@ -142,7 +141,6 @@ class UsbControllerMixin:
 
     def _prompt_resolve_conflict(self, version_info: dict):
         """Diálogo de conflicto cuando ambas versiones difieren sin un orden claro."""
-        from datetime import datetime
         usb_time = datetime.fromtimestamp(version_info["usb_mtime"]).strftime("%d/%m/%Y %H:%M")
         local_time = datetime.fromtimestamp(version_info["local_mtime"]).strftime("%d/%m/%Y %H:%M")
 

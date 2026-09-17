@@ -8,8 +8,8 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QSplitter, QFrame,
     QLabel, QComboBox, QPushButton, QTextEdit, QCheckBox, QMessageBox
 )
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QFont, QColor
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QFont
 import qtawesome as qta
 
 
@@ -284,7 +284,7 @@ class ChapterComparatorDialog(QDialog):
                     chapters.append((cap.id, label, cap.content_file, cap))
         return chapters
 
-    def _load_chapters_into_combos(self, select_a: str = None, select_b: str = None):
+    def _load_chapters_into_combos(self, select_a: "str | None" = None, select_b: "str | None" = None):
         chapters = self._collect_all_chapters()
         if not chapters:
             self.panel_a.editor.setPlaceholderText("No hay capítulos disponibles en el proyecto.")
@@ -404,7 +404,7 @@ class ChapterComparatorDialog(QDialog):
                 QPushButton:hover {{ background-color: {'#2c2c2e' if is_dark else '#dedad2'}; }}
             """)
 
-            user_action = [None]
+            user_action: list[str | None] = [None]
             def _choose_branch():
                 user_action[0] = "branch"
                 branch_dlg.accept()
@@ -539,7 +539,8 @@ class ChapterComparatorDialog(QDialog):
         else:
             QMessageBox.information(self, "Mesa de Cotejo", "No hay cambios pendientes por guardar.")
 
-    def closeEvent(self, event):
+    def closeEvent(self, a0):
+        event = a0
         if self.panel_a._dirty or self.panel_b._dirty:
             reply = QMessageBox.question(
                 self, "Guardar cambios",

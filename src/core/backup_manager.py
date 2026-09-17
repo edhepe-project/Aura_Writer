@@ -6,6 +6,7 @@ from datetime import datetime
 
 log = logging.getLogger(__name__)
 
+
 class BackupManager:
     """
     Gestiona copias de respaldo automáticas y rotativas de proyectos .aura.

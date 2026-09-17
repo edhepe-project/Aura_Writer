@@ -14,6 +14,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
+
 class ConfigManager:
     _cached_prefs: dict | None = None
 

@@ -7,10 +7,8 @@ restaurarlos a la estructura del proyecto o eliminarlos definitivamente.
 
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QListWidget, QListWidgetItem, QPushButton,
-                             QMessageBox, QTextEdit, QSplitter, QWidget, QFrame)
+                             QMessageBox, QTextEdit, QSplitter, QWidget)
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont
-from datetime import datetime
 
 from core.models import UniverseMetadata, TrashedItem, Obra, Book, Chapter, MediaNode, AuthorNote, Character
 

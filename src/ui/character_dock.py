@@ -29,10 +29,10 @@ class CharacterDock(QWidget):
       - Arriba: Árbol relacional con botones + / - / editar
       - Abajo: Lista de apariciones y contexto dinámico
     """
-    character_added     = pyqtSignal(object)   # Character
-    character_deleted   = pyqtSignal(str)      # char_id
-    character_selected  = pyqtSignal(str)      # char_id
-    chapter_requested   = pyqtSignal(str)      # chapter_id → navegar
+    character_added = pyqtSignal(object)   # Character
+    character_deleted = pyqtSignal(str)      # char_id
+    character_selected = pyqtSignal(str)      # char_id
+    chapter_requested = pyqtSignal(str)      # chapter_id → navegar
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -261,34 +261,34 @@ class CharacterDock(QWidget):
                 rtype = rel.relation_type
                 if is_source:
                     if rtype == "descendiente":
-                        g_key, g_lbl, g_col = "es_descendiente", "👶 Es descendiente de:", "#2ecc71"
+                        g_key, g_lbl, g_col = "es_descendiente", "Es descendiente de:", "#2ecc71"
                     elif rtype == "mentor":
-                        g_key, g_lbl, g_col = "es_mentor", "🎓 Es mentor de:", "#3498db"
+                        g_key, g_lbl, g_col = "es_mentor", "Es mentor de:", "#3498db"
                     elif rtype == "pareja":
-                        g_key, g_lbl, g_col = "pareja", "👫 Pareja de:", "#e84393"
+                        g_key, g_lbl, g_col = "pareja", "Pareja de:", "#e84393"
                     elif rtype == "familiar":
-                        g_key, g_lbl, g_col = "familiar", "👨‍👩‍👧 Familiar de:", "#27ae60"
+                        g_key, g_lbl, g_col = "familiar", "Familiar de:", "#27ae60"
                     elif rtype == "rival":
-                        g_key, g_lbl, g_col = "rival", "⚔️ Rival de:", "#e67e22"
+                        g_key, g_lbl, g_col = "rival", "Rival de:", "#e67e22"
                     elif rtype == "amigo":
-                        g_key, g_lbl, g_col = "amigo", "🤝 Amigo de:", "#9b59b6"
+                        g_key, g_lbl, g_col = "amigo", "Amigo de:", "#9b59b6"
                     else:
-                        g_key, g_lbl, g_col = "otro", "👥 Vínculo con:", "#95a5a6"
+                        g_key, g_lbl, g_col = "otro", "Vínculo con:", "#95a5a6"
                 else:
                     if rtype == "descendiente":
-                        g_key, g_lbl, g_col = "es_antepasado", "👴 Es progenitor / antepasado de:", "#27ae60"
+                        g_key, g_lbl, g_col = "es_antepasado", "Es progenitor / antepasado de:", "#27ae60"
                     elif rtype == "mentor":
-                        g_key, g_lbl, g_col = "es_aprendiz", "📚 Es aprendiz de:", "#2980b9"
+                        g_key, g_lbl, g_col = "es_aprendiz", "Es aprendiz de:", "#2980b9"
                     elif rtype == "pareja":
-                        g_key, g_lbl, g_col = "pareja", "👫 Pareja de:", "#e84393"
+                        g_key, g_lbl, g_col = "pareja", "Pareja de:", "#e84393"
                     elif rtype == "familiar":
-                        g_key, g_lbl, g_col = "familiar", "👨‍👩‍👧 Familiar de:", "#27ae60"
+                        g_key, g_lbl, g_col = "familiar", "Familiar de:", "#27ae60"
                     elif rtype == "rival":
-                        g_key, g_lbl, g_col = "rival", "⚔️ Rival de:", "#e67e22"
+                        g_key, g_lbl, g_col = "rival", "Rival de:", "#e67e22"
                     elif rtype == "amigo":
-                        g_key, g_lbl, g_col = "amigo", "🤝 Amigo de:", "#9b59b6"
+                        g_key, g_lbl, g_col = "amigo", "Amigo de:", "#9b59b6"
                     else:
-                        g_key, g_lbl, g_col = "otro", "👥 Vínculo con:", "#95a5a6"
+                        g_key, g_lbl, g_col = "otro", "Vínculo con:", "#95a5a6"
 
                 if other_id and other_id in char_map:
                     if g_key not in grouped_rels:
@@ -360,7 +360,7 @@ class CharacterDock(QWidget):
         menu = QMenu(self)
 
         if rel_id:
-            act_edit   = menu.addAction("✏️  Editar relación")
+            act_edit = menu.addAction("✏️  Editar relación")
             act_delete = menu.addAction("🗑️  Eliminar relación")
             chosen = menu.exec(self._tree.viewport().mapToGlobal(pos))
             if chosen == act_edit:
@@ -371,9 +371,9 @@ class CharacterDock(QWidget):
             char_id = item.data(0, Qt.ItemDataRole.UserRole)
             item_type = item.data(0, Qt.ItemDataRole.UserRole + 1)
             if item_type == "character" and char_id:
-                act_edit   = menu.addAction("✏️  Editar personaje")
+                act_edit = menu.addAction("✏️  Editar personaje")
                 act_rename = menu.addAction("✏️  Renombrar")
-                act_rel    = menu.addAction("🔗  Añadir relación")
+                act_rel = menu.addAction("🔗  Añadir relación")
                 menu.addSeparator()
                 act_del_ch = menu.addAction("🗑️  Eliminar personaje")
                 chosen = menu.exec(self._tree.viewport().mapToGlobal(pos))
@@ -409,12 +409,12 @@ class CharacterDock(QWidget):
         )
         if dlg.exec():
             data = dlg.get_data()
-            rel.char_id_a     = data.get("char_id_a", self._current_char.id)
-            rel.char_id_b     = data.get("char_id_b", data["target_id"])
+            rel.char_id_a = data.get("char_id_a", self._current_char.id)
+            rel.char_id_b = data.get("char_id_b", data["target_id"])
             rel.relation_type = data["relation_type"]
-            rel.label         = data["label"]
-            rel.intensity     = data["intensity"]
-            rel.obra_id       = data["obra_id"]
+            rel.label = data["label"]
+            rel.intensity = data["intensity"]
+            rel.obra_id = data["obra_id"]
             self.character_added.emit(self._current_char)
             self._rebuild_tree()
             self._select_tree_by_char_id(self._current_char.id)
@@ -465,7 +465,7 @@ class CharacterDock(QWidget):
     def _on_tree_selection(self, current: QTreeWidgetItem, _prev):
         if self._loading or current is None:
             return
-        char_id   = current.data(0, Qt.ItemDataRole.UserRole)
+        char_id = current.data(0, Qt.ItemDataRole.UserRole)
         item_type = current.data(0, Qt.ItemDataRole.UserRole + 1)
         if item_type != "character" or not char_id:
             return
@@ -514,7 +514,7 @@ class CharacterDock(QWidget):
         if dlg.exec():
             char = dlg.get_character()
             self._characters.append(char)
-            self._relations = dlg.get_relations()
+            self._relations = dlg.get_all_relations()
             self._current_char = char
             self.character_added.emit(char)
             self._rebuild_tree()
@@ -526,22 +526,15 @@ class CharacterDock(QWidget):
             QMessageBox.information(self, "Info", "Selecciona un personaje primero.")
             return
 
-        char_rels = [r for r in self._relations
-                     if r.char_id_a == self._current_char.id
-                     or r.char_id_b == self._current_char.id]
-
         dlg = CharacterEditDialog(
             character=self._current_char,
             obras=self._obras,
             characters=self._characters,
-            relations=char_rels,
+            relations=self._relations,
             parent=self
         )
         if dlg.exec():
-            other_rels = [r for r in self._relations
-                          if r.char_id_a != self._current_char.id
-                          and r.char_id_b != self._current_char.id]
-            self._relations = other_rels + dlg.get_relations()
+            self._relations = dlg.get_all_relations()
             self.character_added.emit(self._current_char)
             self._rebuild_tree()
             self._select_tree_by_char_id(self._current_char.id)
@@ -557,19 +550,12 @@ class CharacterDock(QWidget):
         if reply == QMessageBox.StandardButton.Yes:
             char_id = self._current_char.id
             self._characters = [c for c in self._characters if c.id != char_id]
-            self._relations  = [r for r in self._relations
-                                if r.char_id_a != char_id and r.char_id_b != char_id]
+            self._relations = [r for r in self._relations
+                               if r.char_id_a != char_id and r.char_id_b != char_id]
             self._current_char = None
             self._list_appear.clear()
             self.character_deleted.emit(char_id)
             self._rebuild_tree()
-
-    # ------------------------------------------------------------------
-    # Relaciones (acceso externo)
-    # ------------------------------------------------------------------
-
-    def get_relations(self) -> list[CharacterRelation]:
-        return self._relations
 
     # ------------------------------------------------------------------
     # Panel de contexto dinámico
@@ -594,8 +580,8 @@ class CharacterDock(QWidget):
             self._list_appear.addItem(item)
 
     def update_context_for_chapter(self, chapter_title: str,
-                                    characters_in_chapter: list[Character],
-                                    obra_title: str, libro_title: str):
+                                   characters_in_chapter: list[Character],
+                                   obra_title: str, libro_title: str):
         """Muestra qué personajes interactúan en el capítulo seleccionado."""
         self._last_context_type = "chapter"
         self._last_context_args = (chapter_title, characters_in_chapter, obra_title, libro_title)
@@ -615,8 +601,8 @@ class CharacterDock(QWidget):
         self._populate_character_list_items(characters_in_chapter)
 
     def update_context_for_obra(self, obra_title: str,
-                                 characters_in_obra: list[Character],
-                                 chapter_count: int):
+                                characters_in_obra: list[Character],
+                                chapter_count: int):
         """Muestra qué personajes aparecen en la obra seleccionada."""
         self._last_context_type = "obra"
         self._last_context_args = (obra_title, characters_in_obra, chapter_count)
@@ -636,8 +622,8 @@ class CharacterDock(QWidget):
         self._populate_character_list_items(characters_in_obra)
 
     def update_context_for_libro(self, libro_title: str, obra_title: str,
-                                  characters_in_libro: list[Character],
-                                  chapter_count: int):
+                                 characters_in_libro: list[Character],
+                                 chapter_count: int):
         """Muestra qué personajes aparecen en el libro seleccionado."""
         self._last_context_type = "libro"
         self._last_context_args = (libro_title, obra_title, characters_in_libro, chapter_count)
@@ -657,8 +643,8 @@ class CharacterDock(QWidget):
         self._populate_character_list_items(characters_in_libro)
 
     def update_context_for_universe(self, title: str,
-                                     all_characters: list[Character],
-                                     total_chapters: int, total_obras: int):
+                                    all_characters: list[Character],
+                                    total_chapters: int, total_obras: int):
         """Muestra un resumen de todos los personajes del universo."""
         self._last_context_type = "universe"
         self._last_context_args = (title, all_characters, total_chapters, total_obras)

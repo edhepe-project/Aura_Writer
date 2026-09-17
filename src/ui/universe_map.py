@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (QGraphicsScene, QGraphicsView, QGraphicsEllipseItem
                              QGraphicsTextItem, QGraphicsLineItem, QWidget,
                              QVBoxLayout, QLabel, QGraphicsItem, QHBoxLayout,
                              QPushButton)
-from PyQt6.QtCore import Qt, QRectF, QPointF, QTimer, pyqtSignal
+from PyQt6.QtCore import Qt, QPointF, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QPen, QColor, QFont, QPainter
 from core.models import UniverseMetadata
 
@@ -189,9 +189,10 @@ class UniverseMapWidget(QWidget):
         self._nodes: dict[str, DraggableNode] = {}
         self._pending_fit = False
 
-    def showEvent(self, event):
+    def showEvent(self, a0):
         """Al mostrarse, ajustar la vista con un pequeño retardo para que
         el layout haya terminado de calcularse."""
+        event = a0
         super().showEvent(event)
         if self._pending_fit:
             QTimer.singleShot(80, self._fit_view)

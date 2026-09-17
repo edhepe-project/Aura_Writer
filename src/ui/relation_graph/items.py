@@ -3,15 +3,13 @@ Módulo de Elementos Gráficos: Nodos de Personaje, Aristas y Fondo.
 """
 
 import math
-from typing import Optional
 from PyQt6.QtWidgets import (
-    QGraphicsScene, QGraphicsEllipseItem, QGraphicsTextItem,
-    QGraphicsPathItem, QGraphicsItem, QGraphicsRectItem,
+    QGraphicsEllipseItem, QGraphicsPathItem, QGraphicsItem, QGraphicsRectItem,
 )
 from PyQt6.QtCore import Qt, QPointF, QRectF
 from PyQt6.QtGui import (
     QBrush, QPen, QColor, QFont, QPainter,
-    QPainterPath, QRadialGradient, QPolygonF,
+    QRadialGradient, QPolygonF,
 )
 from core.models import Character, RELATION_ICONS
 from core.theme_manager import ThemeManager
@@ -118,7 +116,9 @@ class CharacterNode(QGraphicsEllipseItem):
         extra_w = max(45.0, r + 65.0)
         return QRectF(-extra_w, -r - 30, extra_w * 2, (r * 2) + extra_h + 36)
 
-    def paint(self, painter: QPainter, option, widget=None):
+    def paint(self, painter: QPainter | None, option, widget=None):
+        if painter is None:
+            return
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
         
@@ -268,11 +268,13 @@ class RelationEdge(QGraphicsPathItem):
     """
     Arista de relación ultra-optimizada:
     - Trazo de bezier curvo de alto rendimiento en un único QGraphicsItem
+    - Renderiza flecha direccional para relaciones jerárquicas (Padre ➔ Hijo, Mentor ➔ Aprendiz)
     - Renderiza su propio glow y etiqueta en paint() sin crear miles de QGraphicsTextItems
     """
     def __init__(self, source: CharacterNode, target: CharacterNode,
                  label: str, intensity: int, relation_type: str = "otro",
-                 curvature: float = 0.16):
+                 curvature: float = 0.16,
+                 char_id_a: str = "", char_id_b: str = ""):
         super().__init__()
         self.source = source
         self.target = target
@@ -280,6 +282,8 @@ class RelationEdge(QGraphicsPathItem):
         self.label_text = label
         self._curvature = curvature
         self._intensity = intensity
+        self.char_id_a = char_id_a or source.char_id
+        self.char_id_b = char_id_b or target.char_id
 
         style = RELATION_STYLES.get(relation_type, RELATION_STYLES["otro"])
         self._style = style
@@ -302,14 +306,54 @@ class RelationEdge(QGraphicsPathItem):
         # Ocultas en estado global/reposo para evitar el efecto telaraña y maximizar FPS
         self.setVisible(False)
 
-        # Precalcular etiqueta
+        # Determinar dirección jerárquica
+        # En descendiente: char_id_a es el hijo/a, char_id_b es el padre/madre.
+        # En mentor: char_id_a es el mentor, char_id_b es el aprendiz.
+        self._is_directional = False
+        self._arrow_forward = True  # True: de source a target, False: de target a source
+
+        if relation_type == "descendiente":
+            self._is_directional = True
+            # Flecha orientada de progenitor (padre) -> descendiente (hijo)
+            # char_id_b es progenitor, char_id_a es hijo
+            if self.source.char_id == self.char_id_b:
+                self._arrow_forward = True
+            else:
+                self._arrow_forward = False
+        elif relation_type == "mentor":
+            self._is_directional = True
+            # Flecha orientada de mentor -> aprendiz
+            # char_id_a es mentor, char_id_b es aprendiz
+            if self.source.char_id == self.char_id_a:
+                self._arrow_forward = True
+            else:
+                self._arrow_forward = False
+
+        # Precalcular etiqueta descriptiva
         self._display_label = ""
-        if label:
-            icon = RELATION_ICONS.get(relation_type, "")
-            self._display_label = f"{icon} {label}" if icon else label
+        icon = RELATION_ICONS.get(relation_type, "")
+        if relation_type == "descendiente":
+            p_name = self.source.char_name if self._arrow_forward else self.target.char_name
+            h_name = self.target.char_name if self._arrow_forward else self.source.char_name
+            extra = f" ({label})" if label else ""
+            self._display_label = f"{p_name} ➔ {h_name} (Hijo){extra}"
+            self.setToolTip(f"{h_name} es hijo/a (descendiente directo) de {p_name}{extra}")
+        elif relation_type == "mentor":
+            m_name = self.source.char_name if self._arrow_forward else self.target.char_name
+            a_name = self.target.char_name if self._arrow_forward else self.source.char_name
+            extra = f" ({label})" if label else ""
+            self._display_label = f"{m_name} ➔ {a_name} (Aprendiz){extra}"
+            self.setToolTip(f"{m_name} es mentor de {a_name}{extra}")
+        else:
+            if label:
+                self._display_label = f"{icon} {label}".strip() if icon else label
+            else:
+                self._display_label = f"{icon} {relation_type.capitalize()}".strip() if icon else relation_type.capitalize()
+            self.setToolTip(f"{self.source.char_name} ⟷ {self.target.char_name} [{relation_type}]")
         
         self._label_font = QFont("Segoe UI", 9, QFont.Weight.Bold)
         self._mid_point = QPointF(0, 0)
+        self._mid_tangent_angle = 0.0
 
         source.edges.append(self)
         target.edges.append(self)
@@ -329,6 +373,12 @@ class RelationEdge(QGraphicsPathItem):
         path = bezier_path(p1, p2, self._curvature, r1=r1, r2=r2)
         self.setPath(path)
         self._mid_point = path.pointAtPercent(0.5)
+        # Calcular ángulo tangente en el punto medio para la flecha
+        p_prev = path.pointAtPercent(0.48)
+        p_next = path.pointAtPercent(0.52)
+        dx = p_next.x() - p_prev.x()
+        dy = p_next.y() - p_prev.y()
+        self._mid_tangent_angle = math.atan2(dy, dx)
 
     def set_active_focus(self, active: bool, dim_others: bool = False):
         self._is_active = active
@@ -356,7 +406,9 @@ class RelationEdge(QGraphicsPathItem):
             self.setVisible(True)
         self.update()
 
-    def paint(self, painter: QPainter, option, widget=None):
+    def paint(self, painter: QPainter | None, option, widget=None):
+        if painter is None:
+            return
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         path = self.path()
         if path.isEmpty():
@@ -381,8 +433,25 @@ class RelationEdge(QGraphicsPathItem):
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawPath(path)
 
-        # 3. Etiqueta con el tipo de relación sobre la línea (solo si está activa)
-        # FIX #7: solo mostrar etiqueta en aristas activas para evitar ruido visual masivo
+        # 3. Flecha direccional en el centro si la relación es asimétrica/jerárquica
+        if self._is_directional and self._is_active:
+            painter.save()
+            angle = self._mid_tangent_angle if self._arrow_forward else (self._mid_tangent_angle + math.pi)
+            mx, my = self._mid_point.x(), self._mid_point.y()
+            
+            # Dibujar punta de flecha limpia
+            arrow_size = 8.0
+            p_tip = QPointF(mx + math.cos(angle) * arrow_size, my + math.sin(angle) * arrow_size)
+            p_left = QPointF(mx + math.cos(angle + 2.5) * arrow_size, my + math.sin(angle + 2.5) * arrow_size)
+            p_right = QPointF(mx + math.cos(angle - 2.5) * arrow_size, my + math.sin(angle - 2.5) * arrow_size)
+            
+            arrow_poly = QPolygonF([p_tip, p_left, p_right])
+            painter.setPen(QPen(self._base_color, 1.2))
+            painter.setBrush(QBrush(self._base_color))
+            painter.drawPolygon(arrow_poly)
+            painter.restore()
+
+        # 4. Etiqueta con el tipo de relación sobre la línea (solo si está activa)
         display_txt = self._display_label or self.relation_type.capitalize()
         if display_txt and self._is_active:
             is_dark = ThemeManager.is_dark()
@@ -394,7 +463,9 @@ class RelationEdge(QGraphicsPathItem):
             th = fm.height()
             
             mx, my = self._mid_point.x(), self._mid_point.y()
-            rect = QRectF(mx - tw / 2 - 6, my - th / 2 - 3, tw + 12, th + 6)
+            # Si hay flecha en el centro, desplazamos la etiqueta ligeramente hacia arriba
+            offset_y = -14 if self._is_directional else 0
+            rect = QRectF(mx - tw / 2 - 6, my - th / 2 - 3 + offset_y, tw + 12, th + 6)
             
             bg_col = QColor("#1c1c1e" if is_dark else "#faf7f3")
             bg_col.setAlphaF(0.96 if self._is_active else 0.85)

@@ -5,8 +5,8 @@ Lógica de árbol narrativo: crear, eliminar, mover y renombrar nodos
 """
 
 import os
-from PyQt6.QtWidgets import QInputDialog, QFileDialog, QMessageBox
-from core.models import Obra, Book, Chapter, MediaNode, AuthorNote
+from PyQt6.QtWidgets import QInputDialog, QFileDialog
+from core.models import Obra, Book, MediaNode, AuthorNote
 
 
 class TreeControllerMixin:

@@ -7,7 +7,7 @@ de doble factor mostrando un código QR escaneble.
 
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QPushButton, QMessageBox, QTextEdit)
-from PyQt6.QtGui import QPixmap, QImage
+from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import Qt
 import qtawesome as qta
 

@@ -15,8 +15,6 @@ import shutil
 import hashlib
 import logging
 import platform
-import subprocess
-import tempfile
 
 log = logging.getLogger(__name__)
 
@@ -376,12 +374,12 @@ class USBSync:
         return os.path.getmtime(dest_path)
 
     # Constantes para el resultado de compare_versions
-    SYNC_IN_SYNC     = "in_sync"       # Hashes iguales
-    SYNC_USB_NEWER   = "usb_newer"     # USB tiene mtime más reciente (posible trabajo en otro equipo)
-    SYNC_LOCAL_NEWER = "local_newer"   # Local más reciente (se puede sincronizar)
-    SYNC_CONFLICT    = "both_changed"  # Hashes distintos, ninguno es claramente más nuevo
-    SYNC_USB_MISSING = "usb_missing"   # USB conectada pero sin archivo (primera vez)
-    SYNC_DISCONNECTED = "disconnected" # USB no conectada
+    SYNC_IN_SYNC = "in_sync"          # Hashes iguales
+    SYNC_USB_NEWER = "usb_newer"      # USB tiene mtime más reciente (posible trabajo en otro equipo)
+    SYNC_LOCAL_NEWER = "local_newer"  # Local más reciente (se puede sincronizar)
+    SYNC_CONFLICT = "both_changed"    # Hashes distintos, ninguno es claramente más nuevo
+    SYNC_USB_MISSING = "usb_missing"  # USB conectada pero sin archivo (primera vez)
+    SYNC_DISCONNECTED = "disconnected"  # USB no conectada
 
     def compare_versions(self, local_path: str) -> dict:
         """
@@ -405,14 +403,14 @@ class USBSync:
 
         try:
             local_hash = self.compute_file_hash(local_path)
-            usb_hash   = self.compute_file_hash(dest_path)
+            usb_hash = self.compute_file_hash(dest_path)
         except OSError as e:
             log.warning("compare_versions: no se pudo calcular hash: %s", e)
             return {"status": self.SYNC_DISCONNECTED,
                     "local_mtime": None, "usb_mtime": None, "usb_path": None}
 
         local_mtime = os.path.getmtime(local_path)
-        usb_mtime   = os.path.getmtime(dest_path)
+        usb_mtime = os.path.getmtime(dest_path)
 
         if local_hash == usb_hash:
             status = self.SYNC_IN_SYNC

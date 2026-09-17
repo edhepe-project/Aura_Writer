@@ -15,6 +15,7 @@ from core.models import Obra, Book, Chapter, MediaNode, AuthorNote
 
 class NotesControllerMixin:
     """Mixin para AuraMainWindow: notas de autor, búsquedas y preview de media."""
+    _current_chapter: "Chapter | None" = None
 
     # ------------------------------------------------------------------
     # Inspector de notas

@@ -28,7 +28,7 @@ class AuraSoundEngine(QObject):
 
         self._base_dir = base_dir
         self._current_theme = "youtube"  # "youtube" (Máquina del Video), "electric" (Eléctrica), "vintage" (Clásica)
-        
+
         self._backend = "none"
 
         # Objetos de audio precargados en memoria RAM

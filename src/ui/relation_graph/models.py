@@ -2,7 +2,6 @@
 Módulo de Datos, Paletas y Modelos del Grafo de Relaciones.
 """
 
-from typing import Optional, Dict, List
 import math
 from PyQt6.QtCore import QPointF
 from PyQt6.QtGui import QPainterPath

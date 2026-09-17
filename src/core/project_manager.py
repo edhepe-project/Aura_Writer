@@ -185,7 +185,7 @@ class ProjectManager:
             shutil.copy2(usb_path, temp_path)
 
             # Verificar integridad
-            usb_hash  = self.usb_sync.compute_file_hash(usb_path)
+            usb_hash = self.usb_sync.compute_file_hash(usb_path)
             temp_hash = self.usb_sync.compute_file_hash(temp_path)
             if usb_hash != temp_hash:
                 os.remove(temp_path)
@@ -207,8 +207,6 @@ class ProjectManager:
                 except OSError:
                     pass
             raise USBSyncError(f"Error al importar desde USB: {e}") from e
-
-
 
     def change_password(self, new_password: str):
         """Cambia la contraseña del proyecto activo y re-cifra el archivo."""
@@ -404,4 +402,3 @@ class ProjectManager:
         self._totp_secret = ""
         self.save_project()  # Ahora guarda en V2 (sin TOTP en KDF)
         log.info("2FA desactivado y archivo vuelto a formato V2 para el proyecto")
-

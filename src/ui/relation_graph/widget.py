@@ -3,9 +3,9 @@ RelationGraphWidget: High-performance interactive visual relationship graph.
 Modularized implementation orchestrating toolbar, scene, view, side panel, and physics layout.
 """
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThreadPool
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from .models import CharacterMetrics
-from .physics import compute_graph_layout, calculate_metrics, LayoutWorker
+from .physics import compute_graph_layout, calculate_metrics
 from .scene import GraphScene, RelationGraphView
 from .side_panel import NexusSidePanel
 from .toolbar import _GraphToolbar
@@ -202,7 +202,7 @@ class RelationGraphWidget(QWidget):
         self._populate_filters()
         self._rebuild_graph()
 
-    def set_data(self, characters: list, relations: list, chapters: list = None):
+    def set_data(self, characters: list, relations: list, chapters: "list | None" = None):
         """
         Load characters and relations directly (fallback/generic mode).
         """
@@ -343,10 +343,10 @@ class RelationGraphWidget(QWidget):
         # Re-apply active focus if preserved
         if self._active_focus_id:
             self._scene._set_focus(self._active_focus_id)
-            char = next((c for c in self._characters if str(c.get("id") if isinstance(c, dict) else getattr(c, "id", "")) == str(self._active_focus_id)), None)
+            char = next((c for c in self._characters if (c.get("id") if isinstance(c, dict) else getattr(c, "id", "")) == self._active_focus_id), None)
             if char:
-                rels = [r for r in self._relations if str(r.get("source") if isinstance(r, dict) else getattr(r, "char_id_a", getattr(r, "source", ""))) == str(self._active_focus_id) or str(r.get("target") if isinstance(r, dict) else getattr(r, "char_id_b", getattr(r, "target", ""))) == str(self._active_focus_id)]
-                m = self._metrics_map.get(str(self._active_focus_id), CharacterMetrics())
+                rels = [r for r in self._relations if (r.get("source") if isinstance(r, dict) else getattr(r, "char_id_a", getattr(r, "source", ""))) == self._active_focus_id or (r.get("target") if isinstance(r, dict) else getattr(r, "char_id_b", getattr(r, "target", ""))) == self._active_focus_id]
+                m = self._metrics_map.get(self._active_focus_id, CharacterMetrics())
                 self._side_panel.display_character(char, rels, self._characters, m)
             else:
                 self._side_panel.display_empty()
@@ -394,10 +394,10 @@ class RelationGraphWidget(QWidget):
             # Animar cámara al radio de influencia
             self._view.center_on_character(node, neighbor_nodes, animate=True)
 
-        char = next((c for c in self._characters if str(c.get("id") if isinstance(c, dict) else getattr(c, "id", "")) == str(char_id)), None)
+        char = next((c for c in self._characters if (c.get("id") if isinstance(c, dict) else getattr(c, "id", "")) == char_id), None)
         if char:
-            rels = [r for r in self._relations if str(r.get("source") if isinstance(r, dict) else getattr(r, "char_id_a", getattr(r, "source", ""))) == str(char_id) or str(r.get("target") if isinstance(r, dict) else getattr(r, "char_id_b", getattr(r, "target", ""))) == str(char_id)]
-            m = self._metrics_map.get(str(char_id), CharacterMetrics())
+            rels = [r for r in self._relations if (r.get("source") if isinstance(r, dict) else getattr(r, "char_id_a", getattr(r, "source", ""))) == char_id or (r.get("target") if isinstance(r, dict) else getattr(r, "char_id_b", getattr(r, "target", ""))) == char_id]
+            m = self._metrics_map.get(char_id, CharacterMetrics())
             self._side_panel.display_character(char, rels, self._characters, m)
 
 
@@ -405,10 +405,10 @@ class RelationGraphWidget(QWidget):
         self._active_focus_id = char_id
         self._toolbar.select_character_id(char_id)
         self.character_clicked.emit(char_id)
-        char = next((c for c in self._characters if str(c.get("id") if isinstance(c, dict) else getattr(c, "id", "")) == str(char_id)), None)
+        char = next((c for c in self._characters if (c.get("id") if isinstance(c, dict) else getattr(c, "id", "")) == char_id), None)
         if char:
-            rels = [r for r in self._relations if str(r.get("source") if isinstance(r, dict) else getattr(r, "char_id_a", getattr(r, "source", ""))) == str(char_id) or str(r.get("target") if isinstance(r, dict) else getattr(r, "char_id_b", getattr(r, "target", ""))) == str(char_id)]
-            m = self._metrics_map.get(str(char_id), CharacterMetrics())
+            rels = [r for r in self._relations if (r.get("source") if isinstance(r, dict) else getattr(r, "char_id_a", getattr(r, "source", ""))) == char_id or (r.get("target") if isinstance(r, dict) else getattr(r, "char_id_b", getattr(r, "target", ""))) == char_id]
+            m = self._metrics_map.get(char_id, CharacterMetrics())
             self._side_panel.display_character(char, rels, self._characters, m)
 
     def _on_node_double_clicked(self, char_id: str):

@@ -8,8 +8,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTextEdit, QLineEdit, QComboBox, QFrame, QMessageBox,
     QDialog, QScrollArea, QMenu, QTabWidget,
-    QTableWidget, QHeaderView, QCompleter,
-    QListWidget, QListWidgetItem
+    QCompleter, QListWidget, QListWidgetItem
 )
 from PyQt6.QtCore import Qt, QPoint, QStringListModel
 from PyQt6.QtGui import QColor
@@ -38,8 +37,11 @@ class CharacterEditDialog(QDialog):
         self._is_new = character is None
         self._char = character or Character()
         self._obras = obras or []
-        self._characters = characters or []
-        self._relations = list(relations or [])
+        self._characters = list(characters or [])
+        self._all_relations = list(relations or [])
+        self._relations = [r for r in self._all_relations
+                           if r.char_id_a == self._char.id
+                           or r.char_id_b == self._char.id]
 
         self.setWindowTitle("Nuevo Personaje" if self._is_new else f"Editar — {self._char.name}")
         self.setMinimumSize(680, 620)
@@ -77,7 +79,7 @@ class CharacterEditDialog(QDialog):
         # Tab 3: Genealogía / Mapa conceptual
         if not self._is_new:
             self._genealogy_widget = GenealogyWidget(
-                self._char, self._characters, self._relations, parent=self
+                self._char, self._characters, self._all_relations, parent=self
             )
             self._tabs.addTab(self._genealogy_widget, "🗺️ Genealogía")
 
@@ -237,23 +239,30 @@ class CharacterEditDialog(QDialog):
         # SECCIÓN: ATRIBUTOS PERSONALIZADOS
         layout.addWidget(self._section_header("🏷️  Atributos Personalizados"))
 
-        self._table_custom_attr = QTableWidget(0, 2)
-        self._table_custom_attr.setHorizontalHeaderLabels(["Atributo (Ej. Raza)", "Valor (Ej. Elfo)"])
-        self._table_custom_attr.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self._table_custom_attr.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self._table_custom_attr.setMinimumHeight(120)
-        self._table_custom_attr.setMaximumHeight(200)
-        layout.addWidget(self._table_custom_attr)
+        # Contenedor dinámico de filas
+        self._attr_container = QWidget()
+        self._attr_container.setStyleSheet("background: transparent;")
+        self._attr_layout = QVBoxLayout(self._attr_container)
+        self._attr_layout.setContentsMargins(0, 4, 0, 4)
+        self._attr_layout.setSpacing(8)
+        layout.addWidget(self._attr_container)
+
+        self._attr_rows: list[tuple[QWidget, QLineEdit, QLineEdit]] = []
+
+        self._lbl_empty_attrs = QLabel("Sin atributos adicionales. Haz clic en el botón inferior para añadir uno.")
+        is_dark = ThemeManager.is_dark()
+        empty_col = "#8e8e93" if is_dark else "#78716c"
+        self._lbl_empty_attrs.setStyleSheet(
+            f"color: {empty_col}; font-size: 11px; padding: 4px 2px; background: transparent;"
+        )
+        self._attr_layout.addWidget(self._lbl_empty_attrs)
 
         attr_btn_layout = QHBoxLayout()
-        btn_add_attr = QPushButton("+ Añadir Atributo")
+        btn_add_attr = QPushButton("➕  Añadir Atributo")
+        btn_add_attr.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_add_attr.clicked.connect(lambda: self._add_custom_attr())
 
-        btn_del_attr = QPushButton("- Eliminar")
-        btn_del_attr.clicked.connect(self._remove_custom_attr)
-
         attr_btn_layout.addWidget(btn_add_attr)
-        attr_btn_layout.addWidget(btn_del_attr)
         attr_btn_layout.addStretch()
         layout.addLayout(attr_btn_layout)
 
@@ -324,24 +333,24 @@ class CharacterEditDialog(QDialog):
 
             if rtype == "descendiente":
                 if rel.char_id_a == self._char.id:
-                    text = f"👶 Descendiente (hijo/a) de → {other.name}"
+                    text = f"Descendiente (hijo/a) de → {other.name}"
                 else:
-                    text = f"👴 Progenitor / Antepasado de → {other.name}"
+                    text = f"Progenitor / Antepasado de → {other.name}"
             elif rtype == "mentor":
                 if rel.char_id_a == self._char.id:
-                    text = f"🎓 Mentor de → {other.name}"
+                    text = f"Mentor de → {other.name}"
                 else:
-                    text = f"📚 Aprendiz de → {other.name}"
+                    text = f"Aprendiz de → {other.name}"
             elif rtype == "pareja":
-                text = f"👫 Pareja de → {other.name}"
+                text = f"Pareja de → {other.name}"
             elif rtype == "familiar":
-                text = f"👨‍👩‍👧 Familiar de → {other.name}"
+                text = f"Familiar de → {other.name}"
             elif rtype == "rival":
-                text = f"⚔️ Rival de → {other.name}"
+                text = f"Rival de → {other.name}"
             elif rtype == "amigo":
-                text = f"🤝 Amigo de → {other.name}"
+                text = f"Amigo de → {other.name}"
             else:
-                text = f"👥 Vínculo con → {other.name}"
+                text = f"Vínculo con → {other.name}"
 
             if rel.label:
                 text += f"  ·  {rel.label}"
@@ -354,7 +363,7 @@ class CharacterEditDialog(QDialog):
             self._rel_list.addItem(item)
 
         if hasattr(self, '_genealogy_widget'):
-            self._genealogy_widget.set_data(self._char, self._characters, self._relations)
+            self._genealogy_widget.set_data(self._char, self._characters, self._all_relations)
 
     def _on_rel_context_menu(self, pos: QPoint):
         item = self._rel_list.itemAt(pos)
@@ -391,6 +400,7 @@ class CharacterEditDialog(QDialog):
             )
             if reply == QMessageBox.StandardButton.Yes:
                 self._relations = [r for r in self._relations if r.id != rel_id]
+                self._all_relations = [r for r in self._all_relations if r.id != rel_id]
                 self._refresh_rel_list()
 
     def _on_add_relation(self):
@@ -416,6 +426,7 @@ class CharacterEditDialog(QDialog):
                 obra_id=data["obra_id"],
             )
             self._relations.append(rel)
+            self._all_relations.append(rel)
             self._refresh_rel_list()
 
     # ------------------------------------------------------------------
@@ -452,28 +463,45 @@ class CharacterEditDialog(QDialog):
     # Atributos personalizados
     # ------------------------------------------------------------------
 
+    # ------------------------------------------------------------------
+    # Atributos personalizados (Filas dinámicas)
+    # ------------------------------------------------------------------
+
     def _add_custom_attr(self, key: str = "", val: str = ""):
-        """Añade una fila de atributo con autocompletado dinámico y seguro."""
+        """Añade una fila elegante de atributo con autocompletado y botón de borrado directo."""
         if not isinstance(key, str):
             key = ""
         if not isinstance(val, str):
             val = ""
 
-        row = self._table_custom_attr.rowCount()
-        self._table_custom_attr.insertRow(row)
+        self._lbl_empty_attrs.hide()
 
+        row_widget = QWidget()
+        row_widget.setStyleSheet("background: transparent;")
+        row_layout = QHBoxLayout(row_widget)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(8)
+
+        # Campo Clave (Atributo)
         key_edit = QLineEdit(key)
-        key_edit.setPlaceholderText("ej. Raza, Facción, Rango…")
+        key_edit.setPlaceholderText("Atributo (ej. Raza, Facción, Rango…)")
         known_keys = self._get_known_attribute_keys()
-        
+
         key_model = QStringListModel(known_keys, key_edit)
         key_completer = QCompleter(key_model, key_edit)
         key_completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
         key_completer.setFilterMode(Qt.MatchFlag.MatchContains)
         key_edit.setCompleter(key_completer)
 
+        # Separador visual
+        is_dark = ThemeManager.is_dark()
+        arrow_col = "#636366" if is_dark else "#a8a29e"
+        sep_lbl = QLabel(":")
+        sep_lbl.setStyleSheet(f"color: {arrow_col}; font-weight: bold; font-size: 14px; background: transparent;")
+
+        # Campo Valor
         val_edit = QLineEdit(val)
-        val_edit.setPlaceholderText("ej. Elfo, Capitán, Fuego…")
+        val_edit.setPlaceholderText("Valor (ej. Elfo, Capitán, Fuego…)")
 
         val_model = QStringListModel([], val_edit)
         val_completer = QCompleter(val_model, val_edit)
@@ -489,13 +517,46 @@ class CharacterEditDialog(QDialog):
         key_edit.textChanged.connect(lambda _: _update_val_suggestions())
         _update_val_suggestions()
 
-        self._table_custom_attr.setCellWidget(row, 0, key_edit)
-        self._table_custom_attr.setCellWidget(row, 1, val_edit)
+        # Botón de eliminar directo en la fila
+        btn_del = QPushButton("✕")
+        btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_del.setToolTip("Eliminar este atributo")
+        btn_del.setFixedSize(28, 28)
+        del_bg = "rgba(255, 69, 58, 0.12)" if is_dark else "rgba(220, 38, 38, 0.1)"
+        del_hover = "rgba(255, 69, 58, 0.3)" if is_dark else "rgba(220, 38, 38, 0.25)"
+        del_color = "#ff453a" if is_dark else "#dc2626"
+        btn_del.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {del_bg};
+                color: {del_color};
+                border: 1px solid transparent;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: bold;
+                padding: 0;
+            }}
+            QPushButton:hover {{
+                background-color: {del_hover};
+                border: 1px solid {del_color};
+            }}
+        """)
 
-    def _remove_custom_attr(self):
-        row = self._table_custom_attr.currentRow()
-        if row >= 0:
-            self._table_custom_attr.removeRow(row)
+        def _remove_this_row():
+            if (row_widget, key_edit, val_edit) in self._attr_rows:
+                self._attr_rows.remove((row_widget, key_edit, val_edit))
+            row_widget.deleteLater()
+            if not self._attr_rows:
+                self._lbl_empty_attrs.show()
+
+        btn_del.clicked.connect(_remove_this_row)
+
+        row_layout.addWidget(key_edit, 2)
+        row_layout.addWidget(sep_lbl)
+        row_layout.addWidget(val_edit, 3)
+        row_layout.addWidget(btn_del)
+
+        self._attr_rows.append((row_widget, key_edit, val_edit))
+        self._attr_layout.addWidget(row_widget)
 
     def _save_all_fields(self):
         """Persiste todos los campos del perfil en el objeto Character."""
@@ -512,17 +573,9 @@ class CharacterEditDialog(QDialog):
         self._char.symbol_metaphor = self._edit_symbol_metaphor.toPlainText()
 
         custom_attrs = {}
-        for row in range(self._table_custom_attr.rowCount()):
-            key_w = self._table_custom_attr.cellWidget(row, 0)
-            val_w = self._table_custom_attr.cellWidget(row, 1)
-            if key_w and val_w and isinstance(key_w, QLineEdit) and isinstance(val_w, QLineEdit):
-                k = key_w.text().strip()
-                v = val_w.text().strip()
-            else:
-                k_item = self._table_custom_attr.item(row, 0)
-                v_item = self._table_custom_attr.item(row, 1)
-                k = k_item.text().strip() if k_item else ""
-                v = v_item.text().strip() if v_item else ""
+        for _, key_edit, val_edit in self._attr_rows:
+            k = key_edit.text().strip()
+            v = val_edit.text().strip()
             if k:
                 custom_attrs[k] = v
         self._char.custom_attributes = custom_attrs
@@ -551,7 +604,12 @@ class CharacterEditDialog(QDialog):
         self._edit_distinctive_voice.setPlainText(self._char.distinctive_voice)
         self._edit_symbol_metaphor.setPlainText(self._char.symbol_metaphor)
 
-        self._table_custom_attr.setRowCount(0)
+        # Cargar atributos personalizados
+        for row_w, _, _ in list(self._attr_rows):
+            row_w.deleteLater()
+        self._attr_rows.clear()
+        self._lbl_empty_attrs.show()
+
         for k, v in self._char.custom_attributes.items():
             self._add_custom_attr(k, v)
 
@@ -585,7 +643,10 @@ class CharacterEditDialog(QDialog):
         return self._char
 
     def get_relations(self) -> list[CharacterRelation]:
-        return self._relations
+        return self._all_relations
+
+    def get_all_relations(self) -> list[CharacterRelation]:
+        return self._all_relations
 
     # ------------------------------------------------------------------
     # Helpers

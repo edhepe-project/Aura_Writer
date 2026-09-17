@@ -1,11 +1,8 @@
 import os
-import sys
 import logging
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QPushButton, QFileDialog, QStackedWidget,
                              QWidget, QFormLayout, QMessageBox, QCheckBox)
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
 import qtawesome as qta
 
 log = logging.getLogger(__name__)
@@ -353,7 +350,8 @@ class LoginDialog(QDialog):
         except Exception:
             pass
 
-    def showEvent(self, event):
+    def showEvent(self, a0):
+        event = a0
         super().showEvent(event)
         # Si ya hay un proyecto precargado, poner el foco directamente en el campo de contraseña
         if self.mode == self.MODE_OPEN and self.project_path:

@@ -62,7 +62,7 @@ class LayoutWorker(QRunnable):
                 self.char_map, self.metrics_map, self.vis_rels
             )
             self.signals.finished.emit(positions, core_radius)
-        except Exception as e:
+        except Exception:
             # Fallback a posiciones circulares rápidas
             positions = {}
             for i, cid in enumerate(self.char_map.keys()):
@@ -169,7 +169,6 @@ def compute_graph_layout(char_map: Dict[str, Character],
     # Cada titán tiene su propia 'galaxia' de secundarios orbitando a distancia generosa
     # ── 3. Secundarios (Primary): galaxia orbital expandida con zona de exclusión
     # Agrupar primaries por su titán de mayor gravedad narrativa
-    primary_set = set(primary_nodes)
     titan_primaries: Dict[str, List[str]] = {c: [] for c in core_nodes}
     unanchored_primaries: List[str] = []
 

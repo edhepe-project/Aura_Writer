@@ -1,10 +1,10 @@
 import os
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QLineEdit, QComboBox,
-    QToolButton, QCompleter, QCheckBox, QGraphicsDropShadowEffect
+    QToolButton, QCompleter, QCheckBox
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QPointF
-from PyQt6.QtGui import QColor, QCursor, QPixmap, QPainter, QPolygonF, QBrush
+from PyQt6.QtGui import QColor, QCursor, QPixmap, QPainter, QPolygonF
 import qtawesome as qta
 
 
@@ -254,7 +254,7 @@ class _GraphToolbar(QWidget):
 
     def select_character_id(self, char_id: str):
         self.char_combo.blockSignals(True)
-        idx = self.char_combo.findData(str(char_id))
+        idx = self.char_combo.findData(char_id)
         if idx >= 0:
             self.char_combo.setCurrentIndex(idx)
         else:
@@ -276,7 +276,7 @@ class _GraphToolbar(QWidget):
         completer.activated.connect(self.search_submitted.emit)
         self.search_input.setCompleter(completer)
 
-    def _update_completer_style(self, completer: QCompleter = None):
+    def _update_completer_style(self, completer: QCompleter | None = None):
         if completer is None:
             completer = self.search_input.completer()
         if completer and completer.popup():

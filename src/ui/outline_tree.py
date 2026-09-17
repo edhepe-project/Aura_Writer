@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QTreeView, QAbstractItemView, QMenu, QInputDialog,
                              QMessageBox)
-from PyQt6.QtGui import QStandardItemModel, QStandardItem, QAction
+from PyQt6.QtGui import QStandardItemModel, QStandardItem
 from PyQt6.QtCore import Qt, pyqtSignal
 import qtawesome as qta
 
@@ -344,8 +344,9 @@ class OutlineTree(QTreeView):
     # Drag and Drop Override
     # ------------------------------------------------------------------
 
-    def dropEvent(self, event):
+    def dropEvent(self, e):
         """Intercepta el soltado para manejar el reordenamiento con posición exacta."""
+        event = e
         drop_pos = event.position().toPoint()
         drop_index = self.indexAt(drop_pos)
         drop_indicator = self.dropIndicatorPosition()  # Above / Below / OnItem / OnViewport

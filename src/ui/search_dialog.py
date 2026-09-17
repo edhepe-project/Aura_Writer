@@ -1,10 +1,8 @@
 import re
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLineEdit,
-                             QListWidget, QListWidgetItem, QLabel, QPushButton,
-                             QComboBox, QFrame, QWidget, QSizePolicy,
-                             QScrollArea, QApplication)
-from PyQt6.QtCore import Qt, pyqtSignal, QSize, QTimer
-from PyQt6.QtGui import QColor, QFont, QPalette
+                             QLabel, QComboBox, QFrame, QWidget,
+                             QScrollArea, QSizePolicy)
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from bs4 import BeautifulSoup
 
 
@@ -424,7 +422,8 @@ class _ResultCardWidget(QFrame):
         """)
         super().enterEvent(event)
 
-    def leaveEvent(self, event):
+    def leaveEvent(self, a0):
+        event = a0
         self.setStyleSheet(f"""
             QFrame {{
                 background: {self._bg};
@@ -434,7 +433,8 @@ class _ResultCardWidget(QFrame):
         """)
         super().leaveEvent(event)
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, a0):
+        event = a0
         if event.button() == Qt.MouseButton.LeftButton:
             self.activated.emit(self._item_id, self._item_type)
         super().mousePressEvent(event)

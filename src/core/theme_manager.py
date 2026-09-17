@@ -5,14 +5,13 @@ y persiste la preferencia del usuario en un archivo de configuración local.
 """
 
 from __future__ import annotations
-import json
 import os
 
 # Ruta del archivo de preferencias (junto a main.py / al ejecutable)
 _PREFS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            "..", "..", "aura_prefs.json")
 
-DARK  = "dark"
+DARK = "dark"
 LIGHT = "light"
 
 # ======================================================================
@@ -47,8 +46,8 @@ DARK_STYLESHEET = """
         font-family: "Segoe UI", system-ui, sans-serif;
         font-size: 13px;
     }
-    QMainWindow, QDialog { 
-        background-color: #1c1c1e; 
+    QMainWindow, QDialog {
+        background-color: #1c1c1e;
         color: #f2f2f7;
     }
 
@@ -267,8 +266,8 @@ LIGHT_STYLESHEET = """
         font-family: "Segoe UI", system-ui, sans-serif;
         font-size: 13px;
     }
-    QMainWindow, QDialog { 
-        background-color: #f5f0ea; 
+    QMainWindow, QDialog {
+        background-color: #f5f0ea;
         color: #1a1a2e;
     }
 

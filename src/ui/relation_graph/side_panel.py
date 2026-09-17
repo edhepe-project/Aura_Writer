@@ -2,11 +2,10 @@
 Módulo de Panel Lateral: NexusSidePanel, _PanelHeader, _RelationCard y Ficha Completa Integrada.
 """
 
-from typing import Optional, Dict, List
+from typing import Optional
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFrame,
     QLabel, QPushButton, QScrollArea, QTabWidget,
-    QGridLayout,
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 import qtawesome as qta
@@ -171,13 +170,13 @@ class _PanelHeader(QFrame):
 class _RelationCard(QFrame):
     jump_to = pyqtSignal(str)
 
-    def __init__(self, rel: CharacterRelation, other: Character, other_id: str, parent=None):
+    def __init__(self, rel: CharacterRelation, other: Character, other_id: str, current_char_id: str = "", parent=None):
         super().__init__(parent)
         self.other_id = other_id
         rtype = rel.relation_type
         style = RELATION_STYLES.get(rtype, RELATION_STYLES["otro"])
         color = style["color"]
-        icon  = RELATION_ICONS.get(rtype, "👥")
+        icon = RELATION_ICONS.get(rtype, "👥")
         is_dark = ThemeManager.is_dark()
 
         bg_card = "rgba(255,255,255,0.06)" if is_dark else "rgba(0,0,0,0.04)"
@@ -227,8 +226,35 @@ class _RelationCard(QFrame):
         )
         info.addWidget(name_lbl)
 
-        label_text = rel.label if rel.label else rtype.capitalize()
-        rel_lbl = QLabel(f"{icon} {label_text}")
+        # Determinar etiqueta direccional relativa al personaje seleccionado
+        if rtype == "descendiente":
+            # Si char_id_a es el personaje actual, es el hijo/descendiente de 'other'
+            if current_char_id and getattr(rel, "char_id_a", None) == current_char_id:
+                label_text = f"Hijo/a de → {other.name}"
+            elif current_char_id and getattr(rel, "char_id_b", None) == current_char_id:
+                label_text = f"Progenitor de → {other.name}"
+            else:
+                label_text = rel.label if rel.label else "Descendiente"
+        elif rtype == "mentor":
+            if current_char_id and getattr(rel, "char_id_a", None) == current_char_id:
+                label_text = f"Mentor de → {other.name}"
+            elif current_char_id and getattr(rel, "char_id_b", None) == current_char_id:
+                label_text = f"Aprendiz de → {other.name}"
+            else:
+                label_text = rel.label if rel.label else "Mentoría"
+        elif rtype == "pareja":
+            label_text = f"Pareja de → {other.name}" if not rel.label else rel.label
+        elif rtype == "familiar":
+            label_text = f"Familiar de → {other.name}" if not rel.label else rel.label
+        elif rtype == "amigo":
+            label_text = f"Amigo/a de → {other.name}" if not rel.label else rel.label
+        elif rtype == "rival":
+            label_text = f"Rival de → {other.name}" if not rel.label else rel.label
+        else:
+            label_text = rel.label if rel.label else rtype.capitalize()
+
+        display_text = f"{icon} {label_text}".strip() if icon else label_text
+        rel_lbl = QLabel(display_text)
         rel_lbl.setStyleSheet(
             f"color: {color}; font-size: 10px; font-weight:600; background:transparent;"
         )
@@ -264,7 +290,8 @@ class _RelationCard(QFrame):
         btn.clicked.connect(lambda: self.jump_to.emit(_oid))
         row.addWidget(btn)
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, a0):
+        event = a0
         if event.button() == Qt.MouseButton.LeftButton:
             self.jump_to.emit(self.other_id)
         super().mousePressEvent(event)
@@ -331,9 +358,9 @@ class NexusSidePanel(QFrame):
         for c in all_characters:
             if isinstance(c, dict):
                 obj = Character(**{k: v for k, v in c.items() if k in Character.__annotations__})
-                char_map[str(obj.id)] = obj
+                char_map[obj.id] = obj
             else:
-                char_map[str(c.id)] = c
+                char_map[c.id] = c
 
         rel_objs = []
         for r in relations:
@@ -361,7 +388,7 @@ class NexusSidePanel(QFrame):
 
     def _on_edit_clicked(self):
         if self._current_char:
-            self.open_sheet_requested.emit(str(self._current_char.id))
+            self.open_sheet_requested.emit(self._current_char.id)
 
     def _on_close_full(self):
         self._mode = "compact"
@@ -381,7 +408,7 @@ class NexusSidePanel(QFrame):
         self._current_relations = relations
         self._char_map = char_map
         
-        m = self._metrics_map.get(str(char.id))
+        m = self._metrics_map.get(char.id)
         is_full = (self._mode == "full")
         self._header.set_character(char, m, is_full=is_full)
 
@@ -398,7 +425,7 @@ class NexusSidePanel(QFrame):
 
         my_rels = [
             r for r in relations
-            if str(r.char_id_a) == str(char.id) or str(r.char_id_b) == str(char.id)
+            if r.char_id_a == char.id or r.char_id_b == char.id
         ]
 
         if not is_full:
@@ -467,10 +494,11 @@ class NexusSidePanel(QFrame):
                 body_layout.addWidget(empty)
             else:
                 for rel in my_rels:
-                    other_id = str(rel.char_id_b if str(rel.char_id_a) == str(char.id) else rel.char_id_a)
+                    other_id = rel.char_id_b if rel.char_id_a == char.id else rel.char_id_a
                     other = char_map.get(other_id)
-                    if not other: continue
-                    card = _RelationCard(rel, other, other_id)
+                    if not other:
+                        continue
+                    card = _RelationCard(rel, other, other_id, current_char_id=char.id)
                     card.jump_to.connect(self._on_jump_to)
                     body_layout.addWidget(card)
 
@@ -602,7 +630,7 @@ class NexusSidePanel(QFrame):
                     a_lay.setContentsMargins(8, 5, 8, 5)
                     a_key = QLabel(k)
                     a_key.setStyleSheet("color: #a855f7; font-size: 11px; font-weight: 700;")
-                    a_val = QLabel(str(v))
+                    a_val = QLabel(v)
                     a_val.setWordWrap(True)
                     a_val.setStyleSheet(f"color: {fg_desc}; font-size: 11px;")
                     a_lay.addWidget(a_key)
@@ -641,10 +669,10 @@ class NexusSidePanel(QFrame):
                 lay_rels.addWidget(empty)
             else:
                 for rel in my_rels:
-                    other_id = str(rel.char_id_b if str(rel.char_id_a) == str(char.id) else rel.char_id_a)
+                    other_id = rel.char_id_b if rel.char_id_a == char.id else rel.char_id_a
                     other = char_map.get(other_id)
                     if not other: continue
-                    card = _RelationCard(rel, other, other_id)
+                    card = _RelationCard(rel, other, other_id, current_char_id=char.id)
                     card.jump_to.connect(self._on_jump_to)
                     lay_rels.addWidget(card)
 

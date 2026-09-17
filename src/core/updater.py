@@ -4,14 +4,13 @@
 # ─────────────────────────────────────────────────────────────────────────────
 import os
 import re
-import sys
 import json
 import logging
 import tempfile
 import urllib.request
 import urllib.error
-from typing import Optional, Dict, Any, Tuple
-from PyQt6.QtCore import QObject, pyqtSignal, QThread
+from typing import Tuple
+from PyQt6.QtCore import pyqtSignal, QThread
 
 from version import __version__, APP_URL
 
@@ -113,7 +112,7 @@ class UpdateCheckWorker(QThread):
 class DownloadWorker(QThread):
     """Hilo para descargar el instalador con notificación de progreso."""
     progress = pyqtSignal(int, int)  # (bytes_descargados, total_bytes)
-    finished = pyqtSignal(bool, str) # (success, file_path_o_error)
+    finished = pyqtSignal(bool, str)  # (success, file_path_o_error)
 
     def __init__(self, download_url: str, file_name: str, parent=None):
         super().__init__(parent)

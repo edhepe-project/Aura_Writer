@@ -1,8 +1,7 @@
-from PyQt6.QtWidgets import QTextEdit, QMessageBox, QMenu, QInputDialog, QApplication
+from PyQt6.QtWidgets import QTextEdit, QMenu, QApplication
 from PyQt6.QtGui import (QTextCharFormat, QTextFormat, QFont, QTextCursor, QImage,
-                         QTextImageFormat, QAction, QTextBlock, QTextBlockFormat, QColor)
-from PyQt6.QtCore import Qt, QUrl, QMimeData
-import os
+                         QTextImageFormat, QTextBlockFormat, QColor)
+from PyQt6.QtCore import Qt, QUrl
 import uuid
 import qtawesome as qta
 from core.theme_manager import ThemeManager
@@ -758,8 +757,9 @@ class AuraEditor(QTextEdit):
     # Borrado de imagen y atajos de escritura (Guion largo, etc.)
     # ------------------------------------------------------------------
 
-    def keyPressEvent(self, event):
+    def keyPressEvent(self, e):  # noqa: N802  # Qt uses 'e' in stubs
         """Intercepta Delete/Backspace para imágenes, atajos de guion largo, atajos de formato y auto-conversión de '--' a '—'."""
+        event = e
 
         # ── Enter / Retorno: manejo explícito garantizado ──────────────────────
         # Qt puede a veces "perder" el Enter en medio de la cadena de señales
@@ -896,8 +896,9 @@ class AuraEditor(QTextEdit):
 
         super().keyPressEvent(event)
 
-    def wheelEvent(self, event):
+    def wheelEvent(self, e):  # noqa: N802  # Qt uses 'e' in stubs
         """Permite hacer Zoom con Ctrl + Rueda del Ratón para accesibilidad visual."""
+        event = e
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             delta = event.angleDelta().y()
             if delta > 0:

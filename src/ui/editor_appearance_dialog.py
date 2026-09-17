@@ -4,10 +4,9 @@
 # ─────────────────────────────────────────────────────────────────────────────
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton,
-    QComboBox, QSpinBox, QSlider, QGroupBox, QRadioButton, QButtonGroup, QFrame
+    QComboBox, QSlider, QGroupBox, QRadioButton, QButtonGroup
 )
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont
 import qtawesome as qta
 
 

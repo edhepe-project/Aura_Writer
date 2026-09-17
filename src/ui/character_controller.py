@@ -1,9 +1,4 @@
-"""
-Aura Writer — Character Controller Mixin
-Gestion de personajes: sincronizacion, deteccion de menciones, dock y relaciones.
-"""
 from bs4 import BeautifulSoup
-from PyQt6.QtWidgets import QMessageBox
 from core.models import Chapter, Character
 
 
@@ -58,27 +53,20 @@ class CharacterControllerMixin:
         if not self.project_manager.metadata:
             return
         meta = self.project_manager.metadata
-        char = next((c for c in meta.characters if str(c.id) == str(char_id)), None)
+        char = next((c for c in meta.characters if c.id == char_id), None)
         if not char:
             return
-
-        char_rels = [r for r in meta.relations
-                     if str(r.char_id_a) == str(char_id)
-                     or str(r.char_id_b) == str(char_id)]
 
         dlg = CharacterEditDialog(
             character=char,
             obras=meta.obras,
             characters=meta.characters,
-            relations=char_rels,
+            relations=meta.relations,
             parent=self
         )
         if dlg.exec():
-            # Actualizar relaciones del personaje en el metadata
-            other_rels = [r for r in meta.relations
-                          if str(r.char_id_a) != str(char_id)
-                          and str(r.char_id_b) != str(char_id)]
-            meta.relations = other_rels + dlg.get_relations()
+            # Actualizar relaciones completas en el metadata
+            meta.relations = dlg.get_all_relations()
             self._dirty = True
             self.statusBar().showMessage(f"Personaje '{char.name}' actualizado", 3000)
             # Refrescar el grafo con los datos actualizados
