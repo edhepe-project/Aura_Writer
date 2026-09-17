@@ -81,8 +81,11 @@ class GraphScene(QGraphicsScene):
             self._adj_nodes[char_id] = set()
             self._adj_edges[char_id] = []
 
-        # 2. Store relation records for Lazy Edge Instantiation (Cero consumo de memoria al inicio)
+        # 2. Store relation records & determine LOD mode (visible global edges if <= 100 relations)
         self._raw_relations: Dict[str, List[tuple]] = {}  # char_id -> [(other_id, label, intensity, rel_type)]
+        self._all_edges: List[RelationEdge] = []
+        
+        seen_global_pairs = set()
         for rel in relations:
             if isinstance(rel, dict):
                 src_id = str(rel.get("source") or rel.get("char_id_a") or "")
@@ -103,6 +106,17 @@ class GraphScene(QGraphicsScene):
                 self._raw_relations.setdefault(src_id, []).append((tgt_id, label, intensity, rel_type))
                 self._raw_relations.setdefault(tgt_id, []).append((src_id, label, intensity, rel_type))
 
+                # Si el grafo tiene una cantidad manejable (<= 100 relaciones), creamos la arista visible globalmente
+                pair_key = tuple(sorted([src_id, tgt_id]))
+                if pair_key not in seen_global_pairs and len(relations) <= 100:
+                    seen_global_pairs.add(pair_key)
+                    s_node = self._nodes[src_id]
+                    t_node = self._nodes[tgt_id]
+                    edge = RelationEdge(s_node, t_node, label, intensity, rel_type)
+                    self.addItem(edge)
+                    edge.set_active_focus(active=False, dim_others=False)
+                    self._all_edges.append(edge)
+
         self.setItemIndexMethod(QGraphicsScene.ItemIndexMethod.BspTreeIndex)
 
     def get_node(self, char_id: str) -> Optional[CharacterNode]:
@@ -122,16 +136,11 @@ class GraphScene(QGraphicsScene):
             self._clear_focus()
             return
 
-        # 1. Destruir aristas previas instanciadas (mantener memoria en ~0 KB)
-        for edge in self._edges:
-            self.removeItem(edge)
-        self._edges.clear()
-
         self._focused_id = char_id
         neighbors = self._adj_nodes.get(char_id, set())
         connected = {char_id} | neighbors
 
-        # 2. Ajuste de estado visual rápido
+        # 1. Ajuste visual de los nodos
         for nid, node in self._nodes.items():
             if nid == char_id:
                 node.setZValue(12)
@@ -143,26 +152,47 @@ class GraphScene(QGraphicsScene):
                 node.setZValue(4)
                 node.set_focused_ring(False, dim_others=True)
 
-        # 3. Instanciación Perezosa (Lazy) ÚNICAMENTE de las 5-20 aristas activas
-        src_node = self._nodes.get(char_id)
-        if src_node:
-            seen_pairs = set()
-            for other_id, label, intensity, rel_type in self._raw_relations.get(char_id, []):
-                if other_id not in self._nodes or other_id in seen_pairs:
-                    continue
-                seen_pairs.add(other_id)
-                tgt_node = self._nodes[other_id]
-                edge = RelationEdge(src_node, tgt_node, label, intensity, rel_type)
-                self.addItem(edge)
-                edge.set_active_focus(active=True, dim_others=True)
-                self._edges.append(edge)
+        # 2. Aristas: Si ya existen aristas globales, destacamos las del nodo y atenuamos las demás
+        if self._all_edges:
+            for edge in self._all_edges:
+                is_connected = (edge.source == self._nodes.get(char_id) or edge.target == self._nodes.get(char_id))
+                if is_connected:
+                    edge.set_active_focus(active=True, dim_others=False)
+                else:
+                    edge.set_active_focus(active=False, dim_others=True)
+        else:
+            # Modo masivo (> 100 relaciones): Instanciación Lazy exclusiva del nodo seleccionado
+            for edge in self._edges:
+                self.removeItem(edge)
+            self._edges.clear()
+
+            src_node = self._nodes.get(char_id)
+            if src_node:
+                seen_pairs = set()
+                for other_id, label, intensity, rel_type in self._raw_relations.get(char_id, []):
+                    if other_id not in self._nodes or other_id in seen_pairs:
+                        continue
+                    seen_pairs.add(other_id)
+                    tgt_node = self._nodes[other_id]
+                    edge = RelationEdge(src_node, tgt_node, label, intensity, rel_type)
+                    self.addItem(edge)
+                    edge.set_active_focus(active=True, dim_others=False)
+                    self._edges.append(edge)
 
     def _clear_focus(self):
         self._focused_id = None
-        # Destruir aristas activas para dejar el lienzo 100% libre
-        for edge in self._edges:
-            self.removeItem(edge)
-        self._edges.clear()
+        # Restaurar aristas globales a estado normal de reposo
+        if self._all_edges:
+            for edge in self._all_edges:
+                edge.set_active_focus(active=False, dim_others=False)
+        else:
+            for edge in self._edges:
+                self.removeItem(edge)
+            self._edges.clear()
+
+        for node in self._nodes.values():
+            node.setZValue(10 if node.metrics.tier == "core" else (7 if node.metrics.tier == "primary" else 5))
+            node.set_focused_ring(False, dim_others=False)
 
         for node in self._nodes.values():
             node.setZValue(10 if node.metrics.tier == "core" else (7 if node.metrics.tier == "primary" else 5))

@@ -325,22 +325,30 @@ class RelationEdge(QGraphicsPathItem):
     def set_active_focus(self, active: bool, dim_others: bool = False):
         self._is_active = active
         self._is_dimmed = dim_others
+        pen = QPen(self.pen())
         if active:
-            pen = QPen(self.pen())
             pen.setWidthF(self._active_width)
             self.setPen(pen)
             self.setBrush(QBrush(Qt.BrushStyle.NoBrush))
             self.setOpacity(1.0)
             self.setZValue(8)
             self.setVisible(True)
+        elif dim_others:
+            pen.setWidthF(self._idle_width)
+            self.setPen(pen)
+            self.setOpacity(0.18)
+            self.setZValue(2)
+            self.setVisible(True)
         else:
-            self.setVisible(False)
+            # Estado normal reposo
+            pen.setWidthF(self._idle_width)
+            self.setPen(pen)
+            self.setOpacity(0.75)
+            self.setZValue(3)
+            self.setVisible(True)
         self.update()
 
     def paint(self, painter: QPainter, option, widget=None):
-        if not self._is_active:
-            return
-
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         path = self.path()
         if path.isEmpty():
@@ -349,14 +357,15 @@ class RelationEdge(QGraphicsPathItem):
         # NUNCA rellenar la curva abierta (evita triángulos verdes gigantes)
         painter.setBrush(Qt.BrushStyle.NoBrush)
 
-        # 1. Glow exterior fino de la relación seleccionada
-        glow_pen = QPen(self._glow_color, self._active_width * 2.2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
-        painter.save()
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.setPen(glow_pen)
-        painter.setOpacity(0.40)
-        painter.drawPath(path)
-        painter.restore()
+        # 1. Glow exterior fino de la relación seleccionada (solo si está activa)
+        if self._is_active:
+            glow_pen = QPen(self._glow_color, self._active_width * 2.2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+            painter.save()
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.setPen(glow_pen)
+            painter.setOpacity(0.40)
+            painter.drawPath(path)
+            painter.restore()
 
         # 2. Línea de relación nítida
         line_pen = QPen(self.pen())
@@ -364,9 +373,9 @@ class RelationEdge(QGraphicsPathItem):
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawPath(path)
 
-        # 3. Etiqueta con el tipo de relación sobre la línea (siempre legible)
+        # 3. Etiqueta con el tipo de relación sobre la línea (si está activa o en reposo)
         display_txt = self._display_label or self.relation_type.capitalize()
-        if display_txt:
+        if display_txt and not self._is_dimmed:
             is_dark = ThemeManager.is_dark()
             painter.save()
             painter.setFont(self._label_font)
@@ -379,12 +388,12 @@ class RelationEdge(QGraphicsPathItem):
             rect = QRectF(mx - tw / 2 - 6, my - th / 2 - 3, tw + 12, th + 6)
             
             bg_col = QColor("#1c1c1e" if is_dark else "#faf7f3")
-            bg_col.setAlphaF(0.96)
+            bg_col.setAlphaF(0.96 if self._is_active else 0.85)
             border_col = QColor(self._base_color)
-            border_col.setAlphaF(0.85)
+            border_col.setAlphaF(0.90 if self._is_active else 0.50)
             
             painter.setBrush(QBrush(bg_col))
-            painter.setPen(QPen(border_col, 1.4))
+            painter.setPen(QPen(border_col, 1.4 if self._is_active else 1.0))
             painter.drawRoundedRect(rect, 4, 4)
             
             txt_col = self._base_color.lighter(160) if is_dark else self._base_color.darker(160)
