@@ -4,7 +4,7 @@ Houses title, character search completer, relation filter combo, and zoom contro
 """
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QLineEdit, QComboBox,
-    QToolButton, QCompleter, QGraphicsDropShadowEffect
+    QToolButton, QCompleter, QCheckBox, QGraphicsDropShadowEffect
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QCursor
@@ -15,6 +15,7 @@ class _GraphToolbar(QWidget):
     search_submitted = pyqtSignal(str)
     character_selected = pyqtSignal(str)
     filter_changed = pyqtSignal(str)
+    show_all_edges_toggled = pyqtSignal(bool)
     zoom_in_requested = pyqtSignal()
     zoom_out_requested = pyqtSignal()
     zoom_fit_requested = pyqtSignal()
@@ -42,6 +43,37 @@ class _GraphToolbar(QWidget):
         layout.addWidget(self.title_label)
 
         layout.addStretch()
+
+        # Checkbox: Mostrar todas las líneas
+        self.chk_show_all = QCheckBox("Mostrar todas las líneas")
+        self.chk_show_all.setChecked(True)
+        self.chk_show_all.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.chk_show_all.setToolTip("Activa o desactiva la visibilidad global de las líneas de relación.")
+        self.chk_show_all.setStyleSheet("""
+            QCheckBox {
+                color: #e5e5ea;
+                font-size: 11px;
+                font-weight: 600;
+                spacing: 6px;
+            }
+            QCheckBox::indicator {
+                width: 15px;
+                height: 15px;
+                border-radius: 4px;
+                border: 1px solid rgba(255, 255, 255, 0.25);
+                background: #2c2c2e;
+            }
+            QCheckBox::indicator:checked {
+                background: #ffd60a;
+                border-color: #ffd60a;
+                image: none;
+            }
+            QCheckBox::indicator:hover {
+                border-color: #ffd60a;
+            }
+        """)
+        self.chk_show_all.toggled.connect(self.show_all_edges_toggled.emit)
+        layout.addWidget(self.chk_show_all)
 
         # Search Bar with Completer
         self.search_input = QLineEdit()

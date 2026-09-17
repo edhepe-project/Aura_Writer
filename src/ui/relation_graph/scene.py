@@ -194,14 +194,33 @@ class GraphScene(QGraphicsScene):
             node.setZValue(10 if node.metrics.tier == "core" else (7 if node.metrics.tier == "primary" else 5))
             node.set_focused_ring(False, dim_others=False)
 
-        for node in self._nodes.values():
-            node.setZValue(10 if node.metrics.tier == "core" else (7 if node.metrics.tier == "primary" else 5))
-            node.set_focused_ring(False, dim_others=False)
+    def set_show_all_edges(self, show_all: bool):
+        """Alterna dinámicamente entre ver todas las líneas globales o solo las de foco."""
+        self._show_all_edges_enabled = show_all
+        if self._all_edges:
+            for edge in self._all_edges:
+                if show_all:
+                    if self._focused_id:
+                        is_connected = (edge.source == self._nodes.get(self._focused_id) or edge.target == self._nodes.get(self._focused_id))
+                        edge.set_active_focus(active=is_connected, dim_others=not is_connected)
+                    else:
+                        edge.set_active_focus(active=False, dim_others=False)
+                else:
+                    if self._focused_id:
+                        is_connected = (edge.source == self._nodes.get(self._focused_id) or edge.target == self._nodes.get(self._focused_id))
+                        if is_connected:
+                            edge.set_active_focus(active=True, dim_others=False)
+                        else:
+                            edge.setVisible(False)
+                    else:
+                        edge.setVisible(False)
 
     def update_theme(self, is_dark: bool):
         for node in self._nodes.values():
             node.update()
         for edge in self._edges:
+            edge.update()
+        for edge in self._all_edges:
             edge.update()
 
     def clear_selection_and_focus(self):

@@ -49,6 +49,7 @@ class RelationGraphWidget(QWidget):
         self._toolbar.filter_changed.connect(self._on_filter_changed)
         self._toolbar.search_submitted.connect(self._on_search_submitted)
         self._toolbar.character_selected.connect(self._on_character_dropdown_selected)
+        self._toolbar.show_all_edges_toggled.connect(self._on_show_all_edges_toggled)
         self._toolbar.zoom_in_requested.connect(self._on_zoom_in)
         self._toolbar.zoom_out_requested.connect(self._on_zoom_out)
         self._toolbar.zoom_fit_requested.connect(self._on_zoom_fit)
@@ -406,6 +407,9 @@ class RelationGraphWidget(QWidget):
         self._toolbar.select_character_id("")
         self._scene._set_focus(None)
         self._side_panel.display_empty()
+
+    def _on_show_all_edges_toggled(self, checked: bool):
+        self._scene.set_show_all_edges(checked)
 
     def _on_zoom_in(self):
         self._view.scale(1.25, 1.25)
