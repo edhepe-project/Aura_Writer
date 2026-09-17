@@ -44,28 +44,56 @@ a = Analysis(
         'ebooklib',
         'bs4',
         'lxml',
-        'networkx',
         'pydantic',
         'markdown',
-        'pygame',
         'pygame.mixer',
     ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=[
+        'scipy',
+        'numpy',
+        'matplotlib',
+        'networkx',
+        'tkinter',
+        'unittest',
+        'pytest',
+        'PIL._avif',
+        'PIL.ImageQt',
+        'pygame.camera',
+        'pygame.cdrom',
+        'pygame.font',
+        'pygame.ftfont',
+        'pygame.joystick',
+        'pygame.midi',
+        'pygame.movie',
+        'pygame.pixelarray',
+        'pygame.pixelcopy',
+        'pygame.sndarray',
+        'pygame.surfarray',
+        'PyQt6.QtQml',
+        'PyQt6.QtQuick',
+        'PyQt6.QtQuickWidgets',
+        'PyQt6.QtNetwork',
+        'PyQt6.QtSensors',
+        'PyQt6.QtSql',
+        'PyQt6.QtTest',
+        'PyQt6.QtXml',
+    ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
 )
 
-# Deduplicar binarios para evitar errores de extracción duplicada (Failed to extract entry)
+# Deduplicar binarios y filtrar DLLs gigantes no requeridas (e.g. software rendering de OpenGL 20MB)
+BLOCKED_BINARIES = {'opengl32sw.dll', 'd3dcompiler_47.dll'}
 seen_bin_names = set()
 unique_binaries = []
 for item in a.binaries:
     dest_name = os.path.basename(item[0]).lower()
-    if dest_name not in seen_bin_names:
+    if dest_name not in seen_bin_names and dest_name not in BLOCKED_BINARIES:
         seen_bin_names.add(dest_name)
         unique_binaries.append(item)
 a.binaries = unique_binaries

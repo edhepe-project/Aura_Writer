@@ -12,8 +12,6 @@ from PyQt6.QtWidgets import (QGraphicsScene, QGraphicsView, QGraphicsEllipseItem
                              QPushButton)
 from PyQt6.QtCore import Qt, QRectF, QPointF, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QPen, QColor, QFont, QPainter
-import networkx as nx
-
 from core.models import UniverseMetadata
 
 log = logging.getLogger(__name__)
