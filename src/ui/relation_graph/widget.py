@@ -371,13 +371,13 @@ class RelationGraphWidget(QWidget):
 
         node = self._scene.get_node(char_id)
         if node:
-            # Recopilar nodos vecinos directos para calcular el radio de influencia
-            neighbor_nodes = []
-            for edge in self._scene._edges:
-                if edge.source.char_id == char_id:
-                    neighbor_nodes.append(edge.target)
-                elif edge.target.char_id == char_id:
-                    neighbor_nodes.append(edge.source)
+            # FIX #4: Usar _adj_nodes (siempre poblado) en lugar de _scene._edges (casi siempre vacío)
+            neighbor_ids = self._scene._adj_nodes.get(char_id, set())
+            neighbor_nodes = [
+                self._scene._nodes[nid]
+                for nid in neighbor_ids
+                if nid in self._scene._nodes
+            ]
             # Animar cámara al radio de influencia
             self._view.center_on_character(node, neighbor_nodes, animate=True)
 

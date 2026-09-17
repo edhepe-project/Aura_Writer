@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QGraphicsScene, QGraphicsView, QGraphicsItem,
     QGraphicsEllipseItem, QGraphicsTextItem, QFrame,
 )
-from PyQt6.QtCore import Qt, QRectF, QPointF, QTimeLine, pyqtSignal
+from PyQt6.QtCore import Qt, QRectF, QPointF, QTimeLine, QEasingCurve, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QPainter, QTransform, QSurfaceFormat
 
 try:
@@ -41,6 +41,10 @@ class GraphScene(QGraphicsScene):
         # Índices de adyacencia O(1) para navegación instantánea
         self._adj_nodes: Dict[str, Set[str]] = {}
         self._adj_edges: Dict[str, List[RelationEdge]] = {}
+        # FIX #5: Inicializar aquí para evitar AttributeError si se llama antes de populate()
+        self._raw_relations: Dict[str, List[tuple]] = {}
+        self._all_edges: List[RelationEdge] = []
+        self._show_all_edges_enabled: bool = False
 
     def populate(self, characters: list, relations: list, positions: dict, metrics_map: dict, is_dark: bool = True):
         self.setItemIndexMethod(QGraphicsScene.ItemIndexMethod.NoIndex)
@@ -81,11 +85,11 @@ class GraphScene(QGraphicsScene):
             self._adj_nodes[char_id] = set()
             self._adj_edges[char_id] = []
 
-        # 2. Store relation records & determine LOD mode (visible global edges if <= 100 relations)
+        # 2. Store relation records & adjacency
         self._raw_relations: Dict[str, List[tuple]] = {}  # char_id -> [(other_id, label, intensity, rel_type)]
         self._all_edges: List[RelationEdge] = []
+        self._show_all_edges_enabled = False
         
-        seen_global_pairs = set()
         for rel in relations:
             if isinstance(rel, dict):
                 src_id = str(rel.get("source") or rel.get("char_id_a") or "")
@@ -105,17 +109,6 @@ class GraphScene(QGraphicsScene):
                 self._adj_nodes[tgt_id].add(src_id)
                 self._raw_relations.setdefault(src_id, []).append((tgt_id, label, intensity, rel_type))
                 self._raw_relations.setdefault(tgt_id, []).append((src_id, label, intensity, rel_type))
-
-                # Si el grafo tiene una cantidad manejable (<= 100 relaciones), creamos la arista visible globalmente
-                pair_key = tuple(sorted([src_id, tgt_id]))
-                if pair_key not in seen_global_pairs and len(relations) <= 100:
-                    seen_global_pairs.add(pair_key)
-                    s_node = self._nodes[src_id]
-                    t_node = self._nodes[tgt_id]
-                    edge = RelationEdge(s_node, t_node, label, intensity, rel_type)
-                    self.addItem(edge)
-                    edge.set_active_focus(active=False, dim_others=False)
-                    self._all_edges.append(edge)
 
         self.setItemIndexMethod(QGraphicsScene.ItemIndexMethod.BspTreeIndex)
 
@@ -152,17 +145,29 @@ class GraphScene(QGraphicsScene):
                 node.setZValue(4)
                 node.set_focused_ring(False, dim_others=True)
 
-        # 2. Aristas: Si ya existen aristas globales, destacamos las del nodo y atenuamos las demás
+        # 2. Aristas:
         if self._all_edges:
             for edge in self._all_edges:
                 is_connected = (edge.source == self._nodes.get(char_id) or edge.target == self._nodes.get(char_id))
                 if is_connected:
                     edge.set_active_focus(active=True, dim_others=False)
                 else:
-                    edge.set_active_focus(active=False, dim_others=True)
+                    if getattr(self, "_show_all_edges_enabled", False):
+                        edge.set_active_focus(active=False, dim_others=True)
+                    else:
+                        edge.setVisible(False)
         else:
-            # Modo masivo (> 100 relaciones): Instanciación Lazy exclusiva del nodo seleccionado
+            # Si no hay _all_edges creadas aún, instanciamos únicamente las aristas del nodo seleccionado
+            # FIX #1: limpiar node.edges para evitar referencias muertas acumuladas
             for edge in self._edges:
+                try:
+                    edge.source.edges.remove(edge)
+                except ValueError:
+                    pass
+                try:
+                    edge.target.edges.remove(edge)
+                except ValueError:
+                    pass
                 self.removeItem(edge)
             self._edges.clear()
 
@@ -181,14 +186,30 @@ class GraphScene(QGraphicsScene):
 
     def _clear_focus(self):
         self._focused_id = None
-        # Restaurar aristas globales a estado normal de reposo
-        if self._all_edges:
-            for edge in self._all_edges:
-                edge.set_active_focus(active=False, dim_others=False)
-        else:
+
+        # FIX #3: Siempre limpiar _edges temporales primero, independiente de _all_edges.
+        # Si _all_edges ya existe y el usuario había clickeado un nodo antes de activar la casilla,
+        # pueden coexistir aristas de ambas listas. Limpiar _edges siempre previene líneas duplicadas.
+        if self._edges:
             for edge in self._edges:
+                try:
+                    edge.source.edges.remove(edge)
+                except ValueError:
+                    pass
+                try:
+                    edge.target.edges.remove(edge)
+                except ValueError:
+                    pass
                 self.removeItem(edge)
             self._edges.clear()
+
+        # Restaurar aristas globales según el estado de la casilla
+        if self._all_edges:
+            for edge in self._all_edges:
+                if self._show_all_edges_enabled:
+                    edge.set_active_focus(active=False, dim_others=False)
+                else:
+                    edge.setVisible(False)
 
         for node in self._nodes.values():
             node.setZValue(10 if node.metrics.tier == "core" else (7 if node.metrics.tier == "primary" else 5))
@@ -276,6 +297,7 @@ class RelationGraphView(QGraphicsView):
         # Animación de cámara suave
         self._anim_timeline: Optional[QTimeLine] = None
         self._anim_start_transform: Optional[QTransform] = None
+        self._anim_start_center: Optional[QPointF] = None   # FIX #6: inicializar aquí
         self._anim_target_center: Optional[QPointF] = None
         self._anim_target_zoom: float = 1.0
 
@@ -399,7 +421,7 @@ class RelationGraphView(QGraphicsView):
         tl = QTimeLine(380, self)
         tl.setUpdateInterval(16)   # ~60fps
         tl.valueChanged.connect(self._on_anim_step)
-        tl.setEasingCurve = lambda *_: None   # usamos interpolación manual
+        tl.setEasingCurve(QEasingCurve.Type.Linear)  # FIX #2: llamada real al método Qt, no asignación Python
         self._anim_timeline = tl
         tl.start()
 

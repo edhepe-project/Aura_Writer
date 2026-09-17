@@ -242,16 +242,20 @@ class CharacterNode(QGraphicsEllipseItem):
         self.update()
 
     def mousePressEvent(self, event):
-        scene = self.scene()
-        if scene and hasattr(scene, "_node_clicked"):
-            scene._node_clicked(self.char_id)
-        super().mousePressEvent(event)
+        """Dispara la selección del nodo al hacer clic (respuesta inmediata)."""
+        if event.button() == Qt.MouseButton.LeftButton:
+            scene = self.scene()
+            if scene and hasattr(scene, "_node_clicked"):
+                scene._node_clicked(self.char_id)
+            event.accept()  # Detener propagación: evita que el evento llegue a nodos superpuestos
+        else:
+            super().mousePressEvent(event)
 
     def mouseDoubleClickEvent(self, event):
-        scene = self.scene()
-        if scene and hasattr(scene, "_node_double_clicked"):
-            scene._node_double_clicked(self.char_id)
-        super().mouseDoubleClickEvent(event)
+        # Desactivamos el doble clic accidental que abría el editor modal.
+        # El usuario puede ver la ficha en el panel lateral o abrir el editor con el botón ✏️.
+        if event:
+            event.accept()
 
 
 # ── Arista de Relación Fina y Elegante (Estilo Órbita) ───────────────────────
@@ -373,9 +377,10 @@ class RelationEdge(QGraphicsPathItem):
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawPath(path)
 
-        # 3. Etiqueta con el tipo de relación sobre la línea (si está activa o en reposo)
+        # 3. Etiqueta con el tipo de relación sobre la línea (solo si está activa)
+        # FIX #7: solo mostrar etiqueta en aristas activas para evitar ruido visual masivo
         display_txt = self._display_label or self.relation_type.capitalize()
-        if display_txt and not self._is_dimmed:
+        if display_txt and self._is_active:
             is_dark = ThemeManager.is_dark()
             painter.save()
             painter.setFont(self._label_font)

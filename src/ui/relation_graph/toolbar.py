@@ -46,7 +46,7 @@ class _GraphToolbar(QWidget):
 
         # Checkbox: Mostrar todas las líneas
         self.chk_show_all = QCheckBox("Mostrar todas las líneas")
-        self.chk_show_all.setChecked(True)
+        self.chk_show_all.setChecked(False)
         self.chk_show_all.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.chk_show_all.setToolTip("Activa o desactiva la visibilidad global de las líneas de relación.")
         self.chk_show_all.setStyleSheet("""
@@ -57,22 +57,31 @@ class _GraphToolbar(QWidget):
                 spacing: 6px;
             }
             QCheckBox::indicator {
-                width: 15px;
-                height: 15px;
+                width: 16px;
+                height: 16px;
                 border-radius: 4px;
-                border: 1px solid rgba(255, 255, 255, 0.25);
+                border: 1.5px solid rgba(255, 255, 255, 0.30);
                 background: #2c2c2e;
+            }
+            QCheckBox::indicator:hover {
+                border-color: #ffd60a;
+                background: #3a3a3c;
             }
             QCheckBox::indicator:checked {
                 background: #ffd60a;
                 border-color: #ffd60a;
+                /* Checkmark dibujado con border-trick: flecha diagonal */
                 image: none;
             }
-            QCheckBox::indicator:hover {
-                border-color: #ffd60a;
+            QCheckBox::indicator:checked:hover {
+                background: #ffe84d;
+                border-color: #ffe84d;
             }
         """)
-        self.chk_show_all.toggled.connect(self.show_all_edges_toggled.emit)
+        # Usar stateChanged en lugar de toggled para mayor fiabilidad
+        self.chk_show_all.stateChanged.connect(
+            lambda state: self.show_all_edges_toggled.emit(state == 2)  # 2 = Qt.Checked
+        )
         layout.addWidget(self.chk_show_all)
 
         # Search Bar with Completer
