@@ -205,6 +205,7 @@ class PlaceGraphWidget(QWidget):
             self._scene._adj[place.id] = set()
 
         # 1. Enlaces orbitales (Planeta Padre → Luna/Estancia)
+        edge_idx: dict[frozenset, int] = {}
         for p in self._places:
             if p.parent_place_id and p.parent_place_id in self._node_map and p.id in self._node_map:
                 na = self._node_map[p.parent_place_id]
@@ -216,14 +217,16 @@ class PlaceGraphWidget(QWidget):
                     connection_type="contiene",
                     bidirectional=False
                 )
-                item = PlaceLinkItem(h_link, na, nb, curvature=0.0)
+                pair = frozenset([p.parent_place_id, p.id])
+                edge_idx[pair] = edge_idx.get(pair, 0) + 1
+                curv = 0.12 * (1 if edge_idx[pair] % 2 == 1 else -1)
+                item = PlaceLinkItem(h_link, na, nb, curvature=curv)
                 self._scene.addItem(item)
                 self._scene._all_edges.append(item)
                 self._scene._adj.setdefault(p.parent_place_id, set()).add(p.id)
                 self._scene._adj.setdefault(p.id, set()).add(p.parent_place_id)
 
         # 2. Enlaces de Rutas Geográficas manuales
-        edge_idx: dict[frozenset, int] = {}
         seen_pairs: set[frozenset] = set()
         for link in self._links:
             pair = frozenset([link.place_id_a, link.place_id_b])
@@ -234,7 +237,7 @@ class PlaceGraphWidget(QWidget):
             nb = self._node_map.get(link.place_id_b)
             if na and nb:
                 edge_idx[pair] = edge_idx.get(pair, 0) + 1
-                curv = 0.08 * (1 if edge_idx[pair] % 2 == 1 else -1)
+                curv = 0.16 * (1 if edge_idx[pair] % 2 == 1 else -1)
                 item = PlaceLinkItem(link, na, nb, curvature=curv)
                 self._scene.addItem(item)
                 self._scene._all_edges.append(item)

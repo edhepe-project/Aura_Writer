@@ -1,5 +1,6 @@
 """
 items.py — Items gráficos para el Grafo de Lugares (Nodos y Aristas).
+Renderizado idéntico en calidad, curvas Bézier y resplandor al Grafo de Relaciones.
 """
 from __future__ import annotations
 
@@ -19,11 +20,11 @@ from core.models import Place, PlaceLink, PLACE_ICONS
 from .models import PLACE_CATEGORY_COLORS, CONNECTION_STYLES, CATEGORY_TIERS, TIER_NODE_RADIUS
 
 
-def _bezier_path(p1: QPointF, p2: QPointF, curvature: float = 0.08,
-                 r1: float = 0.0, r2: float = 0.0) -> QPainterPath:
+def bezier_path(p1: QPointF, p2: QPointF, curv: float = 0.16,
+                r1: float = 0.0, r2: float = 0.0) -> QPainterPath:
     """
-    Curva Bézier cuadrática sutil y elegante entre dos puntos.
-    La deflexión perpendicular está acotada para evitar arcos desmedidos.
+    Genera una curva Bézier suave y elegante (idéntica a RelationGraph)
+    que nace y termina exactamente en el perímetro/borde de cada nodo esférico.
     """
     dx = p2.x() - p1.x()
     dy = p2.y() - p1.y()
@@ -31,18 +32,29 @@ def _bezier_path(p1: QPointF, p2: QPointF, curvature: float = 0.08,
     if dist < 1.0:
         return QPainterPath()
 
-    ux, uy = dx / dist, dy / dist
-    sp = QPointF(p1.x() + ux * r1, p1.y() + uy * r1)
-    ep = QPointF(p2.x() - ux * r2, p2.y() - uy * r2)
+    # Vector normal perpendicular para la curvatura
+    nx = -dy / dist * dist * curv
+    ny =  dx / dist * dist * curv
+    ctrl = QPointF((p1.x() + p2.x()) / 2 + nx, (p1.y() + p2.y()) / 2 + ny)
 
-    offset = min(max(dist * curvature, -25.0), 25.0)
-    perp_x = -uy * offset
-    perp_y =  ux * offset
-    mid = QPointF((sp.x() + ep.x()) / 2 + perp_x,
-                  (sp.y() + ep.y()) / 2 + perp_y)
-    
-    path = QPainterPath(sp)
-    path.quadTo(mid, ep)
+    # Recortar punto inicial al borde del nodo 1
+    if r1 > 0:
+        v1x, v1y = ctrl.x() - p1.x(), ctrl.y() - p1.y()
+        d1 = max(math.hypot(v1x, v1y), 1.0)
+        start_pt = QPointF(p1.x() + (v1x / d1) * r1, p1.y() + (v1y / d1) * r1)
+    else:
+        start_pt = p1
+
+    # Recortar punto final al borde del nodo 2
+    if r2 > 0:
+        v2x, v2y = ctrl.x() - p2.x(), ctrl.y() - p2.y()
+        d2 = max(math.hypot(v2x, v2y), 1.0)
+        end_pt = QPointF(p2.x() + (v2x / d2) * r2, p2.y() + (v2y / d2) * r2)
+    else:
+        end_pt = p2
+
+    path = QPainterPath(start_pt)
+    path.quadTo(ctrl, end_pt)
     return path
 
 
@@ -70,7 +82,6 @@ class PlaceNodeItem(QGraphicsEllipseItem):
         self._is_focused = False
         self._is_dimmed = False
         self.edges: list[PlaceLinkItem] = []
-
         self.setPos(x, y)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, False)
@@ -116,9 +127,9 @@ class PlaceNodeItem(QGraphicsEllipseItem):
         r = self.radius
         c = self._color
 
-        # Opacidad según estado de foco (nunca menor a 0.30 para mantener visibilidad constante)
+        # Opacidad según estado de foco (siempre visible)
         if self._is_dimmed and not self._is_focused:
-            painter.setOpacity(0.32)
+            painter.setOpacity(0.35)
         else:
             painter.setOpacity(1.0)
 
@@ -193,11 +204,11 @@ class PlaceNodeItem(QGraphicsEllipseItem):
             )
 
         # 6. Nombre del lugar debajo del nodo
-        show_name = self._is_focused or self.tier <= 1 or not self._is_dimmed
+        show_name = True
         if show_name:
             name_col = QColor("#f2f2f7")
             if self._is_dimmed and not self._is_focused:
-                name_col.setAlphaF(0.35)
+                name_col.setAlphaF(0.40)
             painter.setFont(self._font_name)
             painter.setPen(QPen(name_col))
             text_w = max(220.0, r * 5)
@@ -239,10 +250,11 @@ class PlaceNodeItem(QGraphicsEllipseItem):
 
 class PlaceLinkItem(QGraphicsPathItem):
     """
-    Arista de conexión geográfica con arco Bézier suave, glow y foco dinámico.
+    Arista de conexión geográfica con arco Bézier suave, glow y foco dinámico
+    (Idéntica a RelationEdge del grafo de relaciones).
     """
     def __init__(self, link: PlaceLink, node_a: PlaceNodeItem, node_b: PlaceNodeItem,
-                 curvature: float = 0.08):
+                 curvature: float = 0.16):
         super().__init__()
         self.link = link
         self.node_a = node_a
@@ -255,12 +267,13 @@ class PlaceLinkItem(QGraphicsPathItem):
         self._base_color = QColor(color_hex)
         self._glow_color = QColor(style["glow"])
         self._dash = style["dash"]
-        self._base_width = style["width"]
+        self._idle_width = 1.0
+        self._active_width = 2.4
         self._is_active = False
         self._is_dimmed = False
         self._label = getattr(link, "label", "") or conn_type
 
-        pen = QPen(self._base_color, self._base_width)
+        pen = QPen(self._base_color, self._idle_width)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         if self._dash:
             pen.setStyle(Qt.PenStyle.CustomDashLine)
@@ -268,10 +281,9 @@ class PlaceLinkItem(QGraphicsPathItem):
         self.setPen(pen)
         self.setBrush(QBrush(Qt.BrushStyle.NoBrush))
         self.setZValue(3)
-        self.setOpacity(0.40)
+        self.setOpacity(0.50)
 
-        self._label_font = QFont("Segoe UI", 8, QFont.Weight.Bold
-                                 if conn_type == "contiene" else QFont.Weight.Normal)
+        self._label_font = QFont("Segoe UI", 8, QFont.Weight.Bold)
         self._update_path()
 
         node_a.edges.append(self)
@@ -280,8 +292,8 @@ class PlaceLinkItem(QGraphicsPathItem):
     def _update_path(self):
         p1 = self.node_a.pos()
         p2 = self.node_b.pos()
-        path = _bezier_path(p1, p2, self._curvature,
-                            self.node_a.radius, self.node_b.radius)
+        path = bezier_path(p1, p2, self._curvature,
+                           self.node_a.radius, self.node_b.radius)
         self.setPath(path)
 
     def set_active_focus(self, active: bool, dimmed: bool = False):
@@ -289,24 +301,24 @@ class PlaceLinkItem(QGraphicsPathItem):
         self._is_dimmed = dimmed
         pen = QPen(self.pen())
         if active:
-            pen.setWidthF(self._base_width + 1.2)
+            pen.setWidthF(self._active_width)
             self.setPen(pen)
             self.setOpacity(1.0)
-            self.setZValue(8)
+            self.setZValue(9)
         elif dimmed:
-            pen.setWidthF(self._base_width)
+            pen.setWidthF(self._idle_width)
             self.setPen(pen)
-            self.setOpacity(0.08)
-            self.setZValue(1)
+            self.setOpacity(0.18)
+            self.setZValue(2)
         else:
-            pen.setWidthF(self._base_width)
+            pen.setWidthF(self._idle_width)
             self.setPen(pen)
-            self.setOpacity(0.40)
+            self.setOpacity(0.50)
             self.setZValue(3)
         self.update()
 
     def boundingRect(self) -> QRectF:
-        return super().boundingRect().adjusted(-20, -20, 20, 20)
+        return super().boundingRect().adjusted(-24, -24, 24, 24)
 
     def paint(self, painter: QPainter | None, option, widget=None):
         if painter is None:
@@ -317,22 +329,19 @@ class PlaceLinkItem(QGraphicsPathItem):
             return
         painter.setBrush(Qt.BrushStyle.NoBrush)
 
-        # 1. Glow exterior cuando la arista está en foco
+        # 1. Glow exterior elegante al estar en foco
         if self._is_active:
-            glow_pen = QPen(self._glow_color, (self._base_width + 1.2) * 3.0)
-            glow_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            glow_c = QColor(self._glow_color)
-            glow_c.setAlphaF(0.28)
-            glow_pen.setColor(glow_c)
-            if self._dash:
-                glow_pen.setStyle(Qt.PenStyle.CustomDashLine)
-                glow_pen.setDashPattern(self._dash)
+            glow_pen = QPen(self._glow_color, self._active_width * 2.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+            painter.save()
+            painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.setPen(glow_pen)
+            painter.setOpacity(0.40)
             painter.drawPath(path)
+            painter.restore()
 
-        # 2. Trazo de la línea principal
+        # 2. Línea principal limpia
         main_pen = QPen(self._base_color,
-                        self._base_width + 1.2 if self._is_active else self._base_width)
+                        self._active_width if self._is_active else self._idle_width)
         main_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         if self._dash:
             main_pen.setStyle(Qt.PenStyle.CustomDashLine)
@@ -340,7 +349,7 @@ class PlaceLinkItem(QGraphicsPathItem):
         painter.setPen(main_pen)
         painter.drawPath(path)
 
-        # 3. Etiqueta informativa en el centro
+        # 3. Etiqueta informativa centrada en la curva
         if self._is_active and self._label:
             mid = path.pointAtPercent(0.5)
             painter.setFont(self._label_font)
