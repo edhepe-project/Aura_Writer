@@ -13,6 +13,7 @@ from PyQt6.QtGui import (
     QPainter, QBrush, QColor, QTransform
 )
 
+from core.theme_manager import ThemeManager
 from .items import PlaceNodeItem, PlaceLinkItem
 
 
@@ -77,7 +78,7 @@ class PlaceGraphScene(QGraphicsScene):
 
 class PlaceGraphView(QGraphicsView):
     """
-    Vista de alto rendimiento con paneo fluido, zoom centrado y fondo cósmico oscuro.
+    Vista de alto rendimiento con paneo fluido, zoom centrado y fondo adaptativo al tema.
     """
     def __init__(self, scene: PlaceGraphScene, parent=None):
         super().__init__(scene, parent)
@@ -92,16 +93,24 @@ class PlaceGraphView(QGraphicsView):
         self.setOptimizationFlag(QGraphicsView.OptimizationFlag.DontSavePainterState, True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setBackgroundBrush(QBrush(QColor("#0d0d0f")))
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setFocusPolicy(Qt.FocusPolicy.WheelFocus)
-        self.setStyleSheet("QGraphicsView { background: #0d0d0f; border: none; }")
         self._press_pos = None
+        self.update_theme()
+
+    def update_theme(self):
+        is_dark = ThemeManager.is_dark()
+        bg_color = "#121214" if is_dark else "#f5f0ea"
+        self.setBackgroundBrush(QBrush(QColor(bg_color)))
+        self.setStyleSheet(f"QGraphicsView {{ background: {bg_color}; border: none; }}")
+        self.viewport().update()
 
     def drawBackground(self, painter: QPainter | None, rect: QRectF):
         if painter is None:
             return
-        painter.fillRect(rect, QColor("#0d0d0f"))
+        is_dark = ThemeManager.is_dark()
+        bg_color = QColor("#121214" if is_dark else "#f5f0ea")
+        painter.fillRect(rect, bg_color)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:

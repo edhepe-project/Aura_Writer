@@ -17,6 +17,7 @@ from PyQt6.QtGui import (
 )
 
 from core.models import Place, PlaceLink, PLACE_ICONS
+from core.theme_manager import ThemeManager
 from .models import PLACE_CATEGORY_COLORS, CONNECTION_STYLES, CATEGORY_TIERS, TIER_NODE_RADIUS
 
 
@@ -206,7 +207,8 @@ class PlaceNodeItem(QGraphicsEllipseItem):
         # 6. Nombre del lugar debajo del nodo
         show_name = True
         if show_name:
-            name_col = QColor("#f2f2f7")
+            is_dark = ThemeManager.is_dark()
+            name_col = QColor("#f2f2f7" if is_dark else "#1c1c1e")
             if self._is_dimmed and not self._is_focused:
                 name_col.setAlphaF(0.40)
             painter.setFont(self._font_name)
@@ -220,7 +222,7 @@ class PlaceNodeItem(QGraphicsEllipseItem):
 
             # Sub-etiqueta de categoría si está seleccionado
             if self._is_focused:
-                sub_col = QColor(c.lighter(160))
+                sub_col = QColor(c.lighter(160) if is_dark else c.darker(140))
                 sub_col.setAlphaF(0.92)
                 sub_font = QFont("Segoe UI", 8)
                 painter.setFont(sub_font)
@@ -318,7 +320,7 @@ class PlaceLinkItem(QGraphicsPathItem):
         self.update()
 
     def boundingRect(self) -> QRectF:
-        return super().boundingRect().adjusted(-24, -24, 24, 24)
+        return super().boundingRect().adjusted(-50, -50, 50, 50)
 
     def paint(self, painter: QPainter | None, option, widget=None):
         if painter is None:
@@ -349,15 +351,27 @@ class PlaceLinkItem(QGraphicsPathItem):
         painter.setPen(main_pen)
         painter.drawPath(path)
 
-        # 3. Etiqueta informativa centrada en la curva
+        # 3. Etiqueta informativa centrada en la curva (con badge pill estilizado)
         if self._is_active and self._label:
-            mid = path.pointAtPercent(0.5)
+            painter.save()
             painter.setFont(self._label_font)
-            lc = QColor(self._base_color.lighter(175))
-            lc.setAlphaF(0.95)
-            painter.setPen(QPen(lc))
-            painter.drawText(
-                QRectF(mid.x() - 60, mid.y() - 14, 120, 18),
-                Qt.AlignmentFlag.AlignCenter,
-                self._label
-            )
+            is_dark = ThemeManager.is_dark()
+            fm = painter.fontMetrics()
+            tw = fm.horizontalAdvance(self._label)
+            th = fm.height()
+            mid = path.pointAtPercent(0.5)
+
+            rect = QRectF(mid.x() - tw / 2 - 8, mid.y() - th / 2 - 3, tw + 16, th + 6)
+            bg_col = QColor("#1c1c1e" if is_dark else "#faf7f3")
+            bg_col.setAlphaF(0.96)
+            border_col = QColor(self._base_color)
+            border_col.setAlphaF(0.90)
+
+            painter.setBrush(QBrush(bg_col))
+            painter.setPen(QPen(border_col, 1.4))
+            painter.drawRoundedRect(rect, 4, 4)
+
+            txt_col = self._base_color.lighter(160) if is_dark else self._base_color.darker(160)
+            painter.setPen(QPen(txt_col))
+            painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, self._label)
+            painter.restore()

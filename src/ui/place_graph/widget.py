@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal
 
 from core.models import Place, PlaceLink
+from core.theme_manager import ThemeManager
 from .models import PLACE_CATEGORY_COLORS, CONNECTION_STYLES
 from .items import PlaceNodeItem, PlaceLinkItem
 from .physics import compute_places_layout
@@ -43,6 +44,14 @@ class PlaceGraphWidget(QWidget):
     # ── UI ──────────────────────────────────────────────────────────────────
 
     def _setup_ui(self):
+        is_dark = ThemeManager.is_dark()
+        bg_bar = "#161618" if is_dark else "#e8e4dc"
+        border_col = "#2c2c2e" if is_dark else "#d4cfc8"
+        fg_col = "#f2f2f7" if is_dark else "#1c1c1e"
+        btn_bg = "#2c2c2e" if is_dark else "#ded8ce"
+        btn_hover = "#3a3a3c" if is_dark else "#d0c9bd"
+        input_bg = "#2c2c2e" if is_dark else "#ffffff"
+
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
@@ -50,20 +59,20 @@ class PlaceGraphWidget(QWidget):
         # Toolbar superior
         tb = QFrame()
         tb.setFixedHeight(50)
-        tb.setStyleSheet("""
-            QFrame { background-color: #161618; border-bottom: 1px solid #2c2c2e; }
-            QLabel { color: #f2f2f7; font-weight: bold; font-size: 12px; }
-            QLineEdit {
-                background: #2c2c2e; color: #f2f2f7;
-                border: 1px solid #3a3a3c; border-radius: 6px;
+        tb.setStyleSheet(f"""
+            QFrame {{ background-color: {bg_bar}; border-bottom: 1px solid {border_col}; }}
+            QLabel {{ color: {fg_col}; font-weight: bold; font-size: 12px; }}
+            QLineEdit {{
+                background: {input_bg}; color: {fg_col};
+                border: 1px solid {border_col}; border-radius: 6px;
                 padding: 4px 8px; font-size: 11px;
-            }
-            QPushButton {
-                background: #2c2c2e; color: #f2f2f7;
-                border: 1px solid #3a3a3c; border-radius: 6px;
+            }}
+            QPushButton {{
+                background: {btn_bg}; color: {fg_col};
+                border: 1px solid {border_col}; border-radius: 6px;
                 padding: 5px 10px; font-size: 11px; font-weight: bold;
-            }
-            QPushButton:hover { background: #3a3a3c; border-color: #ffd60a; }
+            }}
+            QPushButton:hover {{ background: {btn_hover}; border-color: #ffd60a; }}
         """)
         tbl = QHBoxLayout(tb)
         tbl.setContentsMargins(14, 0, 14, 0)
@@ -117,11 +126,16 @@ class PlaceGraphWidget(QWidget):
         root.addWidget(self._build_legend())
 
     def _build_legend(self) -> QFrame:
+        is_dark = ThemeManager.is_dark()
+        bg_bar = "#161618" if is_dark else "#e8e4dc"
+        border_col = "#2c2c2e" if is_dark else "#d4cfc8"
+        lbl_col = "#8e8e93" if is_dark else "#5c5c60"
+
         bar = QFrame()
         bar.setFixedHeight(34)
-        bar.setStyleSheet("""
-            QFrame { background: #161618; border-top: 1px solid #2c2c2e; }
-            QLabel { color: #8e8e93; font-size: 10px; padding: 0 6px; }
+        bar.setStyleSheet(f"""
+            QFrame {{ background: {bg_bar}; border-top: 1px solid {border_col}; }}
+            QLabel {{ color: {lbl_col}; font-size: 10px; padding: 0 6px; }}
         """)
         bl = QHBoxLayout(bar)
         bl.setContentsMargins(14, 0, 14, 0)
@@ -140,7 +154,7 @@ class PlaceGraphWidget(QWidget):
             dot = QLabel("━")
             dot.setStyleSheet(f"color: {color}; font-size: 14px; padding: 0 2px;")
             lbl = QLabel(display)
-            lbl.setStyleSheet("color: #8e8e93; font-size: 10px; padding-right: 10px;")
+            lbl.setStyleSheet(f"color: {lbl_col}; font-size: 10px; padding-right: 10px;")
             bl.addWidget(dot)
             bl.addWidget(lbl)
 
@@ -149,7 +163,7 @@ class PlaceGraphWidget(QWidget):
         hier_dot = QLabel("╌╌")
         hier_dot.setStyleSheet("color: #bf5af2; font-size: 12px; padding: 0 2px;")
         hier_lbl = QLabel("Órbita (Estancia/Interior)")
-        hier_lbl.setStyleSheet("color: #8e8e93; font-size: 10px;")
+        hier_lbl.setStyleSheet(f"color: {lbl_col}; font-size: 10px;")
         bl.addWidget(hier_dot)
         bl.addWidget(hier_lbl)
 
