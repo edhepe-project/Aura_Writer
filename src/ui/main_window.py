@@ -169,6 +169,7 @@ class AuraMainWindow(
         self.place_dock.place_updated.connect(self._on_place_updated)
         self.place_dock.place_deleted.connect(self._on_place_deleted)
         self.place_dock.place_selected.connect(self._on_place_selected)
+        self.place_dock.chapter_requested.connect(self._on_chapter_requested_from_dock)
 
         # Segmented Switcher [ 👤 Personajes ] | [ 🏰 Lugares ]
         switcher_frame = QFrame()
@@ -223,9 +224,15 @@ class AuraMainWindow(
         self._zoom_indicator.setCursor(Qt.CursorShape.PointingHandCursor)
         self._zoom_indicator.clicked.connect(self.open_editor_appearance_dialog)
 
+        # Indicador de Lugar activo en la barra de estado
+        self._place_status_indicator = QLabel("")
+        self._place_status_indicator.setStyleSheet("color:#8e8e93;font-size:11px;padding:0 8px;")
+
+        status.addPermanentWidget(self._place_status_indicator)
         status.addPermanentWidget(self._autosave_indicator)
         status.addPermanentWidget(self._usb_indicator)
         status.addPermanentWidget(self._zoom_indicator)
+
 
     @staticmethod
     def _make_label(text: str, bold=False, size=0, color="") -> QLabel:

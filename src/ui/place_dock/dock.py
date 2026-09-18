@@ -28,6 +28,8 @@ class PlaceDock(QWidget):
     place_updated = pyqtSignal(object)  # Place
     place_deleted = pyqtSignal(str)     # place_id
     place_selected = pyqtSignal(str)    # place_id
+    chapter_requested = pyqtSignal(str) # chapter_id -> navegar
+
 
     def __init__(self, project_manager=None, parent=None):
         super().__init__(parent)
@@ -126,6 +128,8 @@ class PlaceDock(QWidget):
 
         self._detail_info = QLabel("Selecciona un lugar para inspeccionar su atmósfera, clima y lore.")
         self._detail_info.setWordWrap(True)
+        self._detail_info.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        self._detail_info.linkActivated.connect(self._on_detail_link_clicked)
         dl.addWidget(self._detail_info)
         dl.addStretch()
 
@@ -303,7 +307,7 @@ class PlaceDock(QWidget):
         if chapters_here:
             info_lines.append(f"<b>📖 Aparece en {len(chapters_here)} capítulo(s):</b>")
             for cap, obra_t, libro_t in chapters_here[:5]:
-                info_lines.append(f"&nbsp;&nbsp;• {cap.title} <span style='color:#8e8e93'>({obra_t})</span>")
+                info_lines.append(f"&nbsp;&nbsp;• <a href='chapter:{cap.id}' style='text-decoration:none; color:#0a84ff;'>{cap.title}</a> <span style='color:#8e8e93'>({obra_t})</span>")
             if len(chapters_here) > 5:
                 info_lines.append(f"&nbsp;&nbsp;<i>… y {len(chapters_here) - 5} más</i>")
         else:
@@ -313,6 +317,12 @@ class PlaceDock(QWidget):
             info_lines.insert(0, "<i>Sin notas adicionales de atmósfera o lore.</i>")
 
         self._detail_info.setText("<br>".join(info_lines))
+
+    def _on_detail_link_clicked(self, link: str):
+        if link.startswith("chapter:"):
+            chapter_id = link.split(":", 1)[1]
+            self.chapter_requested.emit(chapter_id)
+
 
     def update_theme(self):
         is_dark = ThemeManager.is_dark()

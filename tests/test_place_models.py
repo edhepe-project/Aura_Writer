@@ -52,3 +52,53 @@ def test_universe_metadata_places_serialization():
     assert len(meta_restored.places) == 2
     assert meta_restored.places[0].name == "Capital Solar"
     assert meta_restored.places[1].parent_place_id == p1.id
+
+
+def test_chapter_places_present_and_in_world_timeline_fields():
+    from core.models import Chapter
+    cap = Chapter(
+        title="Llegada al Bastión",
+        places_present=["place_001", "place_002"],
+        in_world_date="Año 1044 de la Tercera Edad",
+        in_world_order=15
+    )
+    assert cap.title == "Llegada al Bastión"
+    assert "place_001" in cap.places_present
+    assert cap.in_world_date == "Año 1044 de la Tercera Edad"
+    assert cap.in_world_order == 15
+
+    dumped = cap.model_dump()
+    assert dumped["places_present"] == ["place_001", "place_002"]
+    assert dumped["in_world_date"] == "Año 1044 de la Tercera Edad"
+    assert dumped["in_world_order"] == 15
+
+    restored = Chapter.model_validate(dumped)
+    assert restored.places_present == ["place_001", "place_002"]
+    assert restored.in_world_order == 15
+
+
+def test_place_link_model_and_universe_metadata():
+    from core.models import PlaceLink, CONNECTION_TYPES, CONNECTION_COLORS
+    link = PlaceLink(
+        place_id_a="p1",
+        place_id_b="p2",
+        label="Ruta de la Seda",
+        connection_type="ruta",
+        bidirectional=True
+    )
+    assert link.connection_type in CONNECTION_TYPES
+    assert link.connection_type in CONNECTION_COLORS
+    assert link.bidirectional is True
+
+    meta = UniverseMetadata(
+        title="Cosmos",
+        place_links=[link]
+    )
+    dumped = meta.model_dump()
+    assert len(dumped["place_links"]) == 1
+    assert dumped["place_links"][0]["label"] == "Ruta de la Seda"
+
+    restored = UniverseMetadata.model_validate(dumped)
+    assert len(restored.place_links) == 1
+    assert restored.place_links[0].place_id_b == "p2"
+

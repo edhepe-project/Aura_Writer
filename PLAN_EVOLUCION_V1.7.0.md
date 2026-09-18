@@ -8,10 +8,10 @@ Cuatro pilares de mejora profunda que convierten Aura Writer en una herramienta 
 
 | # | Módulo | Descripción | Estado |
 |---|--------|-------------|--------|
-| 1 | **Lugares en Capítulos** | Vincular escenarios a capítulos + detección automática de menciones | 🟡 En progreso (Modelos & detección listos) |
-| 2 | **Cronología / Timeline Literario** | Visualizador de eventos en línea temporal interactiva (`Ctrl+Alt+T`) | ⚪ Pendiente |
-| 3 | **Grafo de Lugares** | Red visual de conexiones geográficas entre escenarios (`Ctrl+Alt+G`) | ⚪ Pendiente |
-| 4 | **UI Polish** | Refinamientos de experiencia, microanimaciones y accesibilidad | ⚪ Pendiente |
+| 1 | **Lugares en Capítulos** | Vincular escenarios a capítulos + detección automática de menciones | 🟢 Completado |
+| 2 | **Cronología / Timeline Literario** | Visualizador de eventos en línea temporal interactiva (`Ctrl+Alt+T`) | 🟢 Completado |
+| 3 | **Grafo de Lugares** | Red visual de conexiones geográficas entre escenarios (`Ctrl+Alt+G`) | 🟢 Completado |
+| 4 | **UI Polish** | Refinamientos de experiencia, microanimaciones y accesibilidad | 🟢 Completado |
 
 ---
 
@@ -32,10 +32,10 @@ Al igual que los personajes, un capítulo puede **ocurrir en uno o más lugares*
 - [x] **PlaceDock (`dock.py` & `card.py`)**:
   - Conteo de resultados filtrados
   - Sangría visual por jerarquía (`depth`)
-  - Panel inferior adaptado para listar apariciones de capítulos
-- [ ] **Siguiente paso pendiente**:
+  - Panel inferior adaptado para listar apariciones de capítulos con navegación interactiva
+- [x] **Siguiente paso completado**:
   - Conectar el refresco en vivo de `update_chapters_data()` desde el ciclo principal / señales.
-  - Tests unitarios en `tests/test_place_models.py`.
+  - Tests unitarios en `tests/test_place_models.py` y `tests/ui/test_place_dock.py`.
 
 ---
 
@@ -51,12 +51,13 @@ Ventana modal con una **línea temporal horizontal e interactiva** ordenada por 
 - Atajo: `Ctrl+Alt+T`.
 - Exportable como PNG.
 
-### Archivos a Crear
-- **`src/ui/timeline/__init__.py`**
-- **`src/ui/timeline/dialog.py`**
-- **`src/ui/timeline/widget.py`**
-- **`src/ui/timeline/event_card.py`**
-- **`src/ui/main_menu_builder.py`**: Entrada `Vista → ⏳ Cronología (Ctrl+Alt+T)`.
+### Archivos Creados
+- [x] **`src/ui/timeline/__init__.py`**
+- [x] **`src/ui/timeline/dialog.py`**
+- [x] **`src/ui/timeline/widget.py`**
+- [x] **`src/ui/timeline/event_card.py`**
+- [x] **`src/ui/main_menu_builder.py`**: Entrada `Vista → ⏳ Cronología (Ctrl+Alt+T)`.
+- [x] **`tests/ui/test_timeline.py`**: Suite de tests interactivos.
 
 ---
 
@@ -65,23 +66,25 @@ Ventana modal con una **línea temporal horizontal e interactiva** ordenada por 
 ### Objetivo
 Grafo topológico de los lugares del universo con aristas representando conexiones geográficas (rutas, fronteras, portales, ríos...).
 
-### Archivos a Crear
-- **`src/ui/place_graph/__init__.py`**
-- **`src/ui/place_graph/widget.py`**
-- **`src/ui/place_graph/dialog.py`**
-- **`src/ui/main_menu_builder.py`**: Entrada `Vista → 🗺️ Atlas (Ctrl+Alt+G)`.
+### Archivos Creados
+- [x] **`src/ui/place_graph/__init__.py`**
+- [x] **`src/ui/place_graph/widget.py`**
+- [x] **`src/ui/place_graph/dialog.py`**
+- [x] **`src/ui/main_menu_builder.py`**: Entrada `Vista → 🗺️ Atlas (Ctrl+Alt+G)`.
+- [x] **`tests/ui/test_place_graph.py`**: Suite de tests automatizados.
 
 ---
 
 ## 4 ✨ UI Polish
 
-| Área | Mejora |
-|------|--------|
-| **PlaceDock** | Contador de resultados filtrados ("3 de 12 lugares") (Completado) |
-| **PlaceDock** | Sangría visual en tarjetas hijas para jerarquías (Completado) |
-| **Inspector** | Animación suave al cambiar entre tabs `👤` / `🏰` |
-| **Status Bar** | Muestra lugar activo del capítulo actual |
-| **Grafo de Lugares** | Botón `Reorganizar` con spring layout automático |
+| Área | Mejora | Estado |
+|------|--------|--------|
+| **PlaceDock** | Contador de resultados filtrados ("3 de 12 lugares") | Completado |
+| **PlaceDock** | Sangría visual en tarjetas hijas para jerarquías | Completado |
+| **Inspector** | Conmutación segmentada instantánea entre `👤` y `🏰` | Completado |
+| **Status Bar** | Muestra lugar activo del capítulo actual | Completado |
+| **Grafo de Lugares** | Botón `Reorganizar` con spring layout automático | Completado |
+
 
 ---
 

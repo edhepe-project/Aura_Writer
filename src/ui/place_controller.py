@@ -70,14 +70,23 @@ class PlaceControllerMixin:
         pass
 
     def _refresh_place_dock(self: "AuraMainWindow"):
-        """Recarga la lista de lugares en el PlaceDock."""
+        """Recarga la lista de lugares en el PlaceDock y las apariciones en capítulos."""
         if not hasattr(self, "place_dock") or self.place_dock is None:
             return
         if not self.project_manager.metadata:
             self.place_dock.populate([])
+            self.place_dock.update_chapters_data([])
             return
         self.place_dock.set_project_manager(self.project_manager)
-        self.place_dock.populate(getattr(self.project_manager.metadata, "places", []))
+        meta = self.project_manager.metadata
+        self.place_dock.populate(getattr(meta, "places", []))
+        chapters_data = [
+            (cap, obra.title, libro.title)
+            for obra in meta.obras
+            for libro in obra.libros
+            for cap in libro.capitulos
+        ]
+        self.place_dock.update_chapters_data(chapters_data)
 
     def open_place_edit_dialog(self: "AuraMainWindow", place_id: str | None = None):
         """Abre la ventana de edición/creación de un lugar."""
@@ -112,3 +121,29 @@ class PlaceControllerMixin:
         self._refresh_place_dock()
         if hasattr(self, "place_dock") and self.place_dock:
             self.place_dock.select_place_by_id(saved_place.id)
+
+    def open_timeline_dialog(self: "AuraMainWindow"):
+        """Abre la ventana interactiva de Cronología / Timeline del Universo."""
+        if not self.project_manager.metadata:
+            return
+        from ui.timeline import TimelineDialog
+        dlg = TimelineDialog(self.project_manager, parent=self)
+        dlg.navigate_to_chapter.connect(self._on_chapter_requested_from_dock)
+        dlg.exec()
+
+    def open_place_graph_dialog(self: "AuraMainWindow"):
+        """Abre el Atlas Literario (Grafo de Lugares y Conexiones)."""
+        if not self.project_manager.metadata:
+            return
+        from ui.place_graph import PlaceGraphDialog
+        dlg = PlaceGraphDialog(self.project_manager, parent=self)
+        dlg.place_selected_for_focus.connect(self._on_graph_place_focused)
+        dlg.exec()
+
+    def _on_graph_place_focused(self: "AuraMainWindow", place_id: str):
+        """Enfoca y selecciona el lugar en el panel inspector PlaceDock."""
+        self._switch_inspector_tab("places")
+        if hasattr(self, "place_dock") and self.place_dock:
+            self.place_dock.select_place_by_id(place_id)
+
+

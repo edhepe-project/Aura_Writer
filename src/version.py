@@ -4,7 +4,8 @@
 # build_windows.bat y installer.iss lo leen automáticamente.
 # ─────────────────────────────────────────────────────────────────────────────
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
+
 APP_NAME = "Aura Writer"
 APP_AUTHOR = "Aura Studio"
 APP_URL = "https://github.com/edhepe-project/Aura_Writer"

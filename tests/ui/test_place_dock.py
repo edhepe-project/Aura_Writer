@@ -50,12 +50,27 @@ def test_place_dock_selection_and_detail(qtbot):
     )
     dock.populate([p1])
 
-    # Seleccionar por ID
+    # Seleccionar por ID y validar info
     dock.select_place_by_id(p1.id)
     assert dock._selected_place_id == p1.id
     assert "BOSQUE ANTIGUO" in dock._detail_title.text()
     assert "Brumoso y templado" in dock._detail_info.text()
     assert "Aroma a musgo húmedo" in dock._detail_info.text()
+
+    # Probar actualización de capítulos y clic en enlace
+    from core.models import Chapter
+    cap = Chapter(title="Capítulo I: El Encuentro", places_present=[p1.id])
+    dock.update_chapters_data([(cap, "Trilogía del Viento", "Libro 1")])
+
+    assert "Capítulo I: El Encuentro" in dock._detail_info.text()
+    assert "Trilogía del Viento" in dock._detail_info.text()
+
+    # Probar señal chapter_requested
+    with qtbot.waitSignal(dock.chapter_requested, timeout=1000) as blocker:
+        dock._on_detail_link_clicked(f"chapter:{cap.id}")
+    assert blocker.args == [cap.id]
+
+
 
 
 def test_place_edit_dialog_validation_and_save(qtbot):

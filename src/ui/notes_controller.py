@@ -176,7 +176,22 @@ class NotesControllerMixin:
         self._detect_place_mentions(chapter)
         self._refresh_char_dock()
         self._refresh_place_dock()
+
+        # Actualizar indicador de lugar activo en barra de estado
+        if hasattr(self, "_place_status_indicator"):
+            if chapter.places_present and self.project_manager.metadata:
+                places = getattr(self.project_manager.metadata, "places", [])
+                p_names = [p.name for p in places if p.id in chapter.places_present]
+                if p_names:
+                    txt = "📍 " + (p_names[0] if len(p_names) == 1 else f"{p_names[0]} (+{len(p_names)-1})")
+                    self._place_status_indicator.setText(txt)
+                else:
+                    self._place_status_indicator.setText("")
+            else:
+                self._place_status_indicator.setText("")
+
         self.editor.setFocus()
+
 
     # ------------------------------------------------------------------
     # Preview de media
