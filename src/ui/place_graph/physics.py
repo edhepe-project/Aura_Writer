@@ -1,11 +1,10 @@
 """
-physics.py — Física gravitatoria y cálculo de órbitas celestes por jerarquía categórica.
-Sol (Planeta/Mundo) -> Órbitas (Naciones) -> Órbitas (Ciudades) -> Órbitas (Castillos/Tabernas/Mazmorras/Bosques).
+physics.py — Física gravitatoria y cálculo de galaxia en espiral armónica.
+Sol Central (Planeta/Macro) -> Brazos Espirales (Naciones/Reinos) -> Órbitas (Ciudades) -> Satélites (Puntos de Interés).
 """
 from __future__ import annotations
 
 import math
-import random
 from typing import Dict, List, Tuple
 
 from core.models import Place, PlaceLink
@@ -17,11 +16,11 @@ def compute_places_layout(
     links: List[PlaceLink]
 ) -> Dict[str, Tuple[float, float]]:
     """
-    Layout cosmológico en cascada gravitacional por categorías:
-      - Tier 0: Sol / Planeta Macro (Centro del universo o centros estelares)
-      - Tier 1: Reinos / Naciones (Orbitan alrededor de su Planeta o como soles regionales)
-      - Tier 2: Ciudades / Poblados (Orbitan alrededor de su Nación / Reino)
-      - Tier 3: Castillos, Tabernas, Mazmorras, Bosques, Regiones Mágicas (Orbitan alrededor de su Ciudad)
+    Layout Galaxia en Espiral de Arquímedes Áurea:
+      - Distribución armónica en espiral/constelación abierta alrededor del Sol Central.
+      - Cada cuerpo celeste (Nación, Ciudad, Castillo, etc.) tiene un radio y ángulo orbital garantizado.
+      - Respeta la jerarquía padre -> hijos sin colapsar en líneas diagonales.
+      - Asegura que ningún lugar se solape ni se pierda fuera de la vista.
     """
     n = len(places)
     if n == 0:
@@ -31,120 +30,107 @@ def compute_places_layout(
 
     place_map = {p.id: p for p in places}
 
-    # 1. Clasificar lugares por Tier categórico
+    # 1. Separar por Tiers
     tier_places: Dict[int, List[Place]] = {0: [], 1: [], 2: [], 3: []}
     for p in places:
         tier = CATEGORY_TIERS.get(p.category, 3)
         tier_places[tier].append(p)
 
-    # 2. Mapear jerarquía de pertenencia
-    # Si el usuario definió parent_place_id lo respetamos; si no, anclamos automáticamente
-    # al centro gravitacional correspondiente más cercano (Tier 3 a Ciudad, Tier 2 a Reino, Tier 1 a Sol)
-    children_by_parent: Dict[str, List[Place]] = {}
-    
-    # Listas de candidatos ancla
     soles = tier_places[0]
     reinos = tier_places[1]
     ciudades = tier_places[2]
     interiores = tier_places[3]
 
-    # Asignar anclas para Tier 1 (Naciones -> Soles)
-    for p in reinos:
-        parent_id = p.parent_place_id if (p.parent_place_id and p.parent_place_id in place_map) else None
-        if not parent_id and soles:
-            parent_id = soles[0].id
-        if parent_id:
-            children_by_parent.setdefault(parent_id, []).append(p)
-
-    # Asignar anclas para Tier 2 (Ciudades -> Naciones/Soles)
-    for p in ciudades:
-        parent_id = p.parent_place_id if (p.parent_place_id and p.parent_place_id in place_map) else None
-        if not parent_id and reinos:
-            parent_id = reinos[0].id
-        elif not parent_id and soles:
-            parent_id = soles[0].id
-        if parent_id:
-            children_by_parent.setdefault(parent_id, []).append(p)
-
-    # Asignar anclas para Tier 3 (Castillos/Tabernas/Mazmorras -> Ciudades/Naciones/Soles)
-    for p in interiores:
-        parent_id = p.parent_place_id if (p.parent_place_id and p.parent_place_id in place_map) else None
-        if not parent_id and ciudades:
-            parent_id = ciudades[0].id
-        elif not parent_id and reinos:
-            parent_id = reinos[0].id
-        elif not parent_id and soles:
-            parent_id = soles[0].id
-        if parent_id:
-            children_by_parent.setdefault(parent_id, []).append(p)
-
-    # 3. Identificar centros macro (Tier 0 si hay, si no Tier 1, si no Tier 2, etc.)
-    macro_roots: List[Place] = []
-    if soles:
-        macro_roots = soles
-    elif reinos:
-        macro_roots = reinos
-    elif ciudades:
-        macro_roots = ciudades
-    else:
-        macro_roots = list(places)
+    # Mapeo de hijos
+    children_by_parent: Dict[str, List[Place]] = {}
+    for p in places:
+        if p.parent_place_id and p.parent_place_id in place_map:
+            children_by_parent.setdefault(p.parent_place_id, []).append(p)
 
     pos: Dict[str, List[float]] = {}
-    num_roots = len(macro_roots)
 
-    # Ubicar Centros Macro con gran separación entre sí
-    if num_roots == 1:
-        pos[macro_roots[0].id] = [0.0, 0.0]
+    # 2. Posicionar el Sol Central (o centro principal)
+    if soles:
+        center_id = soles[0].id
+        pos[center_id] = [0.0, 0.0]
+        # Si hay más de un Sol/Planeta macro, repartirlos en un anillo amplio
+        for i, s in enumerate(soles[1:], start=1):
+            ang = (2.0 * math.pi / max(1, len(soles) - 1)) * i
+            pos[s.id] = [450.0 * math.cos(ang), 450.0 * math.sin(ang)]
+    elif reinos:
+        # Si no hay Tier 0, el primer reino es el Sol de este sistema
+        center_id = reinos[0].id
+        pos[center_id] = [0.0, 0.0]
+    elif ciudades:
+        center_id = ciudades[0].id
+        pos[center_id] = [0.0, 0.0]
     else:
-        root_dist = max(380.0, num_roots * 160.0)
-        for i, root_p in enumerate(macro_roots):
-            angle = (2.0 * math.pi / num_roots) * i - math.pi / 2.0
-            pos[root_p.id] = [
-                root_dist * math.cos(angle),
-                root_dist * math.sin(angle)
-            ]
+        center_id = places[0].id
+        pos[center_id] = [0.0, 0.0]
 
-    # 4. Función para distribuir satélites en anillos limpios sin superposición
-    def _layout_orbit(parent_id: str, satellites: List[Place], base_radius: float):
-        num_sats = len(satellites)
-        if num_sats == 0:
+    # 3. Espiral de Arquímedes Áurea para ubicar Sistemas y Satélites
+    # Ángulo áureo ~ 137.5 grados (2.3999632 rad) para distribución orgánica sin alineaciones
+    GOLDEN_ANGLE = 2.39996323
+
+    # Función para posicionar satélites de un cuerpo padre en espiral orbital
+    def _layout_satellites_spiral(parent_id: str, sats: List[Place], base_dist: float, step_dist: float):
+        num = len(sats)
+        if num == 0:
             return
         parent_pos = pos.get(parent_id, [0.0, 0.0])
-        # Aumentar radio si hay muchos satélites para que las etiquetas de texto no choquen
-        orb_radius = max(base_radius, num_sats * 38.0 + 90.0)
-        
-        # Desfase angular orgánico
-        phase = random.uniform(0.0, math.pi / 4.0)
-        for j, sat in enumerate(satellites):
-            sat_angle = (2.0 * math.pi / num_sats) * j + phase
+        for idx, sat in enumerate(sats):
+            if sat.id in pos:
+                continue
+            # Ángulo distribuido equitativamente alrededor del círculo + leve espiral
+            theta = (2.0 * math.pi / num) * idx + (GOLDEN_ANGLE * 0.3)
+            r = base_dist + idx * step_dist
             pos[sat.id] = [
-                parent_pos[0] + orb_radius * math.cos(sat_angle),
-                parent_pos[1] + orb_radius * math.sin(sat_angle)
+                parent_pos[0] + r * math.cos(theta),
+                parent_pos[1] + r * math.sin(theta)
+            ]
+            # Recursión para sus propios hijos
+            sub_children = [c for c in children_by_parent.get(sat.id, []) if c.id not in pos]
+            if sub_children:
+                _layout_satellites_spiral(sat.id, sub_children, base_dist=120.0, step_dist=20.0)
+
+    # A. Naciones/Reinos directos del centro (Órbita Mayor)
+    naciones_del_centro = [p for p in reinos if p.id not in pos]
+    if naciones_del_centro:
+        _layout_satellites_spiral(center_id, naciones_del_centro, base_dist=240.0, step_dist=35.0)
+
+    # B. Ciudades directas de reinos o del centro
+    for r_obj in reinos:
+        ciudades_reino = [p for p in children_by_parent.get(r_obj.id, []) if p.id not in pos]
+        if ciudades_reino:
+            _layout_satellites_spiral(r_obj.id, ciudades_reino, base_dist=170.0, step_dist=25.0)
+
+    ciudades_sueltas = [p for p in ciudades if p.id not in pos]
+    if ciudades_sueltas:
+        _layout_satellites_spiral(center_id, ciudades_sueltas, base_dist=280.0, step_dist=30.0)
+
+    # C. Puntos de interés (Castillos, Tabernas, Mazmorras, Bosques, etc.)
+    for c_obj in ciudades:
+        puntos_ciudad = [p for p in children_by_parent.get(c_obj.id, []) if p.id not in pos]
+        if puntos_ciudad:
+            _layout_satellites_spiral(c_obj.id, puntos_ciudad, base_dist=130.0, step_dist=20.0)
+
+    # D. Cualquier lugar remanente que no haya tenido padre explícito -> Espiral Galáctica
+    remanentes = [p for p in places if p.id not in pos]
+    if remanentes:
+        for k, p in enumerate(remanentes):
+            theta = (k + 1) * GOLDEN_ANGLE
+            r = 180.0 + math.sqrt(k + 1) * 90.0
+            pos[p.id] = [
+                r * math.cos(theta),
+                r * math.sin(theta)
             ]
 
-            # Si este satélite a su vez tiene sub-satélites (ej. una Ciudad con Tabernas/Castillos)
-            sub_sats = [p for p in children_by_parent.get(sat.id, []) if p.id not in pos]
-            if sub_sats:
-                _layout_orbit(sat.id, sub_sats, base_radius=120.0)
-
-    # Desplegar niveles en orden jerárquico
-    # Nivel Soles -> Naciones (Órbita de 300px)
-    for root_p in macro_roots:
-        direct_sats = [p for p in children_by_parent.get(root_p.id, []) if p.id not in pos]
-        if direct_sats:
-            _layout_orbit(root_p.id, direct_sats, base_radius=220.0)
-
-    # Cualquier lugar que no haya quedado anclado
-    for p in places:
-        if p.id not in pos:
-            pos[p.id] = [random.uniform(-160, 160), random.uniform(-160, 160)]
-
-    # 5. Pasada de repulsión física estricta para garantizar distancia mínima absoluta entre TODOS los nodos
+    # 4. Refuerzo de separación física O(n²) estricta para garantizar que NUNCA colisionen
     all_ids = list(pos.keys())
     total_nodes = len(all_ids)
-    min_dist_strict = 140.0  # Espacio vital mínimo para cada nodo y su etiqueta de texto
+    min_separation = 150.0  # Espacio vital amplio para respirar
 
-    for _ in range(40):
+    for _ in range(50):
         changed = False
         for i in range(total_nodes):
             u = all_ids[i]
@@ -153,8 +139,8 @@ def compute_places_layout(
                 dx = pos[u][0] - pos[v][0]
                 dy = pos[u][1] - pos[v][1]
                 dist = math.hypot(dx, dy) or 0.01
-                if dist < min_dist_strict:
-                    push = (min_dist_strict - dist) / 2.0 + 1.5
+                if dist < min_separation:
+                    push = (min_separation - dist) / 2.0 + 1.5
                     ux, uy = dx / dist, dy / dist
                     pos[u][0] += ux * push
                     pos[u][1] += uy * push

@@ -116,9 +116,9 @@ class PlaceNodeItem(QGraphicsEllipseItem):
         r = self.radius
         c = self._color
 
-        # Opacidad según estado de foco
+        # Opacidad según estado de foco (nunca menor a 0.30 para mantener visibilidad constante)
         if self._is_dimmed and not self._is_focused:
-            painter.setOpacity(0.15)
+            painter.setOpacity(0.32)
         else:
             painter.setOpacity(1.0)
 
