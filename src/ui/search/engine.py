@@ -161,14 +161,20 @@ class SearchEngine:
                     continue
                 in_name = matches(place.name)
                 in_desc = matches(place.description)
-                if in_name or in_desc:
+                in_climate = matches(getattr(place, "climate_atmosphere", ""))
+                in_sensory = matches(getattr(place, "sensory_details", ""))
+                in_lore = matches(getattr(place, "lore_history", ""))
+                in_notes = matches(getattr(place, "notes", ""))
+
+                if in_name or in_desc or in_climate or in_sensory or in_lore or in_notes:
                     seen_ids.add(place.id)
-                    snippet = (extract_snippet(place.description, query, is_regex=is_regex)
-                               if in_desc else "Coincidencia en el nombre del lugar")
+                    all_text = " • ".join(filter(None, [place.description, place.climate_atmosphere, place.sensory_details, place.lore_history, place.notes]))
+                    snippet = (extract_snippet(all_text, query, is_regex=is_regex)
+                               if not in_name and all_text else f"Categoría: {place.category or 'Lugar'}")
                     results.append({
                         "icon": "🏰",
                         "title": place.name,
-                        "location": "Lugares y Escenarios",
+                        "location": f"Lugares ({place.category or 'General'})",
                         "snippet": snippet,
                         "item_id": place.id,
                         "item_type": "place"

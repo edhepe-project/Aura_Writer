@@ -205,6 +205,15 @@ class SecurityControllerMixin:
 
     def navigate_to_item(self, item_id: str, item_type: str, query: str = "", is_regex: bool = False):
         """Salta a un elemento específico desde el buscador y resalta la coincidencia en el editor."""
+        if item_type == "place":
+            if hasattr(self, "_switch_inspector_tab"):
+                self._switch_inspector_tab("places")
+            if hasattr(self, "place_dock") and self.place_dock:
+                self.place_dock.select_place_by_id(item_id)
+            if hasattr(self, "open_place_edit_dialog"):
+                self.open_place_edit_dialog(item_id)
+            return
+
         self.on_item_selected(item_id, item_type)
         self.outline_tree.select_item_by_id(item_id)
 

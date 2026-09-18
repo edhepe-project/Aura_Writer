@@ -449,3 +449,5 @@ class TreeControllerMixin:
         if self.project_manager.metadata:
             self.outline_tree.populate_from_metadata(self.project_manager.metadata)
             self._refresh_char_dock()
+            if hasattr(self, "_refresh_place_dock"):
+                self._refresh_place_dock()

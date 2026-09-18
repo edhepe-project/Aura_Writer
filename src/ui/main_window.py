@@ -26,6 +26,7 @@ from PyQt6.QtCore import Qt, QTimer
 from ui.outline_tree import OutlineTree
 from ui.editor import AuraEditor
 from ui.character_dock import CharacterDock
+from ui.place_dock import PlaceDock
 from ui.relation_graph import RelationGraphWidget
 from ui.main_menu_builder import MainMenuBuilderMixin
 from ui.tree_controller import TreeControllerMixin
@@ -33,6 +34,7 @@ from ui.notes_controller import NotesControllerMixin
 from ui.security_controller import SecurityControllerMixin
 from ui.usb_controller import UsbControllerMixin
 from ui.character_controller import CharacterControllerMixin
+from ui.place_controller import PlaceControllerMixin
 from ui.exporter_controller import ExporterControllerMixin
 from ui.app_lifecycle_controller import AppLifecycleMixin
 
@@ -49,6 +51,7 @@ class AuraMainWindow(
     SecurityControllerMixin,
     UsbControllerMixin,
     CharacterControllerMixin,
+    PlaceControllerMixin,
     ExporterControllerMixin,
     AppLifecycleMixin,
     QMainWindow,
@@ -160,7 +163,41 @@ class AuraMainWindow(
         self.char_dock.character_deleted.connect(self._on_character_deleted)
         self.char_dock.character_selected.connect(self._on_character_selected)
         self.char_dock.chapter_requested.connect(self._on_chapter_requested_from_dock)
-        il.addWidget(self.char_dock, 1)
+
+        self.place_dock = PlaceDock(project_manager=self.project_manager)
+        self.place_dock.place_added.connect(self._on_place_added)
+        self.place_dock.place_updated.connect(self._on_place_updated)
+        self.place_dock.place_deleted.connect(self._on_place_deleted)
+        self.place_dock.place_selected.connect(self._on_place_selected)
+
+        # Segmented Switcher [ 👤 Personajes ] | [ 🏰 Lugares ]
+        switcher_frame = QFrame()
+        switcher_layout = QHBoxLayout(switcher_frame)
+        switcher_layout.setContentsMargins(0, 4, 0, 4)
+        switcher_layout.setSpacing(4)
+
+        self._btn_tab_chars = QPushButton("👤 Personajes")
+        self._btn_tab_chars.setCheckable(True)
+        self._btn_tab_chars.setChecked(True)
+        self._btn_tab_chars.clicked.connect(lambda: self._switch_inspector_tab("characters"))
+
+        self._btn_tab_places = QPushButton("🏰 Lugares")
+        self._btn_tab_places.setCheckable(True)
+        self._btn_tab_places.setChecked(False)
+        self._btn_tab_places.clicked.connect(lambda: self._switch_inspector_tab("places"))
+
+        switcher_layout.addWidget(self._btn_tab_chars, 1)
+        switcher_layout.addWidget(self._btn_tab_places, 1)
+        il.addWidget(switcher_frame)
+
+        # Stacked Widget / Container para Docks
+        from PyQt6.QtWidgets import QStackedWidget
+        self._dock_stack = QStackedWidget()
+        self._dock_stack.addWidget(self.char_dock)   # index 0
+        self._dock_stack.addWidget(self.place_dock)  # index 1
+        il.addWidget(self._dock_stack, 1)
+
+        self._update_segmented_switcher_style()
 
         self._outline_frame = outline_frame
         self._inspector_frame = inspector_frame
@@ -204,6 +241,56 @@ class AuraMainWindow(
         styles.append("margin-bottom:2px;")
         lbl.setStyleSheet(" ".join(styles))
         return lbl
+
+    def _switch_inspector_tab(self, tab: str):
+        """Alterna el panel inspector entre [Personajes] y [Lugares]."""
+        if tab == "places":
+            self._btn_tab_chars.setChecked(False)
+            self._btn_tab_places.setChecked(True)
+            self._dock_stack.setCurrentWidget(self.place_dock)
+            self._refresh_place_dock()
+        else:
+            self._btn_tab_chars.setChecked(True)
+            self._btn_tab_places.setChecked(False)
+            self._dock_stack.setCurrentWidget(self.char_dock)
+            self._refresh_char_dock()
+        self._update_segmented_switcher_style()
+
+    def _update_segmented_switcher_style(self):
+        """Aplica estilo moderno tipo iOS / macOS Segmented Control a los botones de personajes/lugares."""
+        from core.theme_manager import ThemeManager
+        is_dark = ThemeManager.is_dark()
+        active_bg = "#3a3a3c" if is_dark else "#ffffff"
+        inactive_bg = "transparent"
+        border = "#48484a" if is_dark else "#d1cdc7"
+        fg_active = "#ffd60a" if is_dark else "#d97706"
+        fg_inactive = "#8e8e93" if is_dark else "#6e6e73"
+
+        base_style = f"""
+            QPushButton {{
+                border: 1px solid {border};
+                border-radius: 6px;
+                padding: 4px 8px;
+                font-size: 11px;
+                font-weight: 600;
+            }}
+        """
+        chars_checked = self._btn_tab_chars.isChecked()
+        self._btn_tab_chars.setStyleSheet(base_style + f"""
+            QPushButton {{
+                background-color: {active_bg if chars_checked else inactive_bg};
+                color: {fg_active if chars_checked else fg_inactive};
+                border: {f'1px solid {fg_active}' if chars_checked else f'1px solid {border}'};
+            }}
+        """)
+        places_checked = self._btn_tab_places.isChecked()
+        self._btn_tab_places.setStyleSheet(base_style + f"""
+            QPushButton {{
+                background-color: {active_bg if places_checked else inactive_bg};
+                color: {fg_active if places_checked else fg_inactive};
+                border: {f'1px solid {fg_active}' if places_checked else f'1px solid {border}'};
+            }}
+        """)
 
     def changeEvent(self, a0):  # noqa: N802  # Qt uses 'a0' in stubs
         """Devuelve el foco al editor al recuperar el foco desde Windows (Alt+Tab)."""

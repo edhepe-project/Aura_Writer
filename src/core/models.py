@@ -173,11 +173,42 @@ class Character(BaseModel):
         )
 
 
+PLACE_CATEGORIES = [
+    "Reino / Nación",
+    "Ciudad / Poblado",
+    "Fortaleza / Castillo",
+    "Taberna / Interior",
+    "Mazmorra / Cueva",
+    "Naturaleza / Bosque",
+    "Región Mágica",
+    "Planeta / Espacio",
+    "Otro"
+]
+
+PLACE_ICONS = {
+    "Reino / Nación": "👑",
+    "Ciudad / Poblado": "🏛️",
+    "Fortaleza / Castillo": "🏰",
+    "Taberna / Interior": "🍻",
+    "Mazmorra / Cueva": "🗝️",
+    "Naturaleza / Bosque": "🌲",
+    "Región Mágica": "✨",
+    "Planeta / Espacio": "🪐",
+    "Otro": "📍"
+}
+
+
 class Place(BaseModel):
     id: str = Field(default_factory=_new_id)
     name: str = "Nuevo Lugar"
-    description: str = ""
-    image_asset: str = ""
+    category: str = "Reino / Nación"
+    parent_place_id: str = ""       # Jerarquía: ID del lugar contenedor
+    description: str = ""           # Descripción general del lugar
+    climate_atmosphere: str = ""    # Clima, temperatura, iluminación y ambiente
+    sensory_details: str = ""       # Olores, sonidos y texturas características
+    lore_history: str = ""          # Historia, leyendas, mitos y secretos
+    notes: str = ""                 # Notas privadas del autor (no exportables)
+    image_asset: str = ""           # Plano o ilustración conceptual en assets/
     custom_attributes: Dict[str, str] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)

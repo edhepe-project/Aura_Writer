@@ -112,6 +112,10 @@ class AppLifecycleMixin:
             self._refresh_toolbar_icons()
         if hasattr(self, "char_dock") and self.char_dock is not None:
             self.char_dock.update_theme()
+        if hasattr(self, "place_dock") and self.place_dock is not None:
+            self.place_dock.update_theme()
+        if hasattr(self, "_update_segmented_switcher_style"):
+            self._update_segmented_switcher_style()
         if self._graph_widget is not None:
             self._graph_widget.update_theme(ThemeManager.is_dark())
         if self._graph_dialog is not None:

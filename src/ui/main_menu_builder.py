@@ -103,6 +103,11 @@ class MainMenuBuilderMixin:
         graph_act.triggered.connect(self.open_relation_graph)
         view_menu.addAction(graph_act)
 
+        places_act = QAction("🏰 Lugares & Escenarios", self)
+        places_act.setShortcut("Ctrl+Alt+L")
+        places_act.triggered.connect(lambda: self.open_place_edit_dialog(None))
+        view_menu.addAction(places_act)
+
         view_menu.addSeparator()
         self._appearance_act = QAction("🎨 Apariencia…", self)
         self._appearance_act.setShortcut("Ctrl+,")
