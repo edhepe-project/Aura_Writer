@@ -292,7 +292,7 @@ class AppLifecycleMixin:
 
         self._flush_content_to_metadata()
 
-        from ui.comparator_dialog import ChapterComparatorDialog
+        from ui.comparator import ChapterComparatorDialog
         dlg = ChapterComparatorDialog(
             project_manager=self.project_manager,
             initial_chapter=self._current_chapter,

@@ -49,7 +49,7 @@ class CharacterControllerMixin:
 
     def _on_graph_open_character_sheet(self, char_id: str):
         """Abre el editor completo del personaje desde el boton de edicion en el grafo."""
-        from ui.character_edit_dialog import CharacterEditDialog
+        from ui.character_dialog import CharacterEditDialog
         if not self.project_manager.metadata:
             return
         meta = self.project_manager.metadata

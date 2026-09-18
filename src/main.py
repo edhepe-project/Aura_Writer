@@ -33,7 +33,7 @@ if current_dir not in sys.path:
     sys.path.append(current_dir)
 
 from ui.main_window import AuraMainWindow
-from ui.login_dialog import LoginDialog
+from ui.login import LoginDialog
 from core.theme_manager import ThemeManager
 
 

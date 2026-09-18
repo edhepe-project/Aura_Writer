@@ -6,7 +6,7 @@ import tempfile
 import atexit
 import glob
 from core.security import SecurityManager
-from core.usb_sync import USBSync, USBNotFoundError, USBSyncError
+from core.usb import USBSync, USBNotFoundError, USBSyncError
 from core.models import UniverseMetadata, Obra, Book, Chapter
 
 log = logging.getLogger(__name__)

@@ -3,7 +3,7 @@ Aura Writer — Exporters Package
 Fachada unificada AuraExporter con delegación a PDFExporter, DOCXExporter y EPUBExporter.
 """
 
-from tools.exporters.pdf_exporter import PDFExporter, OrnamentalRule, DecorativeLine, ChapterMarker
+from tools.exporters.pdf import PDFExporter, OrnamentalRule, DecorativeLine, ChapterMarker
 from tools.exporters.docx_exporter import DOCXExporter
 from tools.exporters.epub_exporter import EPUBExporter
 

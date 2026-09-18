@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 
-from core.usb_sync import USBSync, USBDrive
+from core.usb import USBSync, USBDrive
 
 log = logging.getLogger(__name__)
 

@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                               QTextEdit, QPushButton, QLineEdit, QMessageBox)
 from PyQt6.QtCore import Qt
 from ui.lock_dialog import LockDialog
-from ui.search_dialog import SearchDialog
+from ui.search import SearchDialog
 
 
 class SecurityControllerMixin:

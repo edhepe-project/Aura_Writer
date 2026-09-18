@@ -7,7 +7,7 @@ import logging
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QMessageBox
 from ui.exporter_dialog import ExporterDialog
-from tools.exporter import AuraExporter
+from tools.exporters import AuraExporter
 from core.models import Book
 
 log = logging.getLogger(__name__)

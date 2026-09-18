@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
 
 from core.models import Character, CharacterRelation
 from core.theme_manager import ThemeManager
-from ui.genealogy_widget import GenealogyWidget
+from ui.genealogy.widget import GenealogyWidget
 from ui.character_dialog.tab_profile import CharacterProfileTab
 from ui.character_dialog.tab_relations import CharacterRelationsTab
 

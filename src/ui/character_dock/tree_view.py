@@ -13,7 +13,7 @@ import qtawesome as qta
 
 from core.models import Character, CharacterRelation
 from core.theme_manager import ThemeManager
-from ui.character_edit_dialog import CharacterEditDialog
+from ui.character_dialog import CharacterEditDialog
 from ui.relation_dialog import RelationDialog
 
 
