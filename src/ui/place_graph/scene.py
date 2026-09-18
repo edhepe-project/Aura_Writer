@@ -42,7 +42,7 @@ class PlaceGraphScene(QGraphicsScene):
 
     def _set_focus(self, place_id: str | None):
         if not place_id:
-            self._clear_focus()
+            self.clear_selection_and_focus()
             return
         self._focused_id = place_id
         neighbors = self._adj.get(place_id, set())
@@ -66,20 +66,13 @@ class PlaceGraphScene(QGraphicsScene):
             else:
                 edge.set_active_focus(False, True)
 
-    def _clear_focus(self):
+    def clear_selection_and_focus(self):
         self._focused_id = None
         for node in self._nodes.values():
             node.set_focused(False, False)
         for edge in self._all_edges:
             edge.set_active_focus(False, False)
-
-    def mousePressEvent(self, event):
-        view = self.views()[0] if self.views() else None
-        item = self.itemAt(event.scenePos(), view.transform() if view else QTransform())
-        if not isinstance(item, PlaceNodeItem):
-            self._clear_focus()
-            self.background_clicked.emit()
-        super().mousePressEvent(event)
+        self.background_clicked.emit()
 
 
 class PlaceGraphView(QGraphicsView):
@@ -103,11 +96,29 @@ class PlaceGraphView(QGraphicsView):
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setFocusPolicy(Qt.FocusPolicy.WheelFocus)
         self.setStyleSheet("QGraphicsView { background: #0d0d0f; border: none; }")
+        self._press_pos = None
 
     def drawBackground(self, painter: QPainter | None, rect: QRectF):
         if painter is None:
             return
         painter.fillRect(rect, QColor("#0d0d0f"))
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._press_pos = event.pos()
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+        if event.button() == Qt.MouseButton.LeftButton and self._press_pos is not None:
+            dist = (event.pos() - self._press_pos).manhattanLength()
+            self._press_pos = None
+            if dist < 6:
+                scene_pos = self.mapToScene(event.pos())
+                item = self.scene().itemAt(scene_pos, self.transform()) if self.scene() else None
+                if not isinstance(item, PlaceNodeItem):
+                    if hasattr(self.scene(), "clear_selection_and_focus"):
+                        self.scene().clear_selection_and_focus()
 
     def wheelEvent(self, event):
         delta = event.angleDelta().y()
