@@ -1,7 +1,7 @@
 """
 Unit tests for PlaceGraphWidget and PlaceGraphDialog (Atlas Literario).
 """
-import pytest
+from PyQt6.QtWidgets import QMessageBox
 from core.models import Place, PlaceLink, UniverseMetadata
 from ui.place_graph.widget import PlaceGraphWidget, PlaceNodeItem, PlaceLinkItem
 from ui.place_graph.dialog import PlaceGraphDialog
@@ -68,6 +68,17 @@ def test_place_graph_dialog_connections_management(qtbot, tmp_path):
     assert link.place_id_a == p1.id
     assert link.place_id_b == p2.id
     assert link.label == "Ruta Marítima"
+
+    # Seleccionar la ruta en la lista y eliminarla (simulando clic en QMessageBox.Yes)
+    assert dialog._connections_list.count() == 1
+    dialog._connections_list.setCurrentRow(0)
+    assert dialog._btn_delete_link.isEnabled()
+
+    from unittest.mock import patch
+    with patch("PyQt6.QtWidgets.QMessageBox.question", return_value=QMessageBox.StandardButton.Yes):
+        dialog._delete_selected_connection()
+
+    assert len(pm.metadata.place_links) == 0
 
     # Doble clic para enfocar
     with qtbot.waitSignal(dialog.place_selected_for_focus, timeout=1000) as blocker:

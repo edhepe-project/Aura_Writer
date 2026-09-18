@@ -1,6 +1,6 @@
 """
 dialog.py — Diálogo modal principal del Atlas Literario y Grafo de Lugares.
-Incluye panel lateral con detalles de conexiones y creación/edición de rutas geográficas con sincronización y guardado automático.
+Incluye panel lateral con detalles de conexiones, creación y eliminación de rutas geográficas con sincronización y guardado automático.
 """
 from __future__ import annotations
 from PyQt6.QtWidgets import (
@@ -13,6 +13,7 @@ import qtawesome as qta
 
 from core.models import Place, PlaceLink, UniverseMetadata, CONNECTION_TYPES, CONNECTION_COLORS
 from core.theme_manager import ThemeManager
+from .models import CONNECTION_STYLES
 from .widget import PlaceGraphWidget
 
 
@@ -63,6 +64,21 @@ class PlaceGraphDialog(QDialog):
             QPushButton:hover {{
                 background-color: {'#48484a' if is_dark else '#ded8ce'};
             }}
+            QListWidget {{
+                background-color: {'#232326' if is_dark else '#faf7f2'};
+                border: 1px solid {b_border};
+                border-radius: 6px;
+                color: {fg_title};
+                font-size: 11px;
+            }}
+            QListWidget::item {{
+                padding: 4px 6px;
+                border-bottom: 1px solid {'#2c2c2e' if is_dark else '#eee9e0'};
+            }}
+            QListWidget::item:selected {{
+                background-color: #0a84ff;
+                color: #ffffff;
+            }}
         """)
 
         root = QVBoxLayout(self)
@@ -98,15 +114,27 @@ class PlaceGraphDialog(QDialog):
         self._info_name.setWordWrap(True)
         pl.addWidget(self._info_name)
 
-        self._info_desc = QLabel("Haz clic en cualquier planeta o estancia para ver sus rutas y crear conexiones.")
+        self._info_desc = QLabel("Haz clic en cualquier astro para ver sus rutas, agregar nuevas o eliminar conexiones existentes.")
         self._info_desc.setStyleSheet("font-size: 11px; color: #8e8e93;")
         self._info_desc.setWordWrap(True)
         pl.addWidget(self._info_desc)
 
-        pl.addSpacing(6)
-        pl.addWidget(QLabel("<b>Conexiones & Rutas:</b>"))
+        pl.addSpacing(4)
+        pl.addWidget(QLabel("<b>Conexiones & Rutas activas:</b>"))
         self._connections_list = QListWidget()
+        self._connections_list.itemSelectionChanged.connect(self._on_connection_selection_changed)
         pl.addWidget(self._connections_list)
+
+        # Botón para eliminar la ruta seleccionada
+        self._btn_delete_link = QPushButton("🗑️ Eliminar Ruta Seleccionada")
+        self._btn_delete_link.setEnabled(False)
+        self._btn_delete_link.setStyleSheet("""
+            QPushButton { color: #ff453a; border-color: #5c2020; }
+            QPushButton:hover { background-color: #5c2020; color: #ffffff; }
+            QPushButton:disabled { color: #636366; border-color: #3a3a3c; }
+        """)
+        self._btn_delete_link.clicked.connect(self._delete_selected_connection)
+        pl.addWidget(self._btn_delete_link)
 
         # Formulario para conectar lugares
         form_frame = QFrame()
@@ -114,16 +142,18 @@ class PlaceGraphDialog(QDialog):
         form_layout.setContentsMargins(0, 4, 0, 0)
         form_layout.setSpacing(6)
 
-        form_layout.addWidget(QLabel("<b>Origen:</b>"))
+        form_layout.addWidget(QLabel("<b>Añadir nueva ruta:</b>"))
+
+        form_layout.addWidget(QLabel("Origen:"))
         self._combo_source_place = QComboBox()
         self._combo_source_place.currentIndexChanged.connect(self._on_source_combo_changed)
         form_layout.addWidget(self._combo_source_place)
 
-        form_layout.addWidget(QLabel("<b>Destino:</b>"))
+        form_layout.addWidget(QLabel("Destino:"))
         self._combo_target_place = QComboBox()
         form_layout.addWidget(self._combo_target_place)
 
-        form_layout.addWidget(QLabel("<b>Tipo de Ruta:</b>"))
+        form_layout.addWidget(QLabel("Tipo de Ruta:"))
         self._combo_conn_type = QComboBox()
         for ctype in CONNECTION_TYPES:
             self._combo_conn_type.addItem(ctype.capitalize(), ctype)
@@ -172,7 +202,6 @@ class PlaceGraphDialog(QDialog):
             self._combo_source_place.addItem(p.name, p.id)
             self._combo_target_place.addItem(p.name, p.id)
 
-        # Restaurar selección si aplica
         if self._selected_place_id:
             idx = self._combo_source_place.findData(self._selected_place_id)
             if idx >= 0:
@@ -203,7 +232,6 @@ class PlaceGraphDialog(QDialog):
         if not place:
             return
 
-        # Sincronizar el combo de origen
         self._combo_source_place.blockSignals(True)
         idx = self._combo_source_place.findData(place_id)
         if idx >= 0:
@@ -215,23 +243,26 @@ class PlaceGraphDialog(QDialog):
         self._info_desc.setText(desc[:180] + ("..." if len(desc) > 180 else ""))
 
         self._connections_list.clear()
+        self._btn_delete_link.setEnabled(False)
         place_names = {p.id: p.name for p in places}
 
-        # Mostrar planeta superior si es una estancia
+        # 1. Mostrar planeta superior si es una estancia
         if place.parent_place_id and place.parent_place_id in place_names:
             parent_item = QListWidgetItem(f"🪐 Órbita de: {place_names[place.parent_place_id]}")
             parent_item.setForeground(QColor("#0a84ff"))
+            parent_item.setData(Qt.ItemDataRole.UserRole, None)  # no eliminable como ruta libre
             self._connections_list.addItem(parent_item)
 
-        # Mostrar estancias o satélites orbitando
+        # 2. Mostrar estancias o satélites orbitando
         sub_places = [p for p in places if p.parent_place_id == place_id]
         if sub_places:
             for sp in sub_places:
                 sp_item = QListWidgetItem(f"🌙 Satélite/Estancia: {sp.name} ({sp.category})")
                 sp_item.setForeground(QColor("#bf5af2"))
+                sp_item.setData(Qt.ItemDataRole.UserRole, None)
                 self._connections_list.addItem(sp_item)
 
-        # Conexiones de rutas
+        # 3. Conexiones de rutas manuales (eliminables)
         for lk in links:
             other_id = None
             if lk.place_id_a == place_id:
@@ -243,10 +274,64 @@ class PlaceGraphDialog(QDialog):
                 lbl = f"━ {place_names[other_id]} ({lk.connection_type})"
                 if lk.label:
                     lbl += f" — {lk.label}"
-                self._connections_list.addItem(lbl)
+                link_item = QListWidgetItem(lbl)
+                style_color = CONNECTION_STYLES.get(lk.connection_type, {}).get("color", "#30d158")
+                link_item.setForeground(QColor(style_color))
+                link_item.setData(Qt.ItemDataRole.UserRole, lk)  # Asignamos el objeto PlaceLink
+                self._connections_list.addItem(link_item)
 
         if self._connections_list.count() == 0:
-            self._connections_list.addItem("Sin conexiones ni estancias vinculadas.")
+            empty_item = QListWidgetItem("Sin conexiones ni estancias vinculadas.")
+            empty_item.setData(Qt.ItemDataRole.UserRole, None)
+            self._connections_list.addItem(empty_item)
+
+    def _on_connection_selection_changed(self):
+        item = self._connections_list.currentItem()
+        is_route = item is not None and item.data(Qt.ItemDataRole.UserRole) is not None
+        self._btn_delete_link.setEnabled(is_route)
+
+    def _delete_selected_connection(self):
+        item = self._connections_list.currentItem()
+        if not item:
+            return
+        link_to_delete: PlaceLink | None = item.data(Qt.ItemDataRole.UserRole)
+        if not link_to_delete:
+            return
+
+        meta: UniverseMetadata = self.pm.metadata
+        if not meta or not hasattr(meta, "place_links"):
+            return
+
+        # Confirmación
+        ans = QMessageBox.question(
+            self,
+            "Eliminar Ruta",
+            f"¿Deseas eliminar la conexión entre estos lugares?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if ans != QMessageBox.StandardButton.Yes:
+            return
+
+        # Filtrar enlace eliminado
+        meta.place_links = [
+            lk for lk in meta.place_links
+            if not (
+                (lk.place_id_a == link_to_delete.place_id_a and lk.place_id_b == link_to_delete.place_id_b) or
+                (lk.place_id_a == link_to_delete.place_id_b and lk.place_id_b == link_to_delete.place_id_a)
+            )
+        ]
+
+        # Guardar en proyecto
+        if hasattr(self.pm, "save_metadata") and getattr(self.pm, "temp_dir", None):
+            try:
+                self.pm.save_metadata()
+            except Exception:
+                pass
+
+        # Recargar grafo y panel
+        self._graph_widget.set_data(meta.places, meta.place_links)
+        if self._selected_place_id:
+            self._on_place_selected(self._selected_place_id)
 
     def _on_place_double_clicked(self, place_id: str):
         self.place_selected_for_focus.emit(place_id)
