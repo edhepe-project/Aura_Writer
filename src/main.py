@@ -266,6 +266,18 @@ def main():
 
                 main_win.outline_tree.populate_from_metadata(meta)
                 main_win.char_dock.populate(meta.characters, meta.relations, meta.obras)
+                # Poblar el PlaceDock con los lugares del proyecto
+                if hasattr(main_win, "place_dock") and main_win.place_dock is not None:
+                    places = getattr(meta, "places", []) or []
+                    main_win.place_dock.set_project_manager(main_win.project_manager)
+                    main_win.place_dock.populate(places)
+                    chapters_data = [
+                        (cap, obra.title, libro.title)
+                        for obra in meta.obras
+                        for libro in obra.libros
+                        for cap in libro.capitulos
+                    ]
+                    main_win.place_dock.update_chapters_data(chapters_data)
 
                 # Reabrir exactamente en el último capítulo/nodo donde nos quedamos
                 last_node = getattr(meta, "last_selected_node_id", "")

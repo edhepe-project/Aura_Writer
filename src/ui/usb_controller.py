@@ -182,6 +182,8 @@ class UsbControllerMixin:
             self.setWindowTitle(f"Aura Writer - {meta.title}")
             self.outline_tree.populate_from_metadata(meta)
             self.char_dock.populate(meta.characters, meta.relations, meta.obras)
+            if hasattr(self, "_refresh_place_dock"):
+                self._refresh_place_dock()
             self._update_usb_indicator()
 
             QMessageBox.information(
