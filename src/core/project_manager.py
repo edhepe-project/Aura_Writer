@@ -7,7 +7,7 @@ import atexit
 import glob
 from core.security import SecurityManager
 from core.usb import USBSync, USBNotFoundError, USBSyncError
-from core.models import UniverseMetadata, Obra, Book, Chapter
+from core.models import UniverseMetadata, Obra, Book, Chapter, ChapterRevision
 
 log = logging.getLogger(__name__)
 
@@ -285,6 +285,98 @@ class ProjectManager:
     def write_chapter_content(self, content_file: str, html: str):
         """Guarda el HTML del editor en el archivo del capítulo."""
         self._write_content(content_file, html)
+
+    # ------------------------------------------------------------------
+    # Historial de Revisiones de Capítulos
+    # ------------------------------------------------------------------
+
+    def create_chapter_revision(
+        self,
+        chapter_id: str,
+        description: str = "Revisión automática",
+        max_revisions: int = 30
+    ) -> ChapterRevision | None:
+        """
+        Crea una instantánea histórica del contenido actual del capítulo.
+        Almacena el archivo HTML en content/revisions/ y actualiza la lista de revisiones.
+        """
+        chapter = self.find_chapter(chapter_id)
+        if not chapter or not chapter.content_file:
+            return None
+
+        current_html = self.read_chapter_content(chapter.content_file)
+        if not current_html.strip():
+            return None
+
+        # Si la última revisión tiene exactamente el mismo contenido, no duplicar
+        if chapter.revisions:
+            last_rev = chapter.revisions[-1]
+            last_html = self.read_chapter_revision_content(last_rev)
+            if last_html == current_html:
+                return last_rev
+
+        import uuid as _uuid
+        rev_dir = os.path.join(self.temp_dir, "content", "revisions")
+        os.makedirs(rev_dir, exist_ok=True)
+        rev_filename = f"rev_{_uuid.uuid4().hex[:10]}.html"
+        rev_path = os.path.join(rev_dir, rev_filename)
+
+        with open(rev_path, "w", encoding="utf-8") as f:
+            f.write(current_html)
+
+        revision = ChapterRevision(
+            content_file=rev_filename,
+            description=description
+        )
+        chapter.revisions.append(revision)
+
+        # Rotación: Podar revisiones antiguas si superan el límite
+        if len(chapter.revisions) > max_revisions:
+            excess = len(chapter.revisions) - max_revisions
+            for old_rev in chapter.revisions[:excess]:
+                old_path = os.path.join(rev_dir, old_rev.content_file)
+                if os.path.exists(old_path):
+                    try:
+                        os.remove(old_path)
+                    except OSError:
+                        pass
+            chapter.revisions = chapter.revisions[excess:]
+
+        return revision
+
+    def read_chapter_revision_content(self, revision: ChapterRevision) -> str:
+        """Lee el contenido HTML de una revisión específica."""
+        if not revision or not revision.content_file:
+            return ""
+        path = os.path.join(self.temp_dir, "content", "revisions", revision.content_file)
+        if not os.path.exists(path):
+            return ""
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+
+    def restore_chapter_revision(self, chapter_id: str, revision_id: str) -> bool:
+        """
+        Restaura el contenido de un capítulo al estado de una revisión seleccionada.
+        Crea automáticamente una revisión de respaldo del estado previo antes de restaurar.
+        """
+        chapter = self.find_chapter(chapter_id)
+        if not chapter:
+            return False
+
+        target_rev = next((r for r in chapter.revisions if r.id == revision_id), None)
+        if not target_rev:
+            return False
+
+        rev_html = self.read_chapter_revision_content(target_rev)
+        if not rev_html:
+            return False
+
+        # Guardar snapshot previo como salvaguarda
+        self.create_chapter_revision(chapter_id, description="Copia de seguridad antes de restaurar")
+
+        # Restaurar al archivo actual
+        self.write_chapter_content(chapter.content_file, rev_html)
+        return True
 
     # ------------------------------------------------------------------
     # Assets (imágenes)

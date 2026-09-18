@@ -206,6 +206,14 @@ class AppLifecycleMixin:
         if self._current_chapter:
             self._detect_character_mentions(self._current_chapter)
         self._flush_content_to_metadata()
+        if self._current_chapter:
+            try:
+                self.project_manager.create_chapter_revision(
+                    self._current_chapter.id,
+                    description="Guardado automático"
+                )
+            except Exception as e:
+                log.warning("No se pudo registrar la revisión del capítulo: %s", e)
         try:
             self.project_manager.save_project()
             self._dirty = False
@@ -310,6 +318,43 @@ class AppLifecycleMixin:
                 self.editor._apply_paragraph_spacing()
             self.editor.blockSignals(False)
             self.update_stats()
+
+    # ------------------------------------------------------------------
+    # Historial de Versiones y Diff
+    # ------------------------------------------------------------------
+
+    def open_chapter_history(self: "AuraMainWindow"):
+        """Abre el diálogo de historial de versiones y diff del capítulo actual."""
+        if not self.project_manager.metadata:
+            QMessageBox.warning(self, "Historial de Versiones", "Abre un proyecto primero.")
+            return
+
+        if not self._current_chapter:
+            QMessageBox.warning(self, "Historial de Versiones", "Selecciona un capítulo primero.")
+            return
+
+        self._flush_content_to_metadata()
+
+        from ui.history_diff_dialog import ChapterHistoryDiffDialog
+        dlg = ChapterHistoryDiffDialog(
+            project_manager=self.project_manager,
+            chapter=self._current_chapter,
+            parent=self
+        )
+
+        def _on_restored(cid: str):
+            if self._current_chapter and self._current_chapter.id == cid:
+                html = self.project_manager.read_chapter_content(self._current_chapter.content_file)
+                self.editor.blockSignals(True)
+                self.editor.setHtml(html)
+                if hasattr(self.editor, "_apply_paragraph_spacing"):
+                    self.editor._apply_paragraph_spacing()
+                self.editor.blockSignals(False)
+                self.update_stats()
+                self._mark_dirty()
+
+        dlg.revision_restored.connect(_on_restored)
+        dlg.exec()
 
     # ------------------------------------------------------------------
     # Ayuda y Actualizaciones

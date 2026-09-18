@@ -24,8 +24,8 @@ class NexusSidePanel(QFrame):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._mode = "compact"  # "compact" (280px) o "full" (430px)
-        self.setFixedWidth(280)
+        self._mode = "compact"  # "compact" (320px) o "full" (460px)
+        self.setFixedWidth(320)
         self.setObjectName("NexusSidePanel")
 
         is_dark = ThemeManager.is_dark()
@@ -50,8 +50,28 @@ class NexusSidePanel(QFrame):
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._scroll.setStyleSheet("""
-            QScrollArea { background: transparent; border: none; }
+        self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._scroll.setStyleSheet(f"""
+            QScrollArea {{
+                background: transparent;
+                border: none;
+            }}
+            QScrollBar:vertical {{
+                background: transparent;
+                width: 6px;
+                margin: 0px;
+            }}
+            QScrollBar::handle:vertical {{
+                background: {'rgba(255,255,255,0.2)' if is_dark else 'rgba(0,0,0,0.15)'};
+                min-height: 20px;
+                border-radius: 3px;
+            }}
+            QScrollBar::handle:vertical:hover {{
+                background: {'rgba(255,255,255,0.35)' if is_dark else 'rgba(0,0,0,0.3)'};
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                height: 0px;
+            }}
         """)
         self._outer.addWidget(self._scroll, 1)
 
@@ -109,13 +129,13 @@ class NexusSidePanel(QFrame):
 
     def _on_close_full(self):
         self._mode = "compact"
-        self.setFixedWidth(280)
+        self.setFixedWidth(320)
         if self._current_char:
             self.show_character(self._current_char, self._current_relations, self._char_map)
 
     def _on_open_full_sheet(self):
         self._mode = "full"
-        self.setFixedWidth(430)
+        self.setFixedWidth(460)
         if self._current_char:
             self.show_character(self._current_char, self._current_relations, self._char_map)
 
@@ -161,7 +181,7 @@ class NexusSidePanel(QFrame):
         self._current_char = None
         self._current_relations.clear()
         self._mode = "compact"
-        self.setFixedWidth(280)
+        self.setFixedWidth(320)
         self._header.clear()
 
         is_dark = ThemeManager.is_dark()

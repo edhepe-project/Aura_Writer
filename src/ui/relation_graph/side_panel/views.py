@@ -30,7 +30,7 @@ def build_compact_view(
     new_body = QWidget()
     new_body.setStyleSheet("background: transparent;")
     body_layout = QVBoxLayout(new_body)
-    body_layout.setContentsMargins(12, 10, 12, 12)
+    body_layout.setContentsMargins(10, 8, 10, 12)
     body_layout.setSpacing(8)
 
     btn_sheet = QPushButton("📇  Ver Ficha Completa")

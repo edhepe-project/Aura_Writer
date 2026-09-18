@@ -204,6 +204,11 @@ class MainMenuBuilderMixin:
         compare_act.triggered.connect(self.open_chapter_comparator)
         tools_menu.addAction(compare_act)
 
+        history_act = QAction("📜 Historial de Versiones & Diff…", self)
+        history_act.setShortcut("Ctrl+H")
+        history_act.triggered.connect(self.open_chapter_history)
+        tools_menu.addAction(history_act)
+
         # ── Seguridad ────────────────────────────────────────────────
         sec_menu = mb.addMenu("&Seguridad")
 
