@@ -11,7 +11,7 @@ from ui.search.engine import escape_html, highlight_text
 
 class SearchResultCard(QFrame):
     """Fila de resultado interactiva con fondo alternado y efectos de hover."""
-    activated = pyqtSignal(str, str)   # (item_id, item_type)
+    activated = pyqtSignal(str, str, str, bool)   # (item_id, item_type, query, is_regex)
 
     _count = 0   # contador de instancias para alternar colores
 
@@ -21,6 +21,7 @@ class SearchResultCard(QFrame):
         SearchResultCard._count += 1
         self._item_id = item_id
         self._item_type = item_type
+        self._query = query
         self._is_regex = is_regex
 
         is_dark = ThemeManager.is_dark()
@@ -108,5 +109,5 @@ class SearchResultCard(QFrame):
     def mousePressEvent(self, a0):
         event = a0
         if event.button() == Qt.MouseButton.LeftButton:
-            self.activated.emit(self._item_id, self._item_type)
+            self.activated.emit(self._item_id, self._item_type, self._query, self._is_regex)
         super().mousePressEvent(event)

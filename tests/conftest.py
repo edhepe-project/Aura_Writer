@@ -33,33 +33,25 @@ def sample_universe():
         id="char_1",
         name="Arthur Pendragon",
         role="Protagonista",
-        generation=1,
-        bio="Rey legendario de Britania.",
-        archetype="El Héroe"
+        description="Rey legendario de Britania. El Héroe."
     )
     char2 = Character(
         id="char_2",
         name="Guinevere",
         role="Secundario",
-        generation=1,
-        bio="Reina consorte.",
-        archetype="El Cuidador"
+        description="Reina consorte. El Cuidador."
     )
     char3 = Character(
         id="char_3",
         name="Lancelot du Lac",
         role="Antagonista",
-        generation=1,
-        bio="Caballero de la mesa redonda.",
-        archetype="El Guerrero"
+        description="Caballero de la mesa redonda. El Guerrero."
     )
     char4 = Character(
         id="char_4",
         name="Galahad",
         role="Secundario",
-        generation=2,
-        bio="Hijo de Lancelot.",
-        archetype="El Inocente"
+        description="Hijo de Lancelot. El Inocente."
     )
 
     rel1 = CharacterRelation(id="rel_1", char_id_a="char_1", char_id_b="char_2", relation_type="pareja", label="Esposos", intensity=4)

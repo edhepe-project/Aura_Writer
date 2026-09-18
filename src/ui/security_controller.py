@@ -203,7 +203,12 @@ class SecurityControllerMixin:
         dlg.result_selected.connect(self.navigate_to_item)
         dlg.exec()
 
-    def navigate_to_item(self, item_id: str, item_type: str):
-        """Salta a un elemento especifico desde el buscador."""
+    def navigate_to_item(self, item_id: str, item_type: str, query: str = "", is_regex: bool = False):
+        """Salta a un elemento específico desde el buscador y resalta la coincidencia en el editor."""
         self.on_item_selected(item_id, item_type)
         self.outline_tree.select_item_by_id(item_id)
+
+        # Si el elemento seleccionado es un capítulo y hay una búsqueda activa, resaltar el texto
+        if item_type == "chapter" and query and hasattr(self, "editor"):
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(100, lambda: self.editor.find_and_highlight(query, is_regex=is_regex))

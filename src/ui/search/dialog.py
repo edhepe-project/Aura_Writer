@@ -15,7 +15,7 @@ from ui.search.card import SearchResultCard
 
 class SearchDialog(QDialog):
     """Buscador Global Premium — Aura Writer."""
-    result_selected = pyqtSignal(str, str)   # (item_id, item_type)
+    result_selected = pyqtSignal(str, str, str, bool)   # (item_id, item_type, query, is_regex)
 
     def __init__(self, project_manager, parent=None):
         super().__init__(parent)
@@ -49,7 +49,7 @@ class SearchDialog(QDialog):
         self.search_input.textChanged.connect(self._on_query_changed)
 
         self.filter_combo = QComboBox()
-        self.filter_combo.addItems(["Todo", "Capítulos", "Personajes", "Notas"])
+        self.filter_combo.addItems(["Todo", "Capítulos", "Personajes", "Lugares", "Notas"])
         self.filter_combo.setFixedWidth(130)
         self.filter_combo.currentIndexChanged.connect(self.perform_search)
 
@@ -83,7 +83,7 @@ class SearchDialog(QDialog):
         root.addWidget(self._results_area, 1)
 
         # Pie de página
-        self.status_lbl = QLabel("Escribe al menos 3 caracteres…")
+        self.status_lbl = QLabel("Escribe para buscar en todo el universo…")
         self.status_lbl.setStyleSheet("font-size:11px; padding:2px 2px;")
         root.addWidget(self.status_lbl)
 
@@ -92,14 +92,14 @@ class SearchDialog(QDialog):
             self._search_timer = QTimer(self)
             self._search_timer.setSingleShot(True)
             self._search_timer.timeout.connect(self.perform_search)
-        self._search_timer.start(200)
+        self._search_timer.start(150)
 
     def perform_search(self):
         query = self.search_input.text().strip()
         self._clear_cards()
 
-        if len(query) < 3:
-            self.status_lbl.setText("Escribe al menos 3 caracteres…")
+        if len(query) < 1:
+            self.status_lbl.setText("Escribe para buscar en todo el universo…")
             return
 
         scope = self.filter_combo.currentText()
@@ -142,6 +142,6 @@ class SearchDialog(QDialog):
         idx = self._cards_layout.count() - 1
         self._cards_layout.insertWidget(idx, card)
 
-    def _on_card_activated(self, item_id: str, item_type: str):
-        self.result_selected.emit(item_id, item_type)
+    def _on_card_activated(self, item_id: str, item_type: str, query: str = "", is_regex: bool = False):
+        self.result_selected.emit(item_id, item_type, query, is_regex)
         self.accept()

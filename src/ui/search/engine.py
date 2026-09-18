@@ -79,12 +79,15 @@ class SearchEngine:
         {icon, title, location, snippet, item_id, item_type}
         """
         query = query.strip()
-        if len(query) < 3 or not self.pm.metadata:
+        if len(query) < 1 or not self.pm.metadata:
             return []
 
         compiled_regex = None
         if is_regex:
-            compiled_regex = re.compile(query, re.IGNORECASE)
+            try:
+                compiled_regex = re.compile(query, re.IGNORECASE)
+            except re.error:
+                compiled_regex = None
 
         def matches(target_text: str) -> bool:
             if not target_text:
@@ -133,10 +136,15 @@ class SearchEngine:
                     continue
                 in_name = matches(char.name)
                 in_desc = matches(char.description)
-                if in_name or in_desc:
+                in_role = matches(getattr(char, "role", ""))
+                in_voice = matches(getattr(char, "distinctive_voice", ""))
+                in_notes = matches(getattr(char, "notes", ""))
+
+                if in_name or in_desc or in_role or in_voice or in_notes:
                     seen_ids.add(char.id)
-                    snippet = (extract_snippet(char.description, query, is_regex=is_regex)
-                               if in_desc else "Coincidencia en el nombre")
+                    full_desc = char.description or char.notes or f"Rol: {char.role}"
+                    snippet = (extract_snippet(full_desc, query, is_regex=is_regex)
+                               if not in_name else f"Rol: {char.role}")
                     results.append({
                         "icon": "👤",
                         "title": char.name,
@@ -146,8 +154,45 @@ class SearchEngine:
                         "item_type": "character"
                     })
 
-        # 3. Notas de Autor
+        # 3. Lugares y Escenarios
+        if scope in ("Todo", "Lugares"):
+            for place in getattr(self.pm.metadata, "places", []):
+                if place.id in seen_ids:
+                    continue
+                in_name = matches(place.name)
+                in_desc = matches(place.description)
+                if in_name or in_desc:
+                    seen_ids.add(place.id)
+                    snippet = (extract_snippet(place.description, query, is_regex=is_regex)
+                               if in_desc else "Coincidencia en el nombre del lugar")
+                    results.append({
+                        "icon": "🏰",
+                        "title": place.name,
+                        "location": "Lugares y Escenarios",
+                        "snippet": snippet,
+                        "item_id": place.id,
+                        "item_type": "place"
+                    })
+
+        # 4. Notas de Autor (Nivel Capítulo y Nivel Universo/Obra)
         if scope in ("Todo", "Notas"):
+            # Notas globales de Universo
+            for note in getattr(self.pm.metadata, "author_notes", []):
+                if note.id in seen_ids:
+                    continue
+                if matches(note.title) or matches(note.content):
+                    seen_ids.add(note.id)
+                    snippet = extract_snippet(note.content, query, is_regex=is_regex) if matches(note.content) else "Coincidencia en título"
+                    results.append({
+                        "icon": "📌",
+                        "title": f"Nota de Universo: {note.title}",
+                        "location": "Universo",
+                        "snippet": snippet,
+                        "item_id": self.pm.metadata.title,
+                        "item_type": "universe"
+                    })
+
+            # Notas de Capítulos
             for obra in self.pm.metadata.obras:
                 for libro in obra.libros:
                     for cap in libro.capitulos:

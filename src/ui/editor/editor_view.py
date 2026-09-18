@@ -11,9 +11,9 @@ from __future__ import annotations
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import (
     QTextCharFormat, QTextFormat, QFont, QTextCursor, QImage,
-    QTextImageFormat, QTextBlockFormat, QColor
+    QTextImageFormat, QTextBlockFormat, QColor, QTextDocument
 )
-from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtCore import Qt, QUrl, QTimer
 import uuid
 
 from core.theme_manager import ThemeManager
@@ -642,3 +642,71 @@ class AuraEditor(QTextEdit):
             event.accept()
         else:
             super().wheelEvent(event)
+
+    # ------------------------------------------------------------------
+    # Búsqueda y Resaltado Visual Dinámico
+    # ------------------------------------------------------------------
+
+    def find_and_highlight(self, query: str, is_regex: bool = False, case_sensitive: bool = False) -> bool:
+        """
+        Busca el texto, selecciona la primera coincidencia, desplaza la vista hacia ella
+        y aplica un destello visual de halo dorado/amarillo elegante.
+        """
+        if not query or not query.strip():
+            return False
+
+        doc = self.document()
+        flags = QTextDocument.FindFlag(0)
+        if case_sensitive:
+            flags |= QTextDocument.FindFlag.FindCaseSensitively
+
+        cursor = QTextCursor()
+        if is_regex:
+            import re
+            re_flags = 0 if case_sensitive else re.IGNORECASE
+            try:
+                rx = re.compile(query, re_flags)
+                # Buscar usando regex en texto plano
+                text = self.toPlainText()
+                m = rx.search(text)
+                if m:
+                    cursor = QTextCursor(doc)
+                    cursor.setPosition(m.start())
+                    cursor.setPosition(m.end(), QTextCursor.MoveMode.KeepAnchor)
+            except Exception:
+                cursor = doc.find(query, 0, flags)
+        else:
+            cursor = doc.find(query, 0, flags)
+
+        if not cursor.isNull() and cursor.hasSelection():
+            # 1. Posicionar el cursor y asegurar visibilidad
+            self.setTextCursor(cursor)
+            self.ensureCursorVisible()
+
+            # 2. Aplicar halo visual con ExtraSelection
+            is_dark = ThemeManager.is_dark()
+            hl_bg = QColor("#ffd60a") if is_dark else QColor("#d97706")
+            hl_bg.setAlpha(120)
+
+            selection = QTextEdit.ExtraSelection()
+            selection.format.setBackground(hl_bg)
+            selection.cursor = cursor
+            self.setExtraSelections([selection])
+
+            # 3. Desvanecer destello después de 1.8 segundos
+            if hasattr(self, "_highlight_timer") and self._highlight_timer.isActive():
+                self._highlight_timer.stop()
+            else:
+                self._highlight_timer = QTimer(self)
+                self._highlight_timer.setSingleShot(True)
+                self._highlight_timer.timeout.connect(self.clear_highlight)
+
+            self._highlight_timer.start(1800)
+            self.setFocus()
+            return True
+
+        return False
+
+    def clear_highlight(self):
+        """Limpia cualquier selección extra de destello visual."""
+        self.setExtraSelections([])
