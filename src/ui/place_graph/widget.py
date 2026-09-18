@@ -722,13 +722,15 @@ class PlaceGraphWidget(QWidget):
                 _layout_tree(r.id, 0)
                 current_x += 60.0
 
-        else:  # network — circular inicial
+        else:  # network — posición inicial aleatoria con jitter para evitar degeneración
             count = len(self._places)
-            ring_r = max(220, count * 40)
+            # Radio base generoso para que los nodos arranquen con espacio
+            ring_r = max(300, count * 65)
             for i, place in enumerate(self._places):
                 angle = (2 * math.pi / count) * i - math.pi / 2
-                x = ring_r * math.cos(angle)
-                y = ring_r * math.sin(angle)
+                jitter_r = ring_r * 0.18
+                x = ring_r * math.cos(angle) + random.uniform(-jitter_r, jitter_r)
+                y = ring_r * math.sin(angle) + random.uniform(-jitter_r, jitter_r)
                 depth = depth_map.get(place.id, 0)
                 child_count = len(children_map.get(place.id, []))
                 node = PlaceNodeItem(place, x, y, depth=depth, child_count=child_count)
@@ -738,6 +740,7 @@ class PlaceGraphWidget(QWidget):
                 self._scene._adj[place.id] = set()
 
         # ── Aristas de jerarquía (padre → hijo) ─────────────────────────────
+        edge_idx: dict[frozenset, int] = {}
         for p in self._places:
             if p.parent_place_id and p.parent_place_id in self._node_map and p.id in self._node_map:
                 na = self._node_map[p.parent_place_id]
@@ -749,7 +752,11 @@ class PlaceGraphWidget(QWidget):
                     connection_type="contiene",
                     bidirectional=False
                 )
-                item = PlaceLinkItem(h_link, na, nb, curvature=0.10)
+                pair = frozenset([p.parent_place_id, p.id])
+                edge_idx[pair] = edge_idx.get(pair, 0) + 1
+                # Curvatura alternada para separar aristas paralelas
+                curv = 0.10 * (1 if edge_idx[pair] % 2 == 1 else -1)
+                item = PlaceLinkItem(h_link, na, nb, curvature=curv)
                 self._scene.addItem(item)
                 self._scene._all_edges.append(item)
                 self._scene._adj.setdefault(p.parent_place_id, set()).add(p.id)
@@ -767,7 +774,9 @@ class PlaceGraphWidget(QWidget):
             na = self._node_map.get(link.place_id_a)
             nb = self._node_map.get(link.place_id_b)
             if na and nb:
-                item = PlaceLinkItem(link, na, nb, curvature=0.14)
+                edge_idx[pair] = edge_idx.get(pair, 0) + 1
+                curv = 0.14 * (1 if edge_idx[pair] % 2 == 1 else -1)
+                item = PlaceLinkItem(link, na, nb, curvature=curv)
                 self._scene.addItem(item)
                 self._scene._all_edges.append(item)
                 self._scene._adj.setdefault(link.place_id_a, set()).add(link.place_id_b)
@@ -775,57 +784,233 @@ class PlaceGraphWidget(QWidget):
                 na.edges.append(item)
                 nb.edges.append(item)
 
-        self._fit_to_view()
+        # En modo red: ejecutar layout inteligente automáticamente
+        # En modo árbol: solo ajustar vista (el árbol ya tiene posición calculada)
+        if mode == "network" and len(self._places) > 1:
+            self.reorganize_layout()
+        else:
+            self._fit_to_view()
 
-    # ── Spring Layout ────────────────────────────────────────────────────────
+    # ── Layout de Constelación (4 fases) ────────────────────────────────────
 
     def reorganize_layout(self):
-        """Spring-Embedder (Fruchterman-Reingold simplificado)."""
+        """
+        Layout en 4 fases para efecto 'constelación':
+          1. Detectar componentes conexas y ubicarlas en regiones separadas.
+          2. Spring-Embedder fuerte con distancia mínima garantizada entre nodos.
+          3. Refinamiento: refuerzo de separación mínima.
+          4. Anti-cruce: intercambio de posiciones para reducir cruces visibles.
+        """
         nodes = list(self._node_map.values())
-        if len(nodes) < 2:
+        n = len(nodes)
+        if n < 2:
+            if n == 1:
+                self._fit_to_view()
             return
 
-        k = 130.0
-        iterations = 60
-        adj: dict[str, set[str]] = {n.place.id: set() for n in nodes}
+        ids = [nd.place.id for nd in nodes]
+
+        # Construir adyacencia completa (conexiones + jerarquías)
+        adj: dict[str, set[str]] = {pid: set() for pid in ids}
         for lk in self._links:
             if lk.place_id_a in adj and lk.place_id_b in adj:
                 adj[lk.place_id_a].add(lk.place_id_b)
                 adj[lk.place_id_b].add(lk.place_id_a)
+        for p in self._places:
+            if p.parent_place_id and p.parent_place_id in adj and p.id in adj:
+                adj[p.parent_place_id].add(p.id)
+                adj[p.id].add(p.parent_place_id)
 
-        pos = {n.place.id: [n.pos().x(), n.pos().y()] for n in nodes}
+        # ── Fase 1: Componentes conexas → regiones distintas ─────────────────
+        visited: set[str] = set()
+        components: list[list[str]] = []
+        for pid in ids:
+            if pid not in visited:
+                comp: list[str] = []
+                queue = [pid]
+                while queue:
+                    cur = queue.pop(0)
+                    if cur in visited:
+                        continue
+                    visited.add(cur)
+                    comp.append(cur)
+                    for nb in adj.get(cur, []):
+                        if nb not in visited and nb in adj:
+                            queue.append(nb)
+                components.append(comp)
+
+        num_comp = len(components)
+        # Radio de cada componente proporcional a su tamaño
+        def _comp_radius(size: int) -> float:
+            return max(160.0, size * 90.0)
+
+        # Distribuir componentes en espiral para que no se solapen
+        comp_centers: list[tuple[float, float]] = []
+        if num_comp == 1:
+            comp_centers = [(0.0, 0.0)]
+        else:
+            for ci in range(num_comp):
+                r_comp = _comp_radius(len(components[ci]))
+                # Colocar componentes en círculo amplio
+                angle = (2 * math.pi / num_comp) * ci
+                gap = r_comp * 2.2  # espacio entre centros de componentes
+                cx = gap * math.cos(angle)
+                cy = gap * math.sin(angle)
+                comp_centers.append((cx, cy))
+
+        pos: dict[str, list[float]] = {}
+        for ci, comp in enumerate(components):
+            cx, cy = comp_centers[ci]
+            nc = len(comp)
+            r = _comp_radius(nc)
+            for j, pid in enumerate(comp):
+                if nc == 1:
+                    px, py = cx, cy
+                else:
+                    angle = (2 * math.pi / nc) * j + random.uniform(-0.15, 0.15)
+                    px = cx + r * math.cos(angle) + random.uniform(-12, 12)
+                    py = cy + r * math.sin(angle) + random.uniform(-12, 12)
+                pos[pid] = [px, py]
+
+        # ── Fase 2: Spring-Embedder fuerte ───────────────────────────────────
+        # Distancia mínima garantizada entre bordes de nodos
+        min_node_dist = 160.0
+        # Distancia ideal de resorte (más grande = más espacio)
+        k = max(min_node_dist * 1.6, 220.0)
+        iterations = 180
+
+        # Lista de aristas para atracción (sin duplicados)
+        attract_pairs: list[tuple[str, str]] = []
+        seen_a: set[frozenset] = set()
+        for lk in self._links:
+            p = frozenset([lk.place_id_a, lk.place_id_b])
+            if p not in seen_a and lk.place_id_a in pos and lk.place_id_b in pos:
+                seen_a.add(p)
+                attract_pairs.append((lk.place_id_a, lk.place_id_b))
+        for pl in self._places:
+            if pl.parent_place_id and pl.parent_place_id in pos and pl.id in pos:
+                p = frozenset([pl.parent_place_id, pl.id])
+                if p not in seen_a:
+                    seen_a.add(p)
+                    attract_pairs.append((pl.parent_place_id, pl.id))
 
         for step in range(iterations):
-            disp: dict[str, list[float]] = {n.place.id: [0.0, 0.0] for n in nodes}
-            for i in range(len(nodes)):
-                uid = nodes[i].place.id
-                for j in range(i + 1, len(nodes)):
-                    vid = nodes[j].place.id
+            disp: dict[str, list[float]] = {pid: [0.0, 0.0] for pid in ids}
+            # Temperatura decreciente: más movimiento al principio, estabiliza al final
+            t_ratio = 1.0 - step / iterations
+            temp = k * (t_ratio ** 1.4)  # enfriamiento suave
+
+            # Repulsión O(n²) con refuerzo de distancia mínima
+            for i in range(n):
+                uid = ids[i]
+                for j in range(i + 1, n):
+                    vid = ids[j]
                     dx = pos[uid][0] - pos[vid][0]
                     dy = pos[uid][1] - pos[vid][1]
-                    dist = math.hypot(dx, dy) or 0.1
-                    force = (k * k) / dist
-                    fx, fy = (dx / dist) * force, (dy / dist) * force
-                    disp[uid][0] += fx; disp[uid][1] += fy
-                    disp[vid][0] -= fx; disp[vid][1] -= fy
+                    dist = math.hypot(dx, dy) or 0.01
 
-            for lk in self._links:
-                if lk.place_id_a in pos and lk.place_id_b in pos:
-                    dx = pos[lk.place_id_a][0] - pos[lk.place_id_b][0]
-                    dy = pos[lk.place_id_a][1] - pos[lk.place_id_b][1]
-                    dist = math.hypot(dx, dy) or 0.1
-                    force = (dist * dist) / k
-                    fx, fy = (dx / dist) * force, (dy / dist) * force
-                    disp[lk.place_id_a][0] -= fx; disp[lk.place_id_a][1] -= fy
-                    disp[lk.place_id_b][0] += fx; disp[lk.place_id_b][1] += fy
+                    if dist < min_node_dist:
+                        # Fuerza de separación extra muy fuerte (spring comprimido)
+                        force = (k * k) / dist + (min_node_dist - dist) ** 2 * 0.8
+                    else:
+                        force = (k * k) / dist
 
-            temp = max(0.05, 1.0 - step / iterations)
-            for pid, d in disp.items():
-                pos[pid][0] += d[0] * 0.06 * temp
-                pos[pid][1] += d[1] * 0.06 * temp
+                    ux, uy = dx / dist, dy / dist
+                    disp[uid][0] += ux * force
+                    disp[uid][1] += uy * force
+                    disp[vid][0] -= ux * force
+                    disp[vid][1] -= uy * force
 
-        for n in nodes:
-            n.setPos(pos[n.place.id][0], pos[n.place.id][1])
+            # Atracción solo entre nodos conectados
+            for a_id, b_id in attract_pairs:
+                dx = pos[a_id][0] - pos[b_id][0]
+                dy = pos[a_id][1] - pos[b_id][1]
+                dist = math.hypot(dx, dy) or 0.01
+                force = (dist * dist) / k
+                ux, uy = dx / dist, dy / dist
+                disp[a_id][0] -= ux * force
+                disp[a_id][1] -= uy * force
+                disp[b_id][0] += ux * force
+                disp[b_id][1] += uy * force
+
+            # Aplicar con límite de temperatura (evita oscilaciones)
+            for pid in ids:
+                dx, dy = disp[pid]
+                d = math.hypot(dx, dy) or 0.01
+                move = min(d, temp)
+                pos[pid][0] += (dx / d) * move
+                pos[pid][1] += (dy / d) * move
+
+        # ── Fase 3: Refinamiento — refuerzo de separación mínima ─────────────
+        for _ in range(30):
+            changed = False
+            for i in range(n):
+                uid = ids[i]
+                for j in range(i + 1, n):
+                    vid = ids[j]
+                    dx = pos[uid][0] - pos[vid][0]
+                    dy = pos[uid][1] - pos[vid][1]
+                    dist = math.hypot(dx, dy) or 0.01
+                    if dist < min_node_dist:
+                        push = (min_node_dist - dist) / 2.0 + 2.0
+                        ux, uy = dx / dist, dy / dist
+                        pos[uid][0] += ux * push
+                        pos[uid][1] += uy * push
+                        pos[vid][0] -= ux * push
+                        pos[vid][1] -= uy * push
+                        changed = True
+            if not changed:
+                break
+
+        # ── Fase 4: Anti-cruce (solo grafos ≤ 25 nodos para evitar lentitud) ─
+        if n <= 25 and attract_pairs:
+            def _segments_cross(p1, p2, p3, p4) -> bool:
+                """True si los segmentos p1-p2 y p3-p4 se intersectan (interior)."""
+                d1x = p2[0] - p1[0]; d1y = p2[1] - p1[1]
+                d2x = p4[0] - p3[0]; d2y = p4[1] - p3[1]
+                cross = d1x * d2y - d1y * d2x
+                if abs(cross) < 1e-8:
+                    return False
+                t = ((p3[0] - p1[0]) * d2y - (p3[1] - p1[1]) * d2x) / cross
+                u = ((p3[0] - p1[0]) * d1y - (p3[1] - p1[1]) * d1x) / cross
+                return 0.02 < t < 0.98 and 0.02 < u < 0.98
+
+            def _count_crossings() -> int:
+                count = 0
+                m = len(attract_pairs)
+                for i in range(m):
+                    a1, a2 = attract_pairs[i]
+                    for j in range(i + 1, m):
+                        b1, b2 = attract_pairs[j]
+                        if len({a1, a2, b1, b2}) < 4:
+                            continue
+                        if _segments_cross(pos[a1], pos[a2], pos[b1], pos[b2]):
+                            count += 1
+                return count
+
+            current = _count_crossings()
+            for _pass in range(8):
+                improved = False
+                for i in range(n):
+                    for j in range(i + 1, n):
+                        uid, vid = ids[i], ids[j]
+                        # Intercambiar posiciones
+                        pos[uid], pos[vid] = pos[vid], pos[uid]
+                        nc = _count_crossings()
+                        if nc < current:
+                            current = nc
+                            improved = True
+                        else:
+                            pos[uid], pos[vid] = pos[vid], pos[uid]  # revertir
+                if not improved or current == 0:
+                    break
+
+        # ── Aplicar posiciones finales ─────────────────────────────────────
+        for nd in nodes:
+            p = pos.get(nd.place.id)
+            if p:
+                nd.setPos(p[0], p[1])
+
         self._scene.update()
         self._fit_to_view()
 
