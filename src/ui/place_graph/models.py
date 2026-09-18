@@ -1,10 +1,36 @@
 """
-models.py — Paletas, constantes y estilos visuales para el Grafo de Lugares.
+models.py — Paletas, jerarquías planetarias y estilos visuales para el Grafo de Lugares.
 """
 from __future__ import annotations
 
+# Jerarquía Astronómica / Cosmológica
+# Nivel 0 (Sol Central): Planeta / Espacio
+# Nivel 1 (Planetas Mayores): Reino / Nación
+# Nivel 2 (Sistemas Urbanos): Ciudad / Poblado
+# Nivel 3 (Lunas / Puntos de Interés): Fortaleza, Taberna, Mazmorra, Naturaleza, Región Mágica, Otro
+CATEGORY_TIERS: dict[str, int] = {
+    "Planeta / Espacio":    0,  # Sol / Macro-Mundo
+    "Reino / Nación":       1,  # Órbita Primaria (Nación)
+    "Ciudad / Poblado":     2,  # Órbita Secundaria (Ciudad)
+    "Fortaleza / Castillo": 3,  # Satélites / Estancias de la Ciudad
+    "Taberna / Interior":   3,
+    "Mazmorra / Cueva":     3,
+    "Naturaleza / Bosque":  3,
+    "Región Mágica":        3,
+    "Otro":                 3,
+}
+
+# Radios visuales por Tier
+TIER_NODE_RADIUS: dict[int, float] = {
+    0: 42.0,  # Sol / Planeta Macro (máxima presencia)
+    1: 32.0,  # Nación / Reino
+    2: 25.0,  # Ciudad / Poblado
+    3: 18.0,  # Castillo, Taberna, Mazmorra, Bosque...
+}
+
 # Paleta de colores por categoría de Lugar (estilo Apple Dark & Gema)
 PLACE_CATEGORY_COLORS: dict[str, str] = {
+    "Planeta / Espacio":    "#5e5ce6",   # índigo galáctico
     "Reino / Nación":       "#ffd60a",   # dorado soberano
     "Ciudad / Poblado":     "#0a84ff",   # azul urbano
     "Fortaleza / Castillo": "#ff453a",   # rojo fortaleza
@@ -12,7 +38,6 @@ PLACE_CATEGORY_COLORS: dict[str, str] = {
     "Mazmorra / Cueva":     "#bf5af2",   # violeta oscuro
     "Naturaleza / Bosque":  "#30d158",   # verde esmeralda
     "Región Mágica":        "#64d2ff",   # cian etéreo
-    "Planeta / Espacio":    "#5e5ce6",   # índigo galáctico
     "Otro":                 "#8e8e93",   # gris neutro
 }
 

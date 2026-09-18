@@ -16,7 +16,7 @@ from PyQt6.QtGui import (
 )
 
 from core.models import Place, PlaceLink, PLACE_ICONS
-from .models import PLACE_CATEGORY_COLORS, CONNECTION_STYLES
+from .models import PLACE_CATEGORY_COLORS, CONNECTION_STYLES, CATEGORY_TIERS, TIER_NODE_RADIUS
 
 
 def _bezier_path(p1: QPointF, p2: QPointF, curvature: float = 0.08,
@@ -35,7 +35,6 @@ def _bezier_path(p1: QPointF, p2: QPointF, curvature: float = 0.08,
     sp = QPointF(p1.x() + ux * r1, p1.y() + uy * r1)
     ep = QPointF(p2.x() - ux * r2, p2.y() - uy * r2)
 
-    # Acotamos la deflexión perpendicular máxima a 25px para evitar efecto de lazo desproporcionado
     offset = min(max(dist * curvature, -25.0), 25.0)
     perp_x = -uy * offset
     perp_y =  ux * offset
@@ -49,18 +48,18 @@ def _bezier_path(p1: QPointF, p2: QPointF, curvature: float = 0.08,
 
 class PlaceNodeItem(QGraphicsEllipseItem):
     """
-    Nodo gráfico de Lugar con estilo gema luminosa:
-    - Halo difuso radial según categoría
-    - Cuerpo con gradiente multicapa
-    - Icono temático central
-    - Badge de sub-estancias
-    - Tipografía e información jerárquica
+    Nodo gráfico de Lugar con estilo gema luminosa y escala astronómica por Tier:
+      - Tier 0: Sol / Macro-Mundo (R=42px)
+      - Tier 1: Reino / Nación (R=32px)
+      - Tier 2: Ciudad / Poblado (R=25px)
+      - Tier 3: Puntos de Interés / Lunas (R=18px)
     """
 
     def __init__(self, place: Place, x: float, y: float,
                  depth: int = 0, child_count: int = 0, parent=None):
-        # Escala: Lugares raíz más grandes, interiores más concentrados
-        radius = max(20.0, 34.0 - depth * 5.0)
+        self.tier = CATEGORY_TIERS.get(place.category, 3)
+        radius = TIER_NODE_RADIUS.get(self.tier, max(18.0, 34.0 - depth * 5.0))
+
         super().__init__(-radius, -radius, radius * 2, radius * 2, parent)
         self.place = place
         self.radius = radius
@@ -79,33 +78,33 @@ class PlaceNodeItem(QGraphicsEllipseItem):
         self.setAcceptHoverEvents(True)
         self.setAcceptedMouseButtons(Qt.MouseButton.LeftButton)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.setZValue(10 if depth == 0 else 7)
+        self.setZValue(12 if self.tier <= 1 else (8 if self.tier == 2 else 5))
 
-        # Tooltip
+        # Tooltip informativo
         parts = [f"📍 {place.name}", f"Categoría: {place.category}"]
         if place.climate_atmosphere:
             parts.append(f"Clima: {place.climate_atmosphere[:80]}")
         if place.lore_history:
             parts.append(f"Lore: {place.lore_history[:100]}")
         if child_count:
-            parts.append(f"Contiene: {child_count} estancia(s)")
+            parts.append(f"Contiene: {child_count} lugar(es)")
         self.setToolTip("\n".join(parts))
 
-        # Tipografía
-        self._font_icon = QFont("Segoe UI Emoji", int(radius * 0.55))
-        self._font_name = QFont("Segoe UI", 10 if depth == 0 else 9,
-                                QFont.Weight.Bold if depth == 0 else QFont.Weight.Normal)
+        # Tipografía adaptada al tamaño del astro
+        self._font_icon = QFont("Segoe UI Emoji", int(radius * 0.52))
+        self._font_name = QFont("Segoe UI", 10 if self.tier <= 1 else 9,
+                                QFont.Weight.Bold if self.tier <= 1 else QFont.Weight.Normal)
         self._font_badge = QFont("Segoe UI", 8, QFont.Weight.Bold)
         self._icon_str = PLACE_ICONS.get(place.category, "📍")
 
     def boundingRect(self) -> QRectF:
         r = self.radius
-        return QRectF(-r - 24, -r - 24, (r + 24) * 2, (r + 24) * 2 + 40)
+        return QRectF(-r - 26, -r - 26, (r + 26) * 2, (r + 26) * 2 + 42)
 
     def set_focused(self, focused: bool, dimmed: bool = False):
         self._is_focused = focused
         self._is_dimmed = dimmed
-        self.setZValue(14 if focused else (10 if not dimmed else 5))
+        self.setZValue(16 if focused else (12 if self.tier <= 1 else (8 if not dimmed else 4)))
         self.update()
 
     def paint(self, painter: QPainter | None, option, widget=None):
@@ -117,16 +116,16 @@ class PlaceNodeItem(QGraphicsEllipseItem):
         r = self.radius
         c = self._color
 
-        # Opacidad global según estado de foco
+        # Opacidad según estado de foco
         if self._is_dimmed and not self._is_focused:
             painter.setOpacity(0.15)
         else:
             painter.setOpacity(1.0)
 
-        # 1. Halo difuso (glow)
-        aura_mult = 0.75 if self._is_focused else (0.45 if self.depth == 0 else 0.25)
-        aura_alpha = 0.55 if self._is_focused else (0.35 if self.depth == 0 else 0.20)
-        aura_r = r + r * aura_mult + 8
+        # 1. Halo difuso / Corona Solar
+        aura_mult = 0.85 if self._is_focused else (0.60 if self.tier == 0 else (0.45 if self.tier == 1 else 0.25))
+        aura_alpha = 0.60 if self._is_focused else (0.45 if self.tier == 0 else (0.35 if self.tier == 1 else 0.20))
+        aura_r = r + r * aura_mult + 10
 
         hgrad = QRadialGradient(0, 0, aura_r)
         c_inner = QColor(c)
@@ -147,10 +146,10 @@ class PlaceNodeItem(QGraphicsEllipseItem):
 
         # 2. Esfera gema con gradiente radial
         grad = QRadialGradient(-r * 0.35, -r * 0.35, r * 1.35)
-        if self.depth == 0:
+        if self.tier <= 1:
             grad.setColorAt(0.00, QColor("#ffffff"))
-            grad.setColorAt(0.28, c.lighter(165))
-            grad.setColorAt(0.72, c)
+            grad.setColorAt(0.25, c.lighter(165))
+            grad.setColorAt(0.70, c)
             grad.setColorAt(1.00, c.darker(150))
         else:
             grad.setColorAt(0.00, c.lighter(145))
@@ -158,8 +157,8 @@ class PlaceNodeItem(QGraphicsEllipseItem):
             grad.setColorAt(1.00, c.darker(155))
 
         border_pen = QPen(
-            c.lighter(170) if self.depth == 0 else c.lighter(135),
-            2.4 if self.depth == 0 else 1.5
+            c.lighter(170) if self.tier <= 1 else c.lighter(135),
+            2.5 if self.tier == 0 else (2.0 if self.tier == 1 else 1.4)
         )
         painter.setPen(border_pen)
         painter.setBrush(QBrush(grad))
@@ -178,7 +177,7 @@ class PlaceNodeItem(QGraphicsEllipseItem):
         painter.drawText(QRectF(-r, -r, r * 2, r * 2),
                          Qt.AlignmentFlag.AlignCenter, self._icon_str)
 
-        # 5. Badge numérico de estancias hijas (si tiene)
+        # 5. Badge numérico de hijos / satélites contenidos
         if self.child_count > 0:
             badge_r = 9.0
             bx = r * 0.65
@@ -194,7 +193,7 @@ class PlaceNodeItem(QGraphicsEllipseItem):
             )
 
         # 6. Nombre del lugar debajo del nodo
-        show_name = self._is_focused or self.depth == 0 or not self._is_dimmed
+        show_name = self._is_focused or self.tier <= 1 or not self._is_dimmed
         if show_name:
             name_col = QColor("#f2f2f7")
             if self._is_dimmed and not self._is_focused:
