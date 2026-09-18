@@ -20,10 +20,11 @@ class PlaceCard(QFrame):
     edit_requested = pyqtSignal(str) # place_id
     delete_requested = pyqtSignal(str) # place_id
 
-    def __init__(self, place: Place, parent_name: str = "", parent=None):
+    def __init__(self, place: Place, parent_name: str = "", depth: int = 0, parent=None):
         super().__init__(parent)
         self.place = place
         self.parent_name = parent_name
+        self.depth = depth
         self._is_selected = False
         self._build_ui()
         self._apply_style()
@@ -33,7 +34,9 @@ class PlaceCard(QFrame):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 8, 10, 8)
+        # Sangría proporcional al nivel de jerarquía
+        left_margin = 10 + (self.depth * 16)
+        layout.setContentsMargins(left_margin, 8, 10, 8)
         layout.setSpacing(10)
 
         # Icono de categoría

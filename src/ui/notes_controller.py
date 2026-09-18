@@ -173,7 +173,9 @@ class NotesControllerMixin:
             self.editor._apply_paragraph_spacing()
         self.statusBar().showMessage(f"Editando: {chapter.title}")
         self._detect_character_mentions(chapter)
+        self._detect_place_mentions(chapter)
         self._refresh_char_dock()
+        self._refresh_place_dock()
         self.editor.setFocus()
 
     # ------------------------------------------------------------------

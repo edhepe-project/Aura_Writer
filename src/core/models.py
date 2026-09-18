@@ -85,9 +85,12 @@ class Chapter(BaseModel):
     pov: str = ""
     tags: List[str] = Field(default_factory=list)
     characters_present: List[str] = Field(default_factory=list)  # IDs de personaje
+    places_present: List[str] = Field(default_factory=list)      # IDs de Place donde ocurre el capítulo
+    in_world_date: str = ""          # Fecha diegética (lore): "Año 342", "3er Luna de Cosecha"...
+    in_world_order: int = 0          # Orden cronológico interno para el Timeline
     medias: List[MediaNode] = Field(default_factory=list)
     author_notes: List[AuthorNote] = Field(default_factory=list)
-    # Nuevo historial de revisiones
+    # Historial de revisiones
     revisions: List[ChapterRevision] = Field(default_factory=list)
     # Timestamps
     created_at: datetime = Field(default_factory=_now)
@@ -253,6 +256,31 @@ class CharacterRelation(BaseModel):
     created_at: datetime = Field(default_factory=_now)
 
 
+class PlaceLink(BaseModel):
+    """Conexión geográfica entre dos lugares del universo (rutas, fronteras, portales, ríos...)."""
+    id: str = Field(default_factory=_new_id)
+    place_id_a: str = ""
+    place_id_b: str = ""
+    label: str = ""                  # descripción libre de la conexión
+    connection_type: str = "ruta"    # ruta | frontera | portal | río | camino | comercio | otro
+    bidirectional: bool = True
+    color: str = ""                  # color para el grafo (vacío = automático por tipo)
+    created_at: datetime = Field(default_factory=_now)
+
+
+CONNECTION_TYPES = ["ruta", "frontera", "portal", "río", "camino", "comercio", "otro"]
+
+CONNECTION_COLORS = {
+    "ruta": "#30d158",
+    "frontera": "#ff453a",
+    "portal": "#bf5af2",
+    "río": "#0a84ff",
+    "camino": "#ffd60a",
+    "comercio": "#ff9f0a",
+    "otro": "#8e8e93",
+}
+
+
 class UniverseLink(BaseModel):
     """Conexión visual en el mapa mental del universo."""
     id: str = Field(default_factory=_new_id)
@@ -285,6 +313,7 @@ class UniverseMetadata(BaseModel):
     characters: List[Character] = Field(default_factory=list)
     places: List[Place] = Field(default_factory=list)
     relations: List[CharacterRelation] = Field(default_factory=list)
+    place_links: List[PlaceLink] = Field(default_factory=list)  # Conexiones geográficas entre lugares
     universe_links: List[UniverseLink] = Field(default_factory=list)
     medias: List[MediaNode] = Field(default_factory=list)   # mapas a nivel universo
     obras: List[Obra] = Field(default_factory=list)

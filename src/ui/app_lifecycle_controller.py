@@ -209,6 +209,7 @@ class AppLifecycleMixin:
         self._sync_relations_to_metadata()
         if self._current_chapter:
             self._detect_character_mentions(self._current_chapter)
+            self._detect_place_mentions(self._current_chapter)
         self._flush_content_to_metadata()
         if self._current_chapter:
             try:

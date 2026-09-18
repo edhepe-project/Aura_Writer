@@ -98,6 +98,22 @@ class CharacterControllerMixin:
                 detected.add(char.id)
         chapter.characters_present = list(detected)
 
+    def _detect_place_mentions(self, chapter: Chapter):
+        """
+        Escanea el texto del capítulo y registra automáticamente los lugares
+        cuyo nombre aparezca en el contenido (detección paralela a personajes).
+        """
+        if not self.project_manager.metadata or not chapter.content_file:
+            return
+        html = self.project_manager.read_chapter_content(chapter.content_file)
+        text = BeautifulSoup(html, "lxml").get_text().lower()
+        detected = set(chapter.places_present)
+        for place in getattr(self.project_manager.metadata, "places", []):
+            if place.name and place.name.lower() in text:
+                detected.add(place.id)
+        chapter.places_present = list(detected)
+
+
     def _refresh_char_dock(self):
         """Actualiza el dock de personajes con los datos actuales del proyecto."""
         if not self.project_manager.metadata:

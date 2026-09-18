@@ -35,6 +35,7 @@ class PlaceDock(QWidget):
         self._places: list[Place] = []
         self._selected_place_id: str | None = None
         self._cards: dict[str, PlaceCard] = {}
+        self._chapters_data: list[tuple] = []  # [(chapter, obra_title, libro_title), ...]
 
         self._build_ui()
 
@@ -86,6 +87,12 @@ class PlaceDock(QWidget):
 
         root.addWidget(filter_bar)
 
+        # Contador de resultados
+        self._count_label = QLabel("")
+        self._count_label.setContentsMargins(8, 0, 8, 2)
+        self._count_label.setStyleSheet("font-size: 10px; color: #8e8e93;")
+        root.addWidget(self._count_label)
+
         # Splitter con lista de tarjetas arriba y detalle de contexto abajo
         splitter = QSplitter(Qt.Orientation.Vertical)
         splitter.setHandleWidth(1)
@@ -136,6 +143,13 @@ class PlaceDock(QWidget):
         self._selected_place_id = None
         self._rebuild_cards()
 
+    def update_chapters_data(self, chapters_data: list[tuple]):
+        """Actualiza los datos de capítulos para mostrar apariciones por lugar.
+        chapters_data: [(chapter, obra_title, libro_title), ...]
+        """
+        self._chapters_data = list(chapters_data)
+        self._update_detail_panel()
+
     def _rebuild_cards(self):
         # Limpiar tarjetas existentes
         for card in self._cards.values():
@@ -166,10 +180,30 @@ class PlaceDock(QWidget):
             empty_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             empty_lbl.setStyleSheet("color: #8e8e93; font-style: italic; margin-top: 20px;")
             self._cards_layout.addWidget(empty_lbl)
+            self._count_label.setText("")
         else:
+            total = len(self._places)
+            shown = len(filtered)
+            if shown < total:
+                self._count_label.setText(f"{shown} de {total} lugares")
+            else:
+                self._count_label.setText(f"{total} lugar{'es' if total != 1 else ''}")
             for place in filtered:
+                # Calcular nivel de jerarquía para sangría
+                depth = 0
+                parent_id = place.parent_place_id
+                visited = set()
+                while parent_id and parent_id not in visited:
+                    visited.add(parent_id)
+                    parent = next((p for p in self._places if p.id == parent_id), None)
+                    if parent:
+                        depth += 1
+                        parent_id = parent.parent_place_id
+                    else:
+                        break
+
                 parent_name = place_names.get(place.parent_place_id, "")
-                card = PlaceCard(place, parent_name=parent_name, parent=self._cards_container)
+                card = PlaceCard(place, parent_name=parent_name, depth=depth, parent=self._cards_container)
                 card.clicked.connect(self._on_card_clicked)
                 card.edit_requested.connect(self._on_card_edit_requested)
                 card.delete_requested.connect(self._on_card_delete_requested)
@@ -260,8 +294,23 @@ class PlaceDock(QWidget):
         if place.image_asset:
             info_lines.append("<i>🗺️ Contiene mapa/ilustración adjunta</i>")
 
-        if not info_lines:
-            info_lines.append("<i>Sin notas adicionales de atmósfera o lore.</i>")
+        # Apariciones en capítulos
+        chapters_here = [
+            (cap, obra_t, libro_t)
+            for (cap, obra_t, libro_t) in self._chapters_data
+            if place.id in cap.places_present
+        ]
+        if chapters_here:
+            info_lines.append(f"<b>📖 Aparece en {len(chapters_here)} capítulo(s):</b>")
+            for cap, obra_t, libro_t in chapters_here[:5]:
+                info_lines.append(f"&nbsp;&nbsp;• {cap.title} <span style='color:#8e8e93'>({obra_t})</span>")
+            if len(chapters_here) > 5:
+                info_lines.append(f"&nbsp;&nbsp;<i>… y {len(chapters_here) - 5} más</i>")
+        else:
+            info_lines.append("<i style='color:#8e8e93'>Sin apariciones registradas en capítulos todavía.</i>")
+
+        if len(info_lines) == 1 and "Sin apariciones" in info_lines[0]:
+            info_lines.insert(0, "<i>Sin notas adicionales de atmósfera o lore.</i>")
 
         self._detail_info.setText("<br>".join(info_lines))
 
