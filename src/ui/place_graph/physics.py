@@ -1,6 +1,6 @@
 """
-physics.py — Física gravitatoria y cálculo de galaxia en espiral armónica.
-Sol Central (Planeta/Macro) -> Brazos Espirales (Naciones/Reinos) -> Órbitas (Ciudades) -> Satélites (Puntos de Interés).
+physics.py — Distribución espacial y física orbital inspirada fielmente en el Grafo de Relaciones.
+Dispersión en espiral áurea estelar, zonas de exclusión por masa y relajación de Coulomb con hash grid.
 """
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import math
 from typing import Dict, List, Tuple
 
 from core.models import Place, PlaceLink
-from .models import CATEGORY_TIERS
+from .models import CATEGORY_TIERS, TIER_NODE_RADIUS
 
 
 def compute_places_layout(
@@ -16,138 +16,204 @@ def compute_places_layout(
     links: List[PlaceLink]
 ) -> Dict[str, Tuple[float, float]]:
     """
-    Layout Galaxia en Espiral de Arquímedes Áurea:
-      - Distribución armónica en espiral/constelación abierta alrededor del Sol Central.
-      - Cada cuerpo celeste (Nación, Ciudad, Castillo, etc.) tiene un radio y ángulo orbital garantizado.
-      - Respeta la jerarquía padre -> hijos sin colapsar en líneas diagonales.
-      - Asegura que ningún lugar se solape ni se pierda fuera de la vista.
+    Algoritmo orbital espiral idéntico al motor de física de RelationGraph:
+      1. Clasificación por Tiers (Core / Primary / Minor).
+      2. Dispersión del Núcleo / Soles en anillo generoso.
+      3. Dispersión espiral de Arquímedes Áurea (Golden Angle ~137.5°) por sistemas estelares.
+      4. Halo exterior expansivo para lugares libres/menores.
+      5. Relajación física N-Body (Fuerza de Coulomb espacial) para garantizar colchón de aire y cero solapamientos.
     """
-    n = len(places)
-    if n == 0:
+    total_count = len(places)
+    if total_count == 0:
         return {}
-    if n == 1:
+    if total_count == 1:
         return {places[0].id: (0.0, 0.0)}
 
     place_map = {p.id: p for p in places}
+    tier_map = {p.id: CATEGORY_TIERS.get(p.category, 3) for p in places}
 
-    # 1. Separar por Tiers
-    tier_places: Dict[int, List[Place]] = {0: [], 1: [], 2: [], 3: []}
+    # Separar en Tiers igual que RelationGraph (Core / Primary / Minor)
+    core_nodes = [p.id for p in places if tier_map[p.id] == 0]       # Soles / Macro-Mundos
+    primary_nodes = [p.id for p in places if tier_map[p.id] == 1]    # Reinos / Naciones
+    minor_nodes = [p.id for p in places if tier_map[p.id] >= 2]      # Ciudades y Puntos de Interés
+
+    # Fallback si no hay tier 0: los primarios ascienden a core
+    if not core_nodes:
+        if primary_nodes:
+            core_nodes = list(primary_nodes)
+            primary_nodes = [p.id for p in places if tier_map[p.id] == 2]
+            minor_nodes = [p.id for p in places if tier_map[p.id] >= 3]
+        else:
+            core_nodes = [places[0].id]
+            primary_nodes = [p.id for p in places[1:max(2, min(6, total_count // 2))]]
+            minor_nodes = [p.id for p in places if p.id not in core_nodes and p.id not in primary_nodes]
+
+    core_set = set(core_nodes)
+    primary_set = set(primary_nodes)
+
+    # Construir grafo de adyacencia (tanto por pertenencia parent_place_id como por rutas)
+    adj_map: Dict[str, List[str]] = {p.id: [] for p in places}
+    for lk in links:
+        if lk.place_id_a in adj_map and lk.place_id_b in adj_map:
+            adj_map[lk.place_id_a].append(lk.place_id_b)
+            adj_map[lk.place_id_b].append(lk.place_id_a)
     for p in places:
-        tier = CATEGORY_TIERS.get(p.category, 3)
-        tier_places[tier].append(p)
+        if p.parent_place_id and p.parent_place_id in adj_map:
+            adj_map[p.parent_place_id].append(p.id)
+            adj_map[p.id].append(p.parent_place_id)
 
-    soles = tier_places[0]
-    reinos = tier_places[1]
-    ciudades = tier_places[2]
-    interiores = tier_places[3]
+    positions: Dict[str, Tuple[float, float]] = {}
 
-    # Mapeo de hijos
-    children_by_parent: Dict[str, List[Place]] = {}
-    for p in places:
-        if p.parent_place_id and p.parent_place_id in place_map:
-            children_by_parent.setdefault(p.parent_place_id, []).append(p)
+    # ── 1. Anillo de Titanes / Soles Centrales ───────────────────────────────
+    n_core = len(core_nodes)
+    core_ring_r = max(400.0, 120.0 + math.sqrt(total_count) * 110.0)
 
-    pos: Dict[str, List[float]] = {}
+    for si, scid in enumerate(core_nodes):
+        if n_core == 1:
+            positions[scid] = (0.0, 0.0)
+        elif n_core == 2:
+            offset = core_ring_r * 0.60
+            positions[scid] = (-offset if si == 0 else offset, 0.0)
+        else:
+            ang = 2.0 * math.pi * si / n_core - math.pi / 2.0
+            positions[scid] = (math.cos(ang) * core_ring_r * 0.70,
+                               math.sin(ang) * core_ring_r * 0.70)
 
-    # 2. Posicionar el Sol Central (o centro principal)
-    if soles:
-        center_id = soles[0].id
-        pos[center_id] = [0.0, 0.0]
-        # Si hay más de un Sol/Planeta macro, repartirlos en un anillo amplio
-        for i, s in enumerate(soles[1:], start=1):
-            ang = (2.0 * math.pi / max(1, len(soles) - 1)) * i
-            pos[s.id] = [450.0 * math.cos(ang), 450.0 * math.sin(ang)]
-    elif reinos:
-        # Si no hay Tier 0, el primer reino es el Sol de este sistema
-        center_id = reinos[0].id
-        pos[center_id] = [0.0, 0.0]
-    elif ciudades:
-        center_id = ciudades[0].id
-        pos[center_id] = [0.0, 0.0]
-    else:
-        center_id = places[0].id
-        pos[center_id] = [0.0, 0.0]
+    # ── 2. Secundarios / Naciones en Espiral Áurea de su Sol ──────────────────
+    GOLDEN_ANGLE = 2.39996322972865332  # radianes (~137.5 grados)
 
-    # 3. Espiral de Arquímedes Áurea para ubicar Sistemas y Satélites
-    # Ángulo áureo ~ 137.5 grados (2.3999632 rad) para distribución orgánica sin alineaciones
-    GOLDEN_ANGLE = 2.39996323
+    titan_primaries: Dict[str, List[str]] = {c: [] for c in core_nodes}
+    unanchored_primaries: List[str] = []
 
-    # Función para posicionar satélites de un cuerpo padre en espiral orbital
-    def _layout_satellites_spiral(parent_id: str, sats: List[Place], base_dist: float, step_dist: float):
-        num = len(sats)
-        if num == 0:
-            return
-        parent_pos = pos.get(parent_id, [0.0, 0.0])
-        for idx, sat in enumerate(sats):
-            if sat.id in pos:
-                continue
-            # Ángulo distribuido equitativamente alrededor del círculo + leve espiral
-            theta = (2.0 * math.pi / num) * idx + (GOLDEN_ANGLE * 0.3)
-            r = base_dist + idx * step_dist
-            pos[sat.id] = [
-                parent_pos[0] + r * math.cos(theta),
-                parent_pos[1] + r * math.sin(theta)
-            ]
-            # Recursión para sus propios hijos
-            sub_children = [c for c in children_by_parent.get(sat.id, []) if c.id not in pos]
-            if sub_children:
-                _layout_satellites_spiral(sat.id, sub_children, base_dist=120.0, step_dist=20.0)
+    for pcid in primary_nodes:
+        p_obj = place_map[pcid]
+        best_titan = None
+        # Prioridad 1: parent_place_id si apunta a un core
+        if p_obj.parent_place_id in core_set:
+            best_titan = p_obj.parent_place_id
+        else:
+            # Prioridad 2: vecino conectado
+            for nb in adj_map.get(pcid, []):
+                if nb in core_set:
+                    best_titan = nb
+                    break
+        if best_titan:
+            titan_primaries[best_titan].append(pcid)
+        else:
+            unanchored_primaries.append(pcid)
 
-    # A. Naciones/Reinos directos del centro (Órbita Mayor)
-    naciones_del_centro = [p for p in reinos if p.id not in pos]
-    if naciones_del_centro:
-        _layout_satellites_spiral(center_id, naciones_del_centro, base_dist=240.0, step_dist=35.0)
+    # Si hay sin ancla, repartir entre titanes
+    for pcid in unanchored_primaries:
+        best_titan = min(core_nodes, key=lambda c: len(titan_primaries[c]))
+        titan_primaries[best_titan].append(pcid)
 
-    # B. Ciudades directas de reinos o del centro
-    for r_obj in reinos:
-        ciudades_reino = [p for p in children_by_parent.get(r_obj.id, []) if p.id not in pos]
-        if ciudades_reino:
-            _layout_satellites_spiral(r_obj.id, ciudades_reino, base_dist=170.0, step_dist=25.0)
+    for titan_id, sats in titan_primaries.items():
+        tx, ty = positions[titan_id]
+        r_titan = TIER_NODE_RADIUS.get(tier_map.get(titan_id, 0), 42.0)
+        inner_deadzone = max(320.0, r_titan * 5.0)
+        for idx, pcid in enumerate(sats):
+            r_dist = inner_deadzone + math.sqrt(idx + 1) * 180.0
+            theta = (idx + 1) * GOLDEN_ANGLE
+            positions[pcid] = (tx + math.cos(theta) * r_dist, ty + math.sin(theta) * r_dist)
 
-    ciudades_sueltas = [p for p in ciudades if p.id not in pos]
-    if ciudades_sueltas:
-        _layout_satellites_spiral(center_id, ciudades_sueltas, base_dist=280.0, step_dist=30.0)
+    # ── 3. Ciudades y Puntos de Interés en Espiral Áurea de su Ancla ──────────
+    anchor_minors: Dict[str, List[str]] = {}
+    unanchored_minors: List[str] = []
 
-    # C. Puntos de interés (Castillos, Tabernas, Mazmorras, Bosques, etc.)
-    for c_obj in ciudades:
-        puntos_ciudad = [p for p in children_by_parent.get(c_obj.id, []) if p.id not in pos]
-        if puntos_ciudad:
-            _layout_satellites_spiral(c_obj.id, puntos_ciudad, base_dist=130.0, step_dist=20.0)
+    for m_id in minor_nodes:
+        m_obj = place_map[m_id]
+        best_anchor = None
+        # Prioridad 1: parent_place_id
+        if m_obj.parent_place_id and m_obj.parent_place_id in positions:
+            best_anchor = m_obj.parent_place_id
+        else:
+            # Prioridad 2: vecino ya posicionado
+            for nb in adj_map.get(m_id, []):
+                if nb in positions:
+                    best_anchor = nb
+                    break
+        if best_anchor:
+            anchor_minors.setdefault(best_anchor, []).append(m_id)
+        else:
+            unanchored_minors.append(m_id)
 
-    # D. Cualquier lugar remanente que no haya tenido padre explícito -> Espiral Galáctica
-    remanentes = [p for p in places if p.id not in pos]
-    if remanentes:
-        for k, p in enumerate(remanentes):
-            theta = (k + 1) * GOLDEN_ANGLE
-            r = 180.0 + math.sqrt(k + 1) * 90.0
-            pos[p.id] = [
-                r * math.cos(theta),
-                r * math.sin(theta)
-            ]
+    for anchor_id, m_list in anchor_minors.items():
+        ax, ay = positions[anchor_id]
+        r_anchor = TIER_NODE_RADIUS.get(tier_map.get(anchor_id, 2), 25.0)
+        anchor_deadzone = max(180.0, r_anchor * 4.2)
+        for m_idx, m_id in enumerate(m_list):
+            m_dist = anchor_deadzone + math.sqrt(m_idx + 1) * 140.0
+            m_theta = (m_idx + 1) * GOLDEN_ANGLE
+            positions[m_id] = (ax + math.cos(m_theta) * m_dist, ay + math.sin(m_theta) * m_dist)
 
-    # 4. Refuerzo de separación física O(n²) estricta para garantizar que NUNCA colisionen
-    all_ids = list(pos.keys())
-    total_nodes = len(all_ids)
-    min_separation = 150.0  # Espacio vital amplio para respirar
+    # Menores sin ancla directa: halo exterior expansivo de la galaxia
+    for u_idx, u_id in enumerate(unanchored_minors):
+        u_dist = core_ring_r * 1.5 + math.sqrt(u_idx + 1) * 160.0
+        u_theta = (u_idx + 1) * GOLDEN_ANGLE
+        positions[u_id] = (math.cos(u_theta) * u_dist, math.sin(u_theta) * u_dist)
 
-    for _ in range(50):
-        changed = False
-        for i in range(total_nodes):
-            u = all_ids[i]
-            for j in range(i + 1, total_nodes):
-                v = all_ids[j]
-                dx = pos[u][0] - pos[v][0]
-                dy = pos[u][1] - pos[v][1]
-                dist = math.hypot(dx, dy) or 0.01
-                if dist < min_separation:
-                    push = (min_separation - dist) / 2.0 + 1.5
-                    ux, uy = dx / dist, dy / dist
-                    pos[u][0] += ux * push
-                    pos[u][1] += uy * push
-                    pos[v][0] -= ux * push
-                    pos[v][1] -= uy * push
-                    changed = True
-        if not changed:
-            break
+    # ── 4. Relajación Física Real N-Body (Ley de Coulomb con Spatial Grid) ────
+    nodes_list = list(place_map.keys())
+    n = len(nodes_list)
+    max_it = 28 if n <= 300 else 16
 
-    return {pid: (pos[pid][0], pos[pid][1]) for pid in pos}
+    if max_it > 0:
+        radius_dict = {nid: TIER_NODE_RADIUS.get(tier_map.get(nid, 3), 18.0) for nid in nodes_list}
+        cell_size = 500.0
+
+        for it in range(max_it):
+            temp = 60.0 * (1.0 - it / float(max_it))
+            disp = {nid: [0.0, 0.0] for nid in nodes_list}
+
+            # Spatial hash grid
+            grid: Dict[Tuple[int, int], List[str]] = {}
+            for nid in nodes_list:
+                px, py = positions[nid]
+                gx, gy = int(px // cell_size), int(py // cell_size)
+                grid.setdefault((gx, gy), []).append(nid)
+
+            for (gx, gy), cell_nodes in grid.items():
+                neighbors = []
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0, 1):
+                        neighbors.extend(grid.get((gx + dx, gy + dy), []))
+
+                for u in cell_nodes:
+                    pu = positions[u]
+                    ru = radius_dict[u]
+                    for v in neighbors:
+                        if u >= v:
+                            continue
+                        pv = positions[v]
+                        dx = pu[0] - pv[0]
+                        dy = pu[1] - pv[1]
+                        if abs(dx) > cell_size or abs(dy) > cell_size:
+                            continue
+
+                        dist_sq = dx * dx + dy * dy
+                        if dist_sq < 1.0:
+                            dx, dy = 1.0, 0.0
+                            dist_sq = 1.0
+
+                        rv = radius_dict[v]
+                        # Distancia mínima obligatoria: suma de radios + colchón de aire
+                        min_distance = (ru + rv) * 2.2 + 130.0
+
+                        if dist_sq < min_distance * min_distance:
+                            dist = math.sqrt(dist_sq)
+                            overlap = (min_distance - dist)
+                            force = (overlap / min_distance) * 40.0 + 6.0
+                            ux, uy = (dx / dist) * force, (dy / dist) * force
+                            disp[u][0] += ux; disp[u][1] += uy
+                            disp[v][0] -= ux; disp[v][1] -= uy
+
+            for nid in nodes_list:
+                d = math.hypot(disp[nid][0], disp[nid][1])
+                if d > 0:
+                    step = min(d, temp)
+                    positions[nid] = (
+                        positions[nid][0] + disp[nid][0] / d * step,
+                        positions[nid][1] + disp[nid][1] / d * step
+                    )
+
+    return positions
