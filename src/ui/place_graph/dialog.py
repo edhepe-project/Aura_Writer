@@ -34,6 +34,11 @@ class PlaceGraphDialog(QDialog):
         self._setup_ui()
         self._load_data()
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(50, self._graph_widget._fit_to_view)
+
     def _setup_ui(self):
         is_dark = ThemeManager.is_dark()
         bg_main = "#1c1c1e" if is_dark else "#f5f0ea"

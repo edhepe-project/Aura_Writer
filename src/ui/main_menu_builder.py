@@ -103,10 +103,27 @@ class MainMenuBuilderMixin:
         graph_act.triggered.connect(self.open_relation_graph)
         view_menu.addAction(graph_act)
 
+        places_graph_act = QAction("🗺️ Atlas de Lugares & Conexiones", self)
+        places_graph_act.setShortcut("Ctrl+Alt+G")
+        places_graph_act.triggered.connect(self.open_place_graph_dialog)
+        view_menu.addAction(places_graph_act)
+
         places_act = QAction("🏰 Lugares & Escenarios", self)
         places_act.setShortcut("Ctrl+Alt+L")
         places_act.triggered.connect(lambda: self.open_place_edit_dialog(None))
         view_menu.addAction(places_act)
+
+        timeline_act = QAction("⏳ Cronología del Universo", self)
+        timeline_act.setShortcut("Ctrl+Alt+T")
+        timeline_act.triggered.connect(self.open_timeline_dialog)
+        view_menu.addAction(timeline_act)
+
+        atlas_act = QAction("🗺️ Atlas Literario (Grafo de Lugares)", self)
+        atlas_act.setShortcut("Ctrl+Alt+G")
+        atlas_act.triggered.connect(self.open_place_graph_dialog)
+        view_menu.addAction(atlas_act)
+
+
 
         view_menu.addSeparator()
         self._appearance_act = QAction("🎨 Apariencia…", self)
@@ -322,6 +339,7 @@ class MainMenuBuilderMixin:
             self._main_toolbar.addSeparator()
             self._act_map = self._main_toolbar.addAction(qta.icon("fa5s.globe", color="#bf5af2" if is_dark else "#9333ea"), "Mapa Mental", self.open_universe_map)
             self._act_graph = self._main_toolbar.addAction(qta.icon("fa5s.project-diagram", color="#5e5ce6" if is_dark else "#4f46e5"), "Relaciones", self.open_relation_graph)
+            self._act_place_graph = self._main_toolbar.addAction(qta.icon("fa5s.map-marked-alt", color="#ffd60a" if is_dark else "#d97706"), "Atlas de Lugares", self.open_place_graph_dialog)
             self._main_toolbar.addSeparator()
             self._act_export = self._main_toolbar.addAction(qta.icon("fa5s.file-export", color="#30d158" if is_dark else "#16a34a"), "Exportar", self.open_exporter)
             self._act_trash = self._main_toolbar.addAction(qta.icon("fa5s.trash-alt", color="#ff453a" if is_dark else "#dc2626"), "Papelera", self.open_trash_dialog)
