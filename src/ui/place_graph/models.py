@@ -3,29 +3,31 @@ models.py — Paletas, jerarquías planetarias y estilos visuales para el Grafo 
 """
 from __future__ import annotations
 
-# Jerarquía Astronómica / Cosmológica
-# Nivel 0 (Sol Central): Planeta / Espacio
+# Jerarquía Astronómica / Cosmológica Multiescala
+# Nivel 0 (Sol Central): Planeta / Espacio (Macro-Cosmos)
 # Nivel 1 (Planetas Mayores): Reino / Nación
-# Nivel 2 (Sistemas Urbanos): Ciudad / Poblado
-# Nivel 3 (Lunas / Puntos de Interés): Fortaleza, Taberna, Mazmorra, Naturaleza, Región Mágica, Otro
+# Nivel 2 (Grandes Provincias / Territorios): Región Mágica, Naturaleza / Bosque
+# Nivel 3 (Sistemas Urbanos): Ciudad / Poblado
+# Nivel 4 (Satélites / Puntos de Interés Locales): Fortaleza / Castillo, Mazmorra / Cueva, Taberna / Interior, Otro
 CATEGORY_TIERS: dict[str, int] = {
-    "Planeta / Espacio":    0,  # Sol / Macro-Mundo
-    "Reino / Nación":       1,  # Órbita Primaria (Nación)
-    "Ciudad / Poblado":     2,  # Órbita Secundaria (Ciudad)
-    "Fortaleza / Castillo": 3,  # Satélites / Estancias de la Ciudad
-    "Taberna / Interior":   3,
-    "Mazmorra / Cueva":     3,
-    "Naturaleza / Bosque":  3,
-    "Región Mágica":        3,
-    "Otro":                 3,
+    "Planeta / Espacio":    0,  # Sol / Macro-Mundo (R=42px)
+    "Reino / Nación":       1,  # Órbita Primaria Soberana (R=34px)
+    "Región Mágica":        2,  # Macro-Territorio / Provincia (R=28px)
+    "Naturaleza / Bosque":  2,  # Entornos naturales extensos (R=28px)
+    "Ciudad / Poblado":     3,  # Núcleo Urbano (R=22px)
+    "Fortaleza / Castillo": 4,  # Estancia / Satélite Local (R=16px)
+    "Mazmorra / Cueva":     4,  # Punto de Interés / Mazmorra (R=16px)
+    "Taberna / Interior":   4,  # Micro-Interior / Local (R=15px)
+    "Otro":                 4,  # PDI Genérico (R=15px)
 }
 
-# Radios visuales por Tier
+# Radios visuales escalonados por Tier
 TIER_NODE_RADIUS: dict[int, float] = {
-    0: 42.0,  # Sol / Planeta Macro (máxima presencia)
-    1: 32.0,  # Nación / Reino
-    2: 25.0,  # Ciudad / Poblado
-    3: 18.0,  # Castillo, Taberna, Mazmorra, Bosque...
+    0: 42.0,  # Sol / Planeta Macro
+    1: 34.0,  # Nación / Reino
+    2: 28.0,  # Región / Provincia / Bosque Mayor
+    3: 22.0,  # Ciudad / Poblado
+    4: 16.0,  # Puntos de interés locales (Castillos, Mazmorras, Tabernas)
 }
 
 # Paleta de colores por categoría de Lugar (estilo Apple Dark & Gema)

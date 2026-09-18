@@ -139,16 +139,32 @@ def compute_places_layout(
 
     for anchor_id, m_list in anchor_minors.items():
         ax, ay = positions[anchor_id]
-        r_anchor = TIER_NODE_RADIUS.get(tier_map.get(anchor_id, 2), 25.0)
-        anchor_deadzone = max(180.0, r_anchor * 4.2)
+        parent_tier = tier_map.get(anchor_id, 3)
+        r_anchor = TIER_NODE_RADIUS.get(parent_tier, 22.0)
+        
+        # Para satélites de ciudades/lugares menores (Tier >= 2), órbita cercana y armónica
+        if parent_tier >= 2:
+            anchor_deadzone = max(80.0, r_anchor * 3.2)
+            step_r = 30.0
+        else:
+            anchor_deadzone = max(140.0, r_anchor * 3.8)
+            step_r = 55.0
+
+        n_sats = len(m_list)
         for m_idx, m_id in enumerate(m_list):
-            m_dist = anchor_deadzone + math.sqrt(m_idx + 1) * 140.0
-            m_theta = (m_idx + 1) * GOLDEN_ANGLE
+            if n_sats <= 5:
+                # Distribución circular armónica y uniforme para pocos satélites
+                m_theta = 2.0 * math.pi * m_idx / n_sats - math.pi / 2.0
+                m_dist = anchor_deadzone
+            else:
+                # Espiral áurea suave para grupos densos
+                m_dist = anchor_deadzone + math.sqrt(m_idx + 1) * step_r
+                m_theta = (m_idx + 1) * GOLDEN_ANGLE
             positions[m_id] = (ax + math.cos(m_theta) * m_dist, ay + math.sin(m_theta) * m_dist)
 
     # Menores sin ancla directa: halo exterior expansivo de la galaxia
     for u_idx, u_id in enumerate(unanchored_minors):
-        u_dist = core_ring_r * 1.5 + math.sqrt(u_idx + 1) * 160.0
+        u_dist = core_ring_r * 1.3 + math.sqrt(u_idx + 1) * 120.0
         u_theta = (u_idx + 1) * GOLDEN_ANGLE
         positions[u_id] = (math.cos(u_theta) * u_dist, math.sin(u_theta) * u_dist)
 
@@ -158,7 +174,7 @@ def compute_places_layout(
     max_it = 28 if n <= 300 else 16
 
     if max_it > 0:
-        radius_dict = {nid: TIER_NODE_RADIUS.get(tier_map.get(nid, 3), 18.0) for nid in nodes_list}
+        radius_dict = {nid: TIER_NODE_RADIUS.get(tier_map.get(nid, 4), 16.0) for nid in nodes_list}
         cell_size = 500.0
 
         for it in range(max_it):
