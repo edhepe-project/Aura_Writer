@@ -218,7 +218,23 @@ class GraphScene(QGraphicsScene):
     def set_show_all_edges(self, show_all: bool):
         """Alterna dinámicamente entre ver todas las líneas globales o solo las de foco."""
         self._show_all_edges_enabled = show_all
-        
+
+        # FIX: Limpiar las aristas temporales del personaje enfocado ANTES de procesar _all_edges.
+        # Sin esto, cuando se activa 'Mostrar todas las líneas' con un personaje ya seleccionado,
+        # las aristas de ese personaje quedan duplicadas (una en _edges y otra en _all_edges).
+        if self._edges:
+            for edge in self._edges:
+                try:
+                    edge.source.edges.remove(edge)
+                except ValueError:
+                    pass
+                try:
+                    edge.target.edges.remove(edge)
+                except ValueError:
+                    pass
+                self.removeItem(edge)
+            self._edges.clear()
+
         # Si no se habían instanciado las aristas globales (ej: en universos grandes), las instanciamos ahora
         if show_all and not self._all_edges and self._raw_relations:
             seen_pairs = set()
