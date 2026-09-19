@@ -1,0 +1,21 @@
+"""
+__init__.py — Exports públicos del módulo tools.nlp
+"""
+from tools.nlp.presence_analyzer import PresenceAnalyzer
+from tools.nlp.entity_detector import EntityDetector, EntitySpan, DetectionResult
+from tools.nlp.conlang_vocab import ConlangVocab
+from tools.nlp.normalizer import normalize, normalize_apostrophes
+from tools.nlp.text_cleaner import html_to_text
+from tools.nlp._spacy_singleton import is_spacy_available
+
+__all__ = [
+    "PresenceAnalyzer",
+    "EntityDetector",
+    "EntitySpan",
+    "DetectionResult",
+    "ConlangVocab",
+    "normalize",
+    "normalize_apostrophes",
+    "html_to_text",
+    "is_spacy_available",
+]

@@ -9,7 +9,7 @@ from typing import Optional
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QLineEdit, QFrame
+    QPushButton, QLineEdit, QFrame, QComboBox, QMessageBox
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 
@@ -34,6 +34,7 @@ class PlaceGraphWidget(QWidget):
         self._places: list[Place] = []
         self._links: list[PlaceLink] = []
         self._node_map: dict[str, PlaceNodeItem] = {}
+        self._project_manager = None   # se asigna desde el controlador externo
         self._setup_ui()
 
     @property
@@ -96,6 +97,22 @@ class PlaceGraphWidget(QWidget):
         self._btn_layout.setToolTip("Distribuye los sistemas planetarios y sus satélites")
         self._btn_layout.clicked.connect(self.reorganize_layout)
         tbl.addWidget(self._btn_layout)
+
+        # ── Botón: Analizar presencia de personajes ──
+        self._btn_analyze = QPushButton("🔍 Analizar Presencia")
+        self._btn_analyze.setToolTip(
+            "Analiza el texto de los capítulos para detectar dónde están los personajes"
+        )
+        self._btn_analyze.clicked.connect(self._on_analyze_clicked)
+        tbl.addWidget(self._btn_analyze)
+
+        # ── Selector de capítulo para filtrar presencias ──
+        self._chapter_combo = QComboBox()
+        self._chapter_combo.setMaximumWidth(180)
+        self._chapter_combo.setToolTip("Filtrar presencias por capítulo")
+        self._chapter_combo.addItem("📖 Todos los capítulos", None)
+        self._chapter_combo.currentIndexChanged.connect(self._on_chapter_filter_changed)
+        tbl.addWidget(self._chapter_combo)
 
         btn_zoom_in = QPushButton("＋")
         btn_zoom_in.setFixedWidth(34)
@@ -175,6 +192,93 @@ class PlaceGraphWidget(QWidget):
         self._places = list(places)
         self._links = list(links)
         self._rebuild_graph()
+
+    def set_project_manager(self, pm) -> None:
+        """Conecta el widget con el ProjectManager para acceder a presencias y capítulos."""
+        self._project_manager = pm
+        self._refresh_chapter_combo()
+
+    def _refresh_chapter_combo(self) -> None:
+        """Actualiza el combo de capítulos con los del proyecto actual."""
+        self._chapter_combo.blockSignals(True)
+        self._chapter_combo.clear()
+        self._chapter_combo.addItem("📖 Todos los capítulos", None)
+
+        pm = self._project_manager
+        if pm and pm.metadata:
+            for obra in pm.metadata.obras:
+                for libro in obra.libros:
+                    for cap in libro.capitulos:
+                        self._chapter_combo.addItem(cap.title, cap.id)
+
+        self._chapter_combo.blockSignals(False)
+
+    def load_presences(self, chapter_id: str | None = None) -> None:
+        """Renderiza los badges de presencia en el Atlas para el capítulo dado."""
+        pm = self._project_manager
+        if not pm or not pm.metadata:
+            return
+
+        character_map = {c.id: c for c in pm.metadata.characters}
+        self._scene.load_presences(
+            pm.metadata.presences,
+            chapter_id=chapter_id,
+            character_map=character_map,
+        )
+
+    def _on_analyze_clicked(self) -> None:
+        """Analiza todos los capítulos del proyecto en busca de presencias."""
+        pm = self._project_manager
+        if not pm or not pm.metadata:
+            QMessageBox.warning(self, "Sin proyecto", "Abre un proyecto primero.")
+            return
+
+        try:
+            from tools.nlp import PresenceAnalyzer
+        except ImportError:
+            QMessageBox.warning(
+                self, "Módulo no disponible",
+                "El módulo de análisis NLP no está disponible."
+            )
+            return
+
+        analyzer = PresenceAnalyzer(
+            characters=pm.metadata.characters,
+            places=pm.metadata.places,
+            custom_vocabulary=pm.metadata.custom_vocabulary,
+        )
+
+        # Preservar presencias manuales (is_manual=True)
+        manual_presences = [p for p in pm.metadata.presences if p.is_manual]
+        new_presences = list(manual_presences)
+
+        # Analizar todos los capítulos
+        for obra in pm.metadata.obras:
+            for libro in obra.libros:
+                for cap in libro.capitulos:
+                    if not cap.content_file:
+                        continue
+                    html = pm.read_chapter_content(cap.content_file)
+                    detected = analyzer.analyze_chapter(cap, html)
+                    new_presences.extend(detected)
+
+        pm.metadata.presences = new_presences
+        pm.save_project()
+
+        # Refrescar el Atlas con las nuevas presencias
+        chapter_id = self._chapter_combo.currentData()
+        self.load_presences(chapter_id)
+
+        total = len(new_presences) - len(manual_presences)
+        QMessageBox.information(
+            self, "✅ Análisis completado",
+            f"Se detectaron {total} presencia(s) de personajes en el Atlas."
+        )
+
+    def _on_chapter_filter_changed(self, _index: int) -> None:
+        """Actualiza los badges al cambiar el capítulo seleccionado."""
+        chapter_id = self._chapter_combo.currentData()
+        self.load_presences(chapter_id)
 
     def _on_background_clicked(self):
         pass

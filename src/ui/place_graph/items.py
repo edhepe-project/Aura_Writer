@@ -375,3 +375,100 @@ class PlaceLinkItem(QGraphicsPathItem):
             painter.setPen(QPen(txt_col))
             painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, self._label)
             painter.restore()
+
+
+class PresenceBadgeItem(QGraphicsEllipseItem):
+    """
+    Badge pequeño que representa la presencia de un personaje sobre un nodo de lugar.
+
+    Diseño:
+      - Círculo de 12px de diámetro con la inicial del personaje
+      - Borde sólido si confidence ≥ 0.75 (presencia confirmada/detectada)
+      - Borde punteado si confidence < 0.75 (sugerencia pendiente de confirmar)
+      - Se posiciona en arco alrededor del borde del nodo padre
+      - Completamente transparente al mouse (no interfiere con clics en el nodo)
+
+    IMPORTANTE: setAcceptedMouseButtons(NoButton) garantiza que todos los eventos
+    de mouse pasen al nodo padre sin modificación — no rompe ninguna lógica existente.
+    """
+
+    _BADGE_RADIUS = 7.0          # radio del badge en px
+    _CONFIRMED_COLOR = QColor("#ffd60a")    # dorado: presencia con alta confianza
+    _SUGGESTED_COLOR = QColor("#8e8e93")    # gris: sugerencia pendiente
+
+    def __init__(
+        self,
+        initial: str,
+        confidence: float,
+        index: int = 0,
+        parent: QGraphicsItem | None = None,
+    ):
+        """
+        Args:
+            initial: Letra inicial del personaje (o "?" si desconocido).
+            confidence: Valor 0.0–1.0 de confianza de la detección.
+            index: Posición del badge (0, 1, 2...) para distribuirlos en arco.
+            parent: Nodo de lugar padre (QGraphicsItem).
+        """
+        r = self._BADGE_RADIUS
+        super().__init__(-r, -r, r * 2, r * 2, parent)
+
+        self._initial = initial[:1].upper() if initial else "?"
+        self._confidence = confidence
+        self._is_confirmed = confidence >= 0.75
+
+        # ── Posición: arco alrededor del borde del nodo padre ─────────────
+        import math
+        parent_radius = getattr(parent, "radius", 22.0) if parent else 22.0
+        # Distribuir badges cada 35° empezando desde arriba-derecha
+        angle_deg = -60 + index * 35
+        angle_rad = math.radians(angle_deg)
+        offset_x = math.cos(angle_rad) * (parent_radius + r + 2)
+        offset_y = math.sin(angle_rad) * (parent_radius + r + 2)
+        self.setPos(offset_x, offset_y)
+
+        # ── Transparente completamente al mouse ────────────────────────────
+        self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+        self.setAcceptHoverEvents(False)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
+        self.setZValue(20)   # siempre encima del nodo
+
+        # ── Estilo visual según confianza ──────────────────────────────────
+        color = self._CONFIRMED_COLOR if self._is_confirmed else self._SUGGESTED_COLOR
+        self.setBrush(QBrush(color.darker(160)))
+
+        if self._is_confirmed:
+            pen = QPen(color, 1.5)
+        else:
+            pen = QPen(color, 1.2, Qt.PenStyle.DashLine)
+        self.setPen(pen)
+
+    def paint(self, painter: QPainter | None, option, widget=None):
+        if painter is None:
+            return
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+
+        # Fondo del badge
+        color = self._CONFIRMED_COLOR if self._is_confirmed else self._SUGGESTED_COLOR
+        painter.setBrush(QBrush(color.darker(180)))
+        if self._is_confirmed:
+            painter.setPen(QPen(color, 1.5))
+        else:
+            painter.setPen(QPen(color, 1.2, Qt.PenStyle.DashLine))
+
+        r = self._BADGE_RADIUS
+        painter.drawEllipse(QRectF(-r, -r, r * 2, r * 2))
+
+        # Inicial del personaje
+        font = QFont("Inter", int(r * 0.85), QFont.Weight.Bold)
+        painter.setFont(font)
+        painter.setPen(QPen(color.lighter(180)))
+        painter.drawText(
+            QRectF(-r, -r, r * 2, r * 2),
+            Qt.AlignmentFlag.AlignCenter,
+            self._initial,
+        )
+        painter.restore()
+

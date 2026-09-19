@@ -7,8 +7,11 @@ Jerarquía del universo literario:
     ├── characters[]        ← Personajes globales
     ├── places[]            ← Lugares globales
     ├── relations[]         ← Grafo de relaciones entre personajes
+    ├── place_links[]       ← Conexiones geográficas entre lugares
     ├── universe_links[]    ← Conexiones del mapa mental
     ├── medias[]            ← Mapas/imágenes a nivel universo
+    ├── presences[]         ← Presencias detectadas de personajes en lugares
+    ├── custom_vocabulary[] ← Vocabulario personalizado (conlang) para el detector
     └── obras[]
         └── OBRA
             ├── medias[]    ← Mapas/imágenes a nivel obra
@@ -212,6 +215,7 @@ class Place(BaseModel):
     lore_history: str = ""          # Historia, leyendas, mitos y secretos
     notes: str = ""                 # Notas privadas del autor (no exportables)
     image_asset: str = ""           # Plano o ilustración conceptual en assets/
+    aliases: List[str] = Field(default_factory=list)  # Nombres alternativos ("la ciudad del café", conlang...)
     custom_attributes: Dict[str, str] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
@@ -253,6 +257,37 @@ class CharacterRelation(BaseModel):
     intensity: int = 1           # 1-5, afecta grosor de la arista
     relation_type: str = "otro"  # pareja | familiar | descendiente | rival | mentor | amigo | otro
     obra_id: str = ""            # vacío = relación universal
+    created_at: datetime = Field(default_factory=_now)
+
+
+# ======================================================================
+# Sistema de Presencia en el Atlas
+# ======================================================================
+
+PRESENCE_TYPES = ["present", "transit", "departed", "referenced"]
+
+
+class CharacterPresence(BaseModel):
+    """Registro de presencia detectada (o manual) de un personaje en un lugar."""
+    id: str = Field(default_factory=_new_id)
+    character_id: str = ""
+    place_id: str = ""
+    chapter_id: str = ""
+    in_world_order: int = 0          # Orden cronológico del capítulo — para el Timeline
+    presence_type: str = "present"   # "present" | "transit" | "departed" | "referenced"
+    confidence: float = 1.0          # 0.0–1.0: < 0.75 = sugerencia, ≥ 0.75 = detectado
+    matched_text: str = ""           # Fragmento de texto que disparó la detección
+    verb_matched: str = ""           # Verbo que clasificó la presencia
+    is_manual: bool = False          # True = autor lo definió/corrigió → nunca se sobreescribe
+    created_at: datetime = Field(default_factory=_now)
+
+
+class CustomVocabularyEntry(BaseModel):
+    """Palabra personalizada del universo (conlang, etc.) para el detector de presencia."""
+    id: str = Field(default_factory=_new_id)
+    word: str = ""                   # Palabra exacta tal como aparece en el texto
+    presence_type: str = "present"   # "present" | "transit" | "departed" | "referenced"
+    notes: str = ""                  # Ej: 'En Eldarian, velthar = llegar'
     created_at: datetime = Field(default_factory=_now)
 
 
@@ -313,12 +348,15 @@ class UniverseMetadata(BaseModel):
     characters: List[Character] = Field(default_factory=list)
     places: List[Place] = Field(default_factory=list)
     relations: List[CharacterRelation] = Field(default_factory=list)
-    place_links: List[PlaceLink] = Field(default_factory=list)  # Conexiones geográficas entre lugares
+    place_links: List[PlaceLink] = Field(default_factory=list)      # Conexiones geográficas entre lugares
     universe_links: List[UniverseLink] = Field(default_factory=list)
-    medias: List[MediaNode] = Field(default_factory=list)   # mapas a nivel universo
+    medias: List[MediaNode] = Field(default_factory=list)           # mapas a nivel universo
     obras: List[Obra] = Field(default_factory=list)
     author_notes: List[AuthorNote] = Field(default_factory=list)
-    trash: List[TrashedItem] = Field(default_factory=list)  # Papelera de reciclaje
+    trash: List[TrashedItem] = Field(default_factory=list)          # Papelera de reciclaje
+    # ── Sistema de Presencia en el Atlas ────────────────────────
+    presences: List[CharacterPresence] = Field(default_factory=list)
+    custom_vocabulary: List[CustomVocabularyEntry] = Field(default_factory=list)
     # ── 2FA (TOTP) ──────────────────────────────────────────
     totp_enabled: bool = False
     totp_secret: str = ""               # secreto base32 para TOTP

@@ -286,6 +286,102 @@ class ProjectManager:
         """Guarda el HTML del editor en el archivo del capítulo."""
         self._write_content(content_file, html)
 
+    def trigger_presence_analysis(self, chapter_id: str, html: str) -> None:
+        """
+        Dispara el análisis de presencia de un capítulo en background.
+
+        Llamar después de un guardado MANUAL (Ctrl+S), nunca en auto-guardado.
+        El análisis corre en AnalyzerThread — no bloquea la UI.
+
+        El resultado se entrega a través del callback registrado con
+        set_presence_analysis_callback().
+
+        Args:
+            chapter_id: ID del capítulo que acaba de guardarse.
+            html: HTML del capítulo (ya guardado en disco).
+        """
+        if not self.metadata:
+            return
+
+        # Buscar el capítulo en todos los libros
+        chapter = self.find_chapter(chapter_id)
+        if not chapter:
+            log.warning("trigger_presence_analysis: capítulo '%s' no encontrado", chapter_id)
+            return
+
+        try:
+            from tools.nlp.analyzer_thread import SingleChapterAnalyzerThread
+        except ImportError:
+            log.debug("tools.nlp no disponible — análisis de presencia omitido")
+            return
+
+        thread = SingleChapterAnalyzerThread(
+            chapter=chapter,
+            html=html,
+            characters=self.metadata.characters,
+            places=self.metadata.places,
+            custom_vocabulary=self.metadata.custom_vocabulary,
+        )
+        thread.analysis_done.connect(
+            lambda presences: self._on_chapter_analysis_done(chapter_id, presences)
+        )
+        thread.analysis_error.connect(
+            lambda msg: log.warning("Análisis de presencia falló: %s", msg)
+        )
+        # Guardar referencia para evitar que el GC destruya el thread
+        self._analysis_threads = getattr(self, "_analysis_threads", [])
+        self._analysis_threads.append(thread)
+        thread.finished.connect(lambda: self._cleanup_thread(thread))
+        thread.start()
+        log.debug("AnalyzerThread iniciado para capítulo '%s'", chapter.title)
+
+    def _on_chapter_analysis_done(
+        self, chapter_id: str, new_presences: list
+    ) -> None:
+        """
+        Callback del AnalyzerThread cuando termina el análisis.
+        Actualiza presences en metadata y notifica a los listeners.
+        """
+        if not self.metadata:
+            return
+
+        # Preservar presencias manuales y de otros capítulos
+        preserved = [
+            p for p in self.metadata.presences
+            if p.is_manual or p.chapter_id != chapter_id
+        ]
+        self.metadata.presences = preserved + new_presences
+        log.info(
+            "Presencias actualizadas: capítulo '%s' → %d nuevas",
+            chapter_id, len(new_presences)
+        )
+
+        # Notificar al callback registrado (PlaceGraphWidget u otro listener)
+        callback = getattr(self, "_presence_callback", None)
+        if callback:
+            try:
+                callback(chapter_id, new_presences)
+            except Exception as e:
+                log.warning("presence_callback error: %s", e)
+
+    def set_presence_analysis_callback(self, callback) -> None:
+        """
+        Registra un callback que se llama cuando el análisis termina.
+
+        Signature del callback:
+            def on_presences_ready(chapter_id: str, presences: list) -> None
+
+        Uso (desde PlaceGraphWidget):
+            pm.set_presence_analysis_callback(self._on_presences_ready)
+        """
+        self._presence_callback = callback
+
+    def _cleanup_thread(self, thread) -> None:
+        """Elimina el thread de la lista de referencias cuando termina."""
+        threads = getattr(self, "_analysis_threads", [])
+        if thread in threads:
+            threads.remove(thread)
+
     # ------------------------------------------------------------------
     # Historial de Revisiones de Capítulos
     # ------------------------------------------------------------------
