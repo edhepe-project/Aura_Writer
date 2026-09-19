@@ -39,8 +39,13 @@ except ImportError:
     _SPACY_READY = False
     VerbClassifier = None
 
+from tools.nlp.sentence_filter import SentenceFilter
+from tools.nlp.fuzzy_matcher import FuzzyMatcher
+from tools.nlp.subject_extractor import SubjectExtractor
+from tools.nlp.presence_merger import PresenceMerger
+
 if _SPACY_READY:
-    log.debug("PresenceAnalyzer: usando Fase 2 (spaCy lematización)")
+    log.debug("PresenceAnalyzer: usando Fase 2/3 (spaCy + Robustez)")
 else:
     log.debug("PresenceAnalyzer: usando Fase 1 (regex, spaCy no disponible)")
 
@@ -49,18 +54,14 @@ class PresenceAnalyzer:
     """
     Analiza el HTML de un capítulo y produce una lista de CharacterPresence.
 
-    Pipeline (Fase 2 con spaCy disponible):
-      1. html_to_text    → texto plano
-      2. normalize       → estandarizar caracteres especiales
-      3. EntityDetector  → encontrar personajes y lugares (FlashText)
-      4. VerbClassifier  → determinar tipo de presencia con spaCy
-      5. Producir CharacterPresence con confidence de alta precisión
-
-    Fallback (sin spaCy): Fase 1 con patrones regex de conjugación.
-
-    Uso:
-        analyzer = PresenceAnalyzer(characters, places, custom_vocab)
-        presences = analyzer.analyze_chapter(chapter, html_content)
+    Pipeline (Fase 3 con robustez total):
+      1. html_to_text       → texto plano
+      2. normalize          → estandarizar caracteres especiales
+      3. SentenceFilter     → descartar diálogos puros / referencias cognitivas iniciales
+      4. EntityDetector     → encontrar personajes y lugares (FlashText + Fuzzy fallback)
+      5. VerbClassifier     → determinar tipo de presencia con spaCy
+      6. SubjectExtractor   → verificar relación sujeto-verbo
+      7. PresenceMerger     → deduplicar y consolidar presencias del capítulo
     """
 
     def __init__(
@@ -73,6 +74,18 @@ class PresenceAnalyzer:
         self._conlang = ConlangVocab(custom_vocabulary)
         self._char_map = {c.id: c for c in characters}
         self._place_map = {p.id: p for p in places}
+
+        # Fuzzy Matcher para nombres con posibles erratas
+        self._fuzzy_matcher = FuzzyMatcher()
+        candidate_dict = {}
+        for c in characters:
+            candidate_dict[c.name] = c.id
+        for p in places:
+            candidate_dict[p.name] = p.id
+            if hasattr(p, "aliases") and p.aliases:
+                for alias in p.aliases:
+                    candidate_dict[alias] = p.id
+        self._fuzzy_matcher.set_candidates(candidate_dict)
 
         # Inicializar VerbClassifier de Fase 2 si spaCy está disponible
         self._verb_classifier = None
@@ -95,17 +108,6 @@ class PresenceAnalyzer:
     ) -> list[CharacterPresence]:
         """
         Analiza el HTML de un capítulo y retorna las presencias detectadas.
-
-        Solo genera presencias de tipo "present", "transit" y "departed".
-        Las oraciones clasificadas como "referenced" se ignoran (el personaje
-        no está físicamente en el lugar).
-
-        Args:
-            chapter: Objeto Chapter con metadatos (id, in_world_order, pov).
-            html_content: HTML crudo del capítulo.
-
-        Returns:
-            Lista de CharacterPresence detectadas. Nunca None.
         """
         if not html_content or not html_content.strip():
             return []
@@ -121,21 +123,22 @@ class PresenceAnalyzer:
         detection_results = self._detector.detect_in_text(plain_text)
 
         # ── Paso 4-5: Clasificar y construir presencias ───────────────────────
-        presences: list[CharacterPresence] = []
-        seen_pairs: set[tuple[str, str]] = set()   # evitar duplicados por capítulo
+        raw_presences: list[CharacterPresence] = []
 
         for detection in detection_results:
             if not detection.is_candidate:
-                # La oración no tiene personaje Y lugar → ignorar
+                continue
+
+            # Filtro de oración (diálogos directos / menciones cognitivas)
+            should_proc, _ = SentenceFilter.evaluate_sentence(detection.sentence)
+            if not should_proc:
                 continue
 
             new_presences = self._process_detection(detection, chapter)
-            for p in new_presences:
-                # Deduplicar: mismo personaje + lugar en el mismo capítulo
-                pair = (p.character_id, p.place_id)
-                if pair not in seen_pairs:
-                    seen_pairs.add(pair)
-                    presences.append(p)
+            raw_presences.extend(new_presences)
+
+        # ── Paso 6: Deduplicación y consolidación ──────────────────────────
+        presences = PresenceMerger.merge_chapter_presences(raw_presences)
 
         log.debug(
             "Capítulo '%s': %d oraciones candidatas, %d presencias detectadas",
@@ -152,9 +155,6 @@ class PresenceAnalyzer:
     ) -> list[CharacterPresence]:
         """
         Procesa una oración candidata (con personaje + lugar) y genera presencias.
-
-        Para cada par (personaje, lugar) en la oración, determina el tipo de
-        presencia analizando los verbos que aparecen entre ellos.
         """
         presences = []
 
@@ -171,7 +171,6 @@ class PresenceAnalyzer:
                     presence_type, confidence, verb_matched = self._classify_verb(
                         context, char_span, place_span
                     )
-
 
                 # Ignorar referencias cognitivas — el personaje no está allí
                 if presence_type == "referenced":

@@ -392,57 +392,57 @@ class PresenceBadgeItem(QGraphicsEllipseItem):
     de mouse pasen al nodo padre sin modificación — no rompe ninguna lógica existente.
     """
 
-    _BADGE_RADIUS = 7.0          # radio del badge en px
-    _CONFIRMED_COLOR = QColor("#ffd60a")    # dorado: presencia con alta confianza
-    _SUGGESTED_COLOR = QColor("#8e8e93")    # gris: sugerencia pendiente
+    _BADGE_RADIUS = 7.5          # radio del badge en px
+    _PRESENT_COLOR = QColor("#ffd60a")      # dorado: presente
+    _TRANSIT_COLOR = QColor("#0a84ff")      # azul: en tránsito
+    _DEPARTED_COLOR = QColor("#ff453a")     # rojo/naranja: salida / partida
+    _SUGGESTED_COLOR = QColor("#8e8e93")    # gris: baja confianza / sugerencia
 
     def __init__(
         self,
         initial: str,
         confidence: float,
+        presence_type: str = "present",
         index: int = 0,
+        character_name: str = "",
         parent: QGraphicsItem | None = None,
     ):
-        """
-        Args:
-            initial: Letra inicial del personaje (o "?" si desconocido).
-            confidence: Valor 0.0–1.0 de confianza de la detección.
-            index: Posición del badge (0, 1, 2...) para distribuirlos en arco.
-            parent: Nodo de lugar padre (QGraphicsItem).
-        """
         r = self._BADGE_RADIUS
         super().__init__(-r, -r, r * 2, r * 2, parent)
 
         self._initial = initial[:1].upper() if initial else "?"
         self._confidence = confidence
-        self._is_confirmed = confidence >= 0.75
+        self._presence_type = presence_type
+        self._is_confirmed = confidence >= 0.70
+
+        if character_name:
+            type_label = "Presente" if presence_type == "present" else ("En tránsito" if presence_type == "transit" else "Salida")
+            self.setToolTip(f"{character_name} ({type_label} - {int(confidence*100)}%)")
 
         # ── Posición: arco alrededor del borde del nodo padre ─────────────
         import math
         parent_radius = getattr(parent, "radius", 22.0) if parent else 22.0
-        # Distribuir badges cada 35° empezando desde arriba-derecha
-        angle_deg = -60 + index * 35
+        # Distribuir badges cada 32° empezando desde arriba-derecha
+        angle_deg = -65 + index * 32
         angle_rad = math.radians(angle_deg)
-        offset_x = math.cos(angle_rad) * (parent_radius + r + 2)
-        offset_y = math.sin(angle_rad) * (parent_radius + r + 2)
+        offset_x = math.cos(angle_rad) * (parent_radius + r + 3)
+        offset_y = math.sin(angle_rad) * (parent_radius + r + 3)
         self.setPos(offset_x, offset_y)
 
-        # ── Transparente completamente al mouse ────────────────────────────
+        # ── Transparente completamente al mouse salvo para tooltip ─────────
         self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
-        self.setAcceptHoverEvents(False)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
         self.setZValue(20)   # siempre encima del nodo
 
-        # ── Estilo visual según confianza ──────────────────────────────────
-        color = self._CONFIRMED_COLOR if self._is_confirmed else self._SUGGESTED_COLOR
-        self.setBrush(QBrush(color.darker(160)))
-
-        if self._is_confirmed:
-            pen = QPen(color, 1.5)
-        else:
-            pen = QPen(color, 1.2, Qt.PenStyle.DashLine)
-        self.setPen(pen)
+    def _get_color(self) -> QColor:
+        if not self._is_confirmed:
+            return self._SUGGESTED_COLOR
+        if self._presence_type == "transit":
+            return self._TRANSIT_COLOR
+        if self._presence_type == "departed":
+            return self._DEPARTED_COLOR
+        return self._PRESENT_COLOR
 
     def paint(self, painter: QPainter | None, option, widget=None):
         if painter is None:
@@ -450,15 +450,25 @@ class PresenceBadgeItem(QGraphicsEllipseItem):
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
-        # Fondo del badge
-        color = self._CONFIRMED_COLOR if self._is_confirmed else self._SUGGESTED_COLOR
-        painter.setBrush(QBrush(color.darker(180)))
-        if self._is_confirmed:
-            painter.setPen(QPen(color, 1.5))
-        else:
-            painter.setPen(QPen(color, 1.2, Qt.PenStyle.DashLine))
-
+        color = self._get_color()
         r = self._BADGE_RADIUS
+
+        # Sombra / resplandor suave
+        glow = QRadialGradient(0, 0, r + 3)
+        glow.setColorAt(0.0, QColor(color.red(), color.green(), color.blue(), 100))
+        glow.setColorAt(1.0, QColor(color.red(), color.green(), color.blue(), 0))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(glow))
+        painter.drawEllipse(QRectF(-r - 3, -r - 3, (r + 3) * 2, (r + 3) * 2))
+
+        # Fondo del badge
+        painter.setBrush(QBrush(color.darker(190)))
+        if self._is_confirmed:
+            pen_style = Qt.PenStyle.DashLine if self._presence_type == "transit" else Qt.PenStyle.SolidLine
+            painter.setPen(QPen(color, 1.5, pen_style))
+        else:
+            painter.setPen(QPen(color, 1.2, Qt.PenStyle.DotLine))
+
         painter.drawEllipse(QRectF(-r, -r, r * 2, r * 2))
 
         # Inicial del personaje

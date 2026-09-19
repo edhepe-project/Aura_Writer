@@ -59,72 +59,94 @@ class PlaceGraphWidget(QWidget):
 
         # Toolbar superior
         tb = QFrame()
-        tb.setFixedHeight(50)
+        tb.setFixedHeight(46)
         tb.setStyleSheet(f"""
             QFrame {{ background-color: {bg_bar}; border-bottom: 1px solid {border_col}; }}
-            QLabel {{ color: {fg_col}; font-weight: bold; font-size: 12px; }}
+            QLabel {{ color: {fg_col}; font-weight: bold; font-size: 11px; }}
             QLineEdit {{
                 background: {input_bg}; color: {fg_col};
                 border: 1px solid {border_col}; border-radius: 6px;
                 padding: 4px 8px; font-size: 11px;
             }}
+            QLineEdit:focus {{
+                border: 1px solid #ffd60a;
+            }}
+            QComboBox {{
+                background: {input_bg}; color: {fg_col};
+                border: 1px solid {border_col}; border-radius: 6px;
+                padding: 3px 8px; font-size: 11px;
+            }}
             QPushButton {{
                 background: {btn_bg}; color: {fg_col};
                 border: 1px solid {border_col}; border-radius: 6px;
-                padding: 5px 10px; font-size: 11px; font-weight: bold;
+                padding: 4px 8px; font-size: 11px; font-weight: bold;
             }}
             QPushButton:hover {{ background: {btn_hover}; border-color: #ffd60a; }}
         """)
         tbl = QHBoxLayout(tb)
-        tbl.setContentsMargins(14, 0, 14, 0)
-        tbl.setSpacing(10)
+        tbl.setContentsMargins(10, 0, 10, 0)
+        tbl.setSpacing(8)
 
-        ico_lbl = QLabel("🗺️  ATLAS DE CONEXIONES")
-        ico_lbl.setStyleSheet("color: #ffd60a; font-weight: bold; font-size: 12px;")
+        # Título compacto con icono
+        ico_lbl = QLabel("🗺️ ATLAS")
+        ico_lbl.setStyleSheet("color: #ffd60a; font-weight: bold; font-size: 12px; letter-spacing: 0.5px;")
         tbl.addWidget(ico_lbl)
-        tbl.addSpacing(12)
 
+        # Buscador con tamaño fijo y visible
         self._search_input = QLineEdit()
-        self._search_input.setPlaceholderText("Buscar escenario...")
+        self._search_input.setPlaceholderText("🔍 Buscar escenario...")
         self._search_input.setClearButtonEnabled(True)
-        self._search_input.setMaximumWidth(200)
+        self._search_input.setFixedWidth(160)
         self._search_input.textChanged.connect(self._on_search)
         tbl.addWidget(self._search_input)
 
         tbl.addStretch()
 
-        self._btn_layout = QPushButton("⚡ Reorganizar Órbitas")
-        self._btn_layout.setToolTip("Distribuye los sistemas planetarios y sus satélites")
+        # Botón Reorganizar órbitas
+        self._btn_layout = QPushButton("⚡ Órbitas")
+        self._btn_layout.setToolTip("Reorganizar órbitas y sistemas planetarios")
         self._btn_layout.clicked.connect(self.reorganize_layout)
         tbl.addWidget(self._btn_layout)
 
-        # ── Botón: Analizar presencia de personajes ──
-        self._btn_analyze = QPushButton("🔍 Analizar Presencia")
+        # Botón Analizar Presencia
+        self._btn_analyze = QPushButton("🔍 Analizar")
         self._btn_analyze.setToolTip(
             "Analiza el texto de los capítulos para detectar dónde están los personajes"
         )
         self._btn_analyze.clicked.connect(self._on_analyze_clicked)
         tbl.addWidget(self._btn_analyze)
 
-        # ── Selector de capítulo para filtrar presencias ──
+        # Selector de capítulo
         self._chapter_combo = QComboBox()
-        self._chapter_combo.setMaximumWidth(180)
+        self._chapter_combo.setFixedWidth(150)
         self._chapter_combo.setToolTip("Filtrar presencias por capítulo")
-        self._chapter_combo.addItem("📖 Todos los capítulos", None)
+        self._chapter_combo.addItem("📖 Todos los cap.", None)
         self._chapter_combo.currentIndexChanged.connect(self._on_chapter_filter_changed)
         tbl.addWidget(self._chapter_combo)
 
+        # Separador visual
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.VLine)
+        sep.setFrameShadow(QFrame.Shadow.Sunken)
+        sep.setStyleSheet(f"color: {border_col};")
+        tbl.addWidget(sep)
+
+        # Controles de Zoom
         btn_zoom_in = QPushButton("＋")
-        btn_zoom_in.setFixedWidth(34)
+        btn_zoom_in.setFixedSize(26, 26)
+        btn_zoom_in.setToolTip("Acercar zoom")
         btn_zoom_in.clicked.connect(lambda: self._view.scale(1.2, 1.2))
         tbl.addWidget(btn_zoom_in)
 
         btn_zoom_out = QPushButton("－")
-        btn_zoom_out.setFixedWidth(34)
+        btn_zoom_out.setFixedSize(26, 26)
+        btn_zoom_out.setToolTip("Alejar zoom")
         btn_zoom_out.clicked.connect(lambda: self._view.scale(1 / 1.2, 1 / 1.2))
         tbl.addWidget(btn_zoom_out)
 
-        btn_fit = QPushButton("↺ Ajustar")
+        btn_fit = QPushButton("↺")
+        btn_fit.setFixedSize(26, 26)
+        btn_fit.setToolTip("Ajustar al centro")
         btn_fit.clicked.connect(self._fit_to_view)
         tbl.addWidget(btn_fit)
 
@@ -214,16 +236,27 @@ class PlaceGraphWidget(QWidget):
         self._chapter_combo.blockSignals(False)
 
     def load_presences(self, chapter_id: str | None = None) -> None:
-        """Renderiza los badges de presencia en el Atlas para el capítulo dado."""
+        """Renderiza los badges de presencia en el Atlas para el capítulo dado o la última ubicación global."""
         pm = self._project_manager
         if not pm or not pm.metadata:
             return
 
         character_map = {c.id: c for c in pm.metadata.characters}
+        
+        # Mapa de orden cronológico de capítulos
+        chapter_order_map = {}
+        idx = 0
+        for obra in pm.metadata.obras:
+            for libro in obra.libros:
+                for cap in libro.capitulos:
+                    idx += 1
+                    chapter_order_map[cap.id] = cap.in_world_order if cap.in_world_order > 0 else idx
+
         self._scene.load_presences(
             pm.metadata.presences,
             chapter_id=chapter_id,
             character_map=character_map,
+            chapter_order_map=chapter_order_map,
         )
 
     def _on_analyze_clicked(self) -> None:

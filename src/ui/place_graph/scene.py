@@ -77,31 +77,41 @@ class PlaceGraphScene(QGraphicsScene):
             edge.set_active_focus(False, False)
         self.background_clicked.emit()
 
-    # ── Sistema de Presencia ────────────────────────────────────────────────
-
     def load_presences(
         self,
         presences: list,
         chapter_id: str | None = None,
         character_map: dict | None = None,
+        chapter_order_map: dict | None = None,
     ) -> None:
         """
         Renderiza badges de presencia de personajes sobre los nodos de lugar.
+        Garantiza la regla fundamental: UN PERSONAJE SOLO ESTÁ EN 1 LUGAR A LA VEZ.
 
         Args:
             presences: Lista de CharacterPresence del universo.
             chapter_id: Si se proporciona, filtra solo las presencias de ese capítulo.
-                        Si es None, muestra todas.
+                        Si es None (vista global), resuelve la última ubicación física
+                        conocida de cada personaje respetando el orden cronológico.
             character_map: dict {char_id: Character} para obtener el nombre.
+            chapter_order_map: dict {chapter_id: order} para la resolución cronológica.
         """
         self._clear_presence_badges()
 
-        # Filtrar por capítulo si se especificó
-        filtered = [
-            p for p in presences
-            if (chapter_id is None or p.chapter_id == chapter_id)
-            and p.presence_type == "present"   # solo presencias físicas en el Atlas
-        ]
+        if chapter_id is not None:
+            # Filtrar por el capítulo seleccionado (1 presencia por personaje)
+            from tools.nlp.presence_merger import PresenceMerger
+            cap_presences = [
+                p for p in presences
+                if p.chapter_id == chapter_id and p.presence_type in ("present", "transit")
+            ]
+            filtered = PresenceMerger.merge_chapter_presences(cap_presences)
+        else:
+            # Vista "Todos los capítulos": resolver la ÚLTIMA ubicación conocida de cada personaje
+            from tools.nlp.presence_merger import PresenceMerger
+            filtered = PresenceMerger.get_latest_character_locations(
+                presences, chapter_order_map=chapter_order_map
+            )
 
         # Agrupar por lugar
         by_place: dict[str, list] = {}
@@ -116,15 +126,20 @@ class PlaceGraphScene(QGraphicsScene):
 
             badges = []
             for i, presence in enumerate(place_presences[:5]):  # máx 5 badges por nodo
-                char_name = ""
+                char_initial = "?"
+                char_full_name = ""
                 if character_map:
                     char = character_map.get(presence.character_id)
-                    char_name = char.name[0].upper() if char else "?"
+                    if char:
+                        char_initial = char.name[0].upper()
+                        char_full_name = char.name
 
                 badge = PresenceBadgeItem(
-                    initial=char_name,
+                    initial=char_initial,
                     confidence=presence.confidence,
+                    presence_type=presence.presence_type,
                     index=i,
+                    character_name=char_full_name,
                     parent=node,
                 )
                 badges.append(badge)

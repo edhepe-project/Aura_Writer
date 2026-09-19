@@ -4,8 +4,9 @@ Incluye panel lateral con detalles de conexiones, creación y eliminación de ru
 """
 from __future__ import annotations
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QFrame, QSplitter, QComboBox, QLineEdit, QMessageBox, QListWidget, QListWidgetItem
+    QWidget, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QFrame, QSplitter, QComboBox, QLineEdit, QMessageBox, QListWidget, QListWidgetItem,
+    QTabWidget
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QColor
@@ -15,6 +16,7 @@ from core.models import Place, PlaceLink, UniverseMetadata, CONNECTION_TYPES, CO
 from core.theme_manager import ThemeManager
 from .models import CONNECTION_STYLES
 from .widget import PlaceGraphWidget
+from .presence_panel import PresencePanel, PlaceHistoryPanel
 
 
 class PlaceGraphDialog(QDialog):
@@ -27,8 +29,8 @@ class PlaceGraphDialog(QDialog):
         super().__init__(parent)
         self.pm = project_manager
         self.setWindowTitle("🗺️ Atlas Literario — Grafo de Lugares & Conexiones")
-        self.resize(1180, 700)
-        self.setMinimumSize(850, 500)
+        self.resize(1200, 720)
+        self.setMinimumSize(900, 520)
 
         self._selected_place_id: str | None = None
         self._setup_ui()
@@ -99,14 +101,15 @@ class PlaceGraphDialog(QDialog):
         self._graph_widget.place_double_clicked.connect(self._on_place_double_clicked)
         splitter.addWidget(self._graph_widget)
 
-        # Panel de inspector / enlaces a la derecha
+        # Panel lateral con pestañas: Rutas, Presencia e Historial
         panel = QFrame()
         panel.setObjectName("panel")
-        panel.setFixedWidth(340)
+        panel.setFixedWidth(360)
         pl = QVBoxLayout(panel)
-        pl.setContentsMargins(14, 14, 14, 14)
-        pl.setSpacing(10)
+        pl.setContentsMargins(10, 10, 10, 10)
+        pl.setSpacing(8)
 
+        # Encabezado común del lugar
         title_lbl = QLabel("INFORMACIÓN DE ESCENARIO")
         t_font = QFont()
         t_font.setBold(True)
@@ -119,16 +122,24 @@ class PlaceGraphDialog(QDialog):
         self._info_name.setWordWrap(True)
         pl.addWidget(self._info_name)
 
-        self._info_desc = QLabel("Haz clic en cualquier astro para ver sus rutas, agregar nuevas o eliminar conexiones existentes.")
+        self._info_desc = QLabel("Haz clic en cualquier astro para ver sus rutas, presencia actual e historial de visitas.")
         self._info_desc.setStyleSheet("font-size: 11px; color: #8e8e93;")
         self._info_desc.setWordWrap(True)
         pl.addWidget(self._info_desc)
 
-        pl.addSpacing(4)
-        pl.addWidget(QLabel("<b>Conexiones & Rutas activas:</b>"))
+        # Tab Widget: Rutas vs Presencia vs Historial
+        self._tabs = QTabWidget()
+        
+        # Pestaña 1: Rutas y Conexiones
+        routes_tab = QWidget()
+        rtl = QVBoxLayout(routes_tab)
+        rtl.setContentsMargins(4, 8, 4, 4)
+        rtl.setSpacing(8)
+
+        rtl.addWidget(QLabel("<b>Conexiones & Rutas activas:</b>"))
         self._connections_list = QListWidget()
         self._connections_list.itemSelectionChanged.connect(self._on_connection_selection_changed)
-        pl.addWidget(self._connections_list)
+        rtl.addWidget(self._connections_list)
 
         # Botón para eliminar la ruta seleccionada
         self._btn_delete_link = QPushButton("🗑️ Eliminar Ruta Seleccionada")
@@ -139,7 +150,7 @@ class PlaceGraphDialog(QDialog):
             QPushButton:disabled { color: #636366; border-color: #3a3a3c; }
         """)
         self._btn_delete_link.clicked.connect(self._delete_selected_connection)
-        pl.addWidget(self._btn_delete_link)
+        rtl.addWidget(self._btn_delete_link)
 
         # Formulario para conectar lugares
         form_frame = QFrame()
@@ -171,9 +182,21 @@ class PlaceGraphDialog(QDialog):
         btn_add_link = QPushButton("➕ Conectar Lugares")
         btn_add_link.clicked.connect(self._add_connection)
         form_layout.addWidget(btn_add_link)
-        pl.addWidget(form_frame)
+        rtl.addWidget(form_frame)
+        self._tabs.addTab(routes_tab, "🛣️ Rutas")
 
-        pl.addStretch()
+        # Pestaña 2: Presencia de Personajes en Escena
+        self._presence_panel = PresencePanel(self)
+        self._presence_panel.set_project_manager(self.pm)
+        self._presence_panel.presence_changed.connect(self._on_presence_changed_in_panel)
+        self._tabs.addTab(self._presence_panel, "👤 En Escena")
+
+        # Pestaña 3: Historial de Visitas y Pasaje
+        self._history_panel = PlaceHistoryPanel(self)
+        self._history_panel.set_project_manager(self.pm)
+        self._tabs.addTab(self._history_panel, "📜 Historial")
+
+        pl.addWidget(self._tabs, stretch=1)
 
         btn_close = QPushButton("Cerrar")
         btn_close.clicked.connect(self.accept)
@@ -182,6 +205,13 @@ class PlaceGraphDialog(QDialog):
         splitter.addWidget(panel)
         root.addWidget(splitter)
 
+    def _on_presence_changed_in_panel(self):
+        """Refresca los badges en el grafo cuando el usuario modifica una presencia en el panel."""
+        if self.pm:
+            self.pm.save_project()
+        chapter_id = self._graph_widget._chapter_combo.currentData()
+        self._graph_widget.load_presences(chapter_id)
+
     def _load_data(self):
         if not self.pm or not self.pm.metadata:
             return
@@ -189,7 +219,10 @@ class PlaceGraphDialog(QDialog):
         places = getattr(meta, "places", [])
         links = getattr(meta, "place_links", [])
 
+        self._graph_widget.set_project_manager(self.pm)
         self._graph_widget.set_data(places, links)
+        self._presence_panel.set_project_manager(self.pm)
+        self._history_panel.set_project_manager(self.pm)
         self._refresh_combos()
 
     def _refresh_combos(self):
@@ -289,6 +322,11 @@ class PlaceGraphDialog(QDialog):
             empty_item = QListWidgetItem("Sin conexiones ni estancias vinculadas.")
             empty_item.setData(Qt.ItemDataRole.UserRole, None)
             self._connections_list.addItem(empty_item)
+
+        # 4. Actualizar panel de presencia en escena e historial
+        chapter_id = self._graph_widget._chapter_combo.currentData()
+        self._presence_panel.load_place(place, chapter_id=chapter_id)
+        self._history_panel.load_place(place)
 
     def _on_connection_selection_changed(self):
         item = self._connections_list.currentItem()

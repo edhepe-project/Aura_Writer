@@ -156,6 +156,12 @@ class TimelineDialog(QDialog):
         self._obra_combo.addItem("Todas las obras", "")
 
         raw_events = []
+        # Mapa de presencias detectadas por capítulo
+        detected_presences = getattr(meta, "presences", [])
+        presences_by_cap = {}
+        for pres in detected_presences:
+            presences_by_cap.setdefault(pres.chapter_id, []).append(pres)
+
         for obra_idx, obra in enumerate(meta.obras):
             self._obra_combo.addItem(obra.title, obra.id)
             color = obra.color or "#0a84ff"
@@ -163,8 +169,21 @@ class TimelineDialog(QDialog):
             for libro in obra.libros:
                 for cap in libro.capitulos:
                     book_order_idx += 1
-                    c_names = [char_map.get(cid, cid) for cid in cap.characters_present if cid in char_map]
-                    p_names = [place_map.get(pid, pid) for pid in cap.places_present if pid in place_map]
+                    
+                    # Combinar asignados manualmente + detectados por NLP
+                    char_ids = list(cap.characters_present)
+                    place_ids = list(cap.places_present)
+                    
+                    if cap.id in presences_by_cap:
+                        for p in presences_by_cap[cap.id]:
+                            if p.character_id and p.character_id not in char_ids:
+                                char_ids.append(p.character_id)
+                            if p.place_id and p.place_id not in place_ids:
+                                place_ids.append(p.place_id)
+
+                    c_names = [char_map.get(cid, cid) for cid in char_ids if cid in char_map]
+                    p_names = [place_map.get(pid, pid) for pid in place_ids if pid in place_map]
+
                     raw_events.append({
                         "chapter": cap,
                         "obra_id": obra.id,

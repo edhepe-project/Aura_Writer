@@ -231,6 +231,13 @@ class MainMenuBuilderMixin:
         history_act.triggered.connect(self.open_chapter_history)
         tools_menu.addAction(history_act)
 
+        tools_menu.addSeparator()
+
+        vocab_act = QAction("📖 Vocabulario & Conlang…", self)
+        vocab_act.setShortcut("Ctrl+Shift+V")
+        vocab_act.triggered.connect(self.open_vocabulary_dialog)
+        tools_menu.addAction(vocab_act)
+
         # ── Seguridad ────────────────────────────────────────────────
         sec_menu = mb.addMenu("&Seguridad")
 

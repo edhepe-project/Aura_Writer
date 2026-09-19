@@ -146,4 +146,14 @@ class PlaceControllerMixin:
         if hasattr(self, "place_dock") and self.place_dock:
             self.place_dock.select_place_by_id(place_id)
 
+    def open_vocabulary_dialog(self: "AuraMainWindow"):
+        """Abre el gestor de Vocabulario y Conlang del Universo."""
+        if not self.project_manager.metadata:
+            return
+        from ui.vocabulary_dialog import VocabularyDialog
+        dlg = VocabularyDialog(self.project_manager, parent=self)
+        if dlg.exec():
+            self._dirty = True
+
+
 
