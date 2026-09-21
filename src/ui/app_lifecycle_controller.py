@@ -175,6 +175,19 @@ class AppLifecycleMixin:
     def _on_editor_text_changed(self: "AuraMainWindow"):
         self._dirty = True
         self._stats_timer.start(300)
+        if hasattr(self, "_nlp_presence_timer"):
+            self._nlp_presence_timer.start(3500)
+
+    def _do_trigger_nlp_presence(self: "AuraMainWindow"):
+        """Dispara silenciosamente el análisis de presencia en segundo plano cuando el autor pausa la escritura."""
+        if not self._current_chapter or not self.project_manager.metadata:
+            return
+        if self.project_manager.is_locked:
+            return
+        html = (self.editor.get_content_html()
+                if hasattr(self.editor, "get_content_html")
+                else self.editor.toHtml())
+        self.project_manager.trigger_presence_analysis(self._current_chapter.id, html)
 
     def _do_update_stats(self: "AuraMainWindow"):
         doc = self.editor.document()

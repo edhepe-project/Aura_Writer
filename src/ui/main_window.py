@@ -78,6 +78,11 @@ class AuraMainWindow(
         self._stats_timer.setSingleShot(True)
         self._stats_timer.timeout.connect(self._do_update_stats)
 
+        # Temporizador de análisis de presencia NLP en background (debounced 3.5s)
+        self._nlp_presence_timer = QTimer(self)
+        self._nlp_presence_timer.setSingleShot(True)
+        self._nlp_presence_timer.timeout.connect(self._do_trigger_nlp_presence)
+
         self.editor.textChanged.connect(self._on_editor_text_changed)
         self.editor.currentCharFormatChanged.connect(self._update_format_actions)
         self.editor.cursorPositionChanged.connect(self._update_format_actions)

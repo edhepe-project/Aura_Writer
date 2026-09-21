@@ -43,9 +43,12 @@ from tools.nlp.sentence_filter import SentenceFilter
 from tools.nlp.fuzzy_matcher import FuzzyMatcher
 from tools.nlp.subject_extractor import SubjectExtractor
 from tools.nlp.presence_merger import PresenceMerger
+from tools.nlp.context_tracker import ContextTracker
+from tools.nlp.group_coordinator import GroupCoordinator
+from tools.nlp.pov_inferrer import POVInferrer
 
 if _SPACY_READY:
-    log.debug("PresenceAnalyzer: usando Fase 2/3 (spaCy + Robustez)")
+    log.debug("PresenceAnalyzer: usando Motor Autónomo (spaCy + ContextTracker + GroupCoordinator + POV)")
 else:
     log.debug("PresenceAnalyzer: usando Fase 1 (regex, spaCy no disponible)")
 
@@ -54,14 +57,15 @@ class PresenceAnalyzer:
     """
     Analiza el HTML de un capítulo y produce una lista de CharacterPresence.
 
-    Pipeline (Fase 3 con robustez total):
+    Pipeline Autónomo:
       1. html_to_text       → texto plano
       2. normalize          → estandarizar caracteres especiales
       3. SentenceFilter     → descartar diálogos puros / referencias cognitivas iniciales
-      4. EntityDetector     → encontrar personajes y lugares (FlashText + Fuzzy fallback)
-      5. VerbClassifier     → determinar tipo de presencia con spaCy
-      6. SubjectExtractor   → verificar relación sujeto-verbo
-      7. PresenceMerger     → deduplicar y consolidar presencias del capítulo
+      4. ContextTracker     → resolver pronombres ('él', 'ella') con el último sujeto activo
+      5. POVInferrer        → inferir presencia en 1ra persona ('llegué', 'entramos')
+      6. GroupCoordinator   → propagar destinos a acompañantes ('X junto con Y')
+      7. VerbClassifier     → determinar tipo de presencia con spaCy
+      8. PresenceMerger     → aplicar regla de unicidad estricta por capítulo
     """
 
     def __init__(
@@ -70,10 +74,12 @@ class PresenceAnalyzer:
         places: list["Place"],
         custom_vocabulary: list["CustomVocabularyEntry"],
     ):
+        self._characters = characters
         self._detector = EntityDetector(characters, places)
         self._conlang = ConlangVocab(custom_vocabulary)
         self._char_map = {c.id: c for c in characters}
         self._place_map = {p.id: p for p in places}
+        self._context_tracker = ContextTracker()
 
         # Fuzzy Matcher para nombres con posibles erratas
         self._fuzzy_matcher = FuzzyMatcher()
@@ -112,6 +118,9 @@ class PresenceAnalyzer:
         if not html_content or not html_content.strip():
             return []
 
+        # Reiniciar contexto para el nuevo capítulo
+        self._context_tracker.reset()
+
         # ── Paso 1-2: Limpiar y normalizar ────────────────────────────────────
         plain_text = html_to_text(html_content)
         plain_text = normalize(plain_text)
@@ -126,24 +135,66 @@ class PresenceAnalyzer:
         raw_presences: list[CharacterPresence] = []
 
         for detection in detection_results:
-            if not detection.is_candidate:
-                continue
-
             # Filtro de oración (diálogos directos / menciones cognitivas)
             should_proc, _ = SentenceFilter.evaluate_sentence(detection.sentence)
             if not should_proc:
                 continue
 
-            new_presences = self._process_detection(detection, chapter)
-            raw_presences.extend(new_presences)
+            # Actualizar tracker con personajes explícitos si los hay
+            if detection.characters:
+                for c_span in detection.characters:
+                    self._context_tracker.register_subject(c_span.entity_id)
 
-        # ── Paso 6: Deduplicación y consolidación ──────────────────────────
+            # Caso A: La oración tiene personaje(s) Y lugar(es) explícitos
+            if detection.is_candidate:
+                new_presences = self._process_detection(detection, chapter)
+                raw_presences.extend(new_presences)
+                continue
+
+            # Caso B: La oración tiene lugar pero NO personaje explícito
+            # Intentar resolver vía Pronombre (ContextTracker) o POV (1ra persona)
+            if detection.places and not detection.characters:
+                inferred_char_id = None
+                
+                # 1. Probar POV / 1ra persona ("llegué a la ciudad", "entramos al castillo")
+                pov_id = POVInferrer.infer_presence_from_pov(
+                    detection.sentence, chapter, self._characters
+                )
+                if pov_id:
+                    inferred_char_id = pov_id
+                else:
+                    # 2. Probar Pronombre anafórico ("él entró en la taberna", "ella cabalgó")
+                    pronoun_char_id = self._context_tracker.resolve_pronoun_subject(detection.sentence)
+                    if pronoun_char_id:
+                        inferred_char_id = pronoun_char_id
+
+                if inferred_char_id:
+                    from tools.nlp.entity_detector import EntitySpan
+                    char_obj = self._char_map.get(inferred_char_id)
+                    char_name = char_obj.name if char_obj else "Personaje"
+                    # Construir span sintético para procesar la presencia
+                    synthetic_span = EntitySpan(
+                        start=0,
+                        end=0,
+                        text="[Inferencia Contextual/POV]",
+                        entity_type="character",
+                        entity_id=inferred_char_id,
+                        entity_name=char_name
+                    )
+                    synthetic_detection = DetectionResult(
+                        sentence=detection.sentence,
+                        characters=[synthetic_span],
+                        places=detection.places
+                    )
+                    new_presences = self._process_detection(synthetic_detection, chapter)
+                    raw_presences.extend(new_presences)
+
+        # ── Paso 6: Deduplicación y consolidación (Regla de Unicidad) ──────────
         presences = PresenceMerger.merge_chapter_presences(raw_presences)
 
         log.debug(
-            "Capítulo '%s': %d oraciones candidatas, %d presencias detectadas",
+            "Capítulo '%s': %d presencias detectadas",
             chapter.title,
-            sum(1 for d in detection_results if d.is_candidate),
             len(presences),
         )
         return presences
@@ -154,22 +205,28 @@ class PresenceAnalyzer:
         chapter: "Chapter",
     ) -> list[CharacterPresence]:
         """
-        Procesa una oración candidata (con personaje + lugar) y genera presencias.
+        Procesa una oración candidata (con personaje + lugar) y genera presencias,
+        propagando el destino a todos los personajes que viajan en grupo.
         """
         presences = []
+        context = detection.sentence
 
-        for char_span in detection.characters:
+        # Obtener todos los personajes del grupo presentes en la oración
+        coordinated_char_ids = GroupCoordinator.extract_coordinated_characters(
+            detection.characters, context
+        )
+
+        for char_id in coordinated_char_ids:
             for place_span in detection.places:
-                context = detection.sentence
-
                 # ── Fase 2: usar spaCy VerbClassifier si está disponible ──────
                 if self._verb_classifier is not None:
                     presence_type, confidence, verb_matched = \
                         self._verb_classifier.classify_sentence(context)
                 else:
                     # ── Fase 1 fallback: regex de conjugación ─────────────────
+                    first_char_span = detection.characters[0] if detection.characters else None
                     presence_type, confidence, verb_matched = self._classify_verb(
-                        context, char_span, place_span
+                        context, first_char_span, place_span
                     )
 
                 # Ignorar referencias cognitivas — el personaje no está allí
@@ -177,13 +234,13 @@ class PresenceAnalyzer:
                     continue
 
                 presences.append(CharacterPresence(
-                    character_id=char_span.entity_id,
+                    character_id=char_id,
                     place_id=place_span.entity_id,
                     chapter_id=chapter.id,
                     in_world_order=getattr(chapter, "in_world_order", 0),
                     presence_type=presence_type,
                     confidence=confidence,
-                    matched_text=context[:200],   # max 200 chars para el log
+                    matched_text=context[:200],
                     verb_matched=verb_matched,
                     is_manual=False,
                 ))

@@ -12,6 +12,9 @@ from tools.nlp.fuzzy_matcher import FuzzyMatcher
 from tools.nlp.subject_extractor import SubjectExtractor
 from tools.nlp.hierarchy_engine import HierarchyEngine
 from tools.nlp.presence_merger import PresenceMerger
+from tools.nlp.context_tracker import ContextTracker
+from tools.nlp.group_coordinator import GroupCoordinator
+from tools.nlp.pov_inferrer import POVInferrer
 
 __all__ = [
     "PresenceAnalyzer",
@@ -28,4 +31,7 @@ __all__ = [
     "SubjectExtractor",
     "HierarchyEngine",
     "PresenceMerger",
+    "ContextTracker",
+    "GroupCoordinator",
+    "POVInferrer",
 ]
