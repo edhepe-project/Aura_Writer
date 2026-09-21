@@ -28,6 +28,7 @@ class PlaceGraphWidget(QWidget):
     """
     place_selected = pyqtSignal(str)
     place_double_clicked = pyqtSignal(str)
+    chapter_changed = pyqtSignal(object)  # chapter_id (str | None)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -87,12 +88,12 @@ class PlaceGraphWidget(QWidget):
         tbl.setContentsMargins(10, 0, 10, 0)
         tbl.setSpacing(8)
 
-        # Título compacto con icono
+        # Título compacto
         ico_lbl = QLabel("🗺️ ATLAS")
         ico_lbl.setStyleSheet("color: #ffd60a; font-weight: bold; font-size: 12px; letter-spacing: 0.5px;")
         tbl.addWidget(ico_lbl)
 
-        # Buscador con tamaño fijo y visible
+        # Buscador
         self._search_input = QLineEdit()
         self._search_input.setPlaceholderText("🔍 Buscar escenario...")
         self._search_input.setClearButtonEnabled(True)
@@ -102,19 +103,39 @@ class PlaceGraphWidget(QWidget):
 
         tbl.addStretch()
 
-        # Botón Reorganizar órbitas
-        self._btn_layout = QPushButton("⚡ Órbitas")
-        self._btn_layout.setToolTip("Reorganizar órbitas y sistemas planetarios")
-        self._btn_layout.clicked.connect(self.reorganize_layout)
-        tbl.addWidget(self._btn_layout)
+        # Checkbox: Órbitas activas (mostrar/ocultar aristas)
+        from PyQt6.QtWidgets import QCheckBox
+        self._edges_visible = True
+        self._chk_edges = QCheckBox("Órbitas")
+        self._chk_edges.setChecked(True)
+        self._chk_edges.setToolTip("Mostrar / Ocultar las líneas de conexión entre lugares")
+        self._chk_edges.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._chk_edges.setStyleSheet("""
+            QCheckBox {
+                color: #ffd60a;
+                font-size: 11px;
+                font-weight: 600;
+                spacing: 5px;
+            }
+            QCheckBox::indicator {
+                width: 14px;
+                height: 14px;
+                border: 1px solid #ffd60a;
+                border-radius: 3px;
+                background: transparent;
+            }
+            QCheckBox::indicator:checked {
+                background: #ffd60a;
+                image: none;
+            }
+            QCheckBox::indicator:unchecked {
+                background: transparent;
+            }
+        """)
+        self._chk_edges.stateChanged.connect(self._toggle_edges)
+        tbl.addWidget(self._chk_edges)
 
-        # Botón Analizar Presencia
-        self._btn_analyze = QPushButton("🔍 Analizar")
-        self._btn_analyze.setToolTip(
-            "Analiza el texto de los capítulos para detectar dónde están los personajes"
-        )
-        self._btn_analyze.clicked.connect(self._on_analyze_clicked)
-        tbl.addWidget(self._btn_analyze)
+
 
         # Selector de capítulo
         self._chapter_combo = QComboBox()
@@ -124,6 +145,14 @@ class PlaceGraphWidget(QWidget):
         self._chapter_combo.currentIndexChanged.connect(self._on_chapter_filter_changed)
         tbl.addWidget(self._chapter_combo)
 
+        # Filtro por personaje
+        self._char_filter_combo = QComboBox()
+        self._char_filter_combo.setFixedWidth(130)
+        self._char_filter_combo.setToolTip("Resaltar trayectoria de un personaje")
+        self._char_filter_combo.addItem("👤 Todos", None)
+        self._char_filter_combo.currentIndexChanged.connect(self._on_char_filter_changed)
+        tbl.addWidget(self._char_filter_combo)
+
         # Separador visual
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.VLine)
@@ -131,26 +160,34 @@ class PlaceGraphWidget(QWidget):
         sep.setStyleSheet(f"color: {border_col};")
         tbl.addWidget(sep)
 
-        # Controles de Zoom
-        btn_zoom_in = QPushButton("＋")
-        btn_zoom_in.setFixedSize(26, 26)
+        # Controles de Zoom (íconos vectoriales)
+        import qtawesome as qta
+        icon_color = "#f2f2f7" if is_dark else "#1c1c1e"
+
+        btn_zoom_in = QPushButton()
+        btn_zoom_in.setIcon(qta.icon("fa5s.search-plus", color=icon_color))
+        btn_zoom_in.setFixedSize(28, 28)
         btn_zoom_in.setToolTip("Acercar zoom")
         btn_zoom_in.clicked.connect(lambda: self._view.scale(1.2, 1.2))
         tbl.addWidget(btn_zoom_in)
 
-        btn_zoom_out = QPushButton("－")
-        btn_zoom_out.setFixedSize(26, 26)
+        btn_zoom_out = QPushButton()
+        btn_zoom_out.setIcon(qta.icon("fa5s.search-minus", color=icon_color))
+        btn_zoom_out.setFixedSize(28, 28)
         btn_zoom_out.setToolTip("Alejar zoom")
         btn_zoom_out.clicked.connect(lambda: self._view.scale(1 / 1.2, 1 / 1.2))
         tbl.addWidget(btn_zoom_out)
 
-        btn_fit = QPushButton("↺")
-        btn_fit.setFixedSize(26, 26)
-        btn_fit.setToolTip("Ajustar al centro")
+        btn_fit = QPushButton()
+        btn_fit.setIcon(qta.icon("fa5s.compress-arrows-alt", color=icon_color))
+        btn_fit.setFixedSize(28, 28)
+        btn_fit.setToolTip("Ajustar al centro / Encuadrar todo")
         btn_fit.clicked.connect(self._fit_to_view)
         tbl.addWidget(btn_fit)
 
         root.addWidget(tb)
+
+
 
         # Escena + Vista
         self._scene = PlaceGraphScene(self)
@@ -219,6 +256,7 @@ class PlaceGraphWidget(QWidget):
         """Conecta el widget con el ProjectManager para acceder a presencias y capítulos."""
         self._project_manager = pm
         self._refresh_chapter_combo()
+        self._refresh_char_filter_combo()
 
     def _refresh_chapter_combo(self) -> None:
         """Actualiza el combo de capítulos con los del proyecto actual."""
@@ -234,6 +272,24 @@ class PlaceGraphWidget(QWidget):
                         self._chapter_combo.addItem(cap.title, cap.id)
 
         self._chapter_combo.blockSignals(False)
+
+    def _refresh_char_filter_combo(self) -> None:
+        """Actualiza el combo de personajes para el filtro del Atlas."""
+        self._char_filter_combo.blockSignals(True)
+        self._char_filter_combo.clear()
+        self._char_filter_combo.addItem("👤 Todos", None)
+
+        pm = self._project_manager
+        if pm and pm.metadata:
+            _ROLE_ORDER = {"Protagonista": 0, "Antagonista": 1, "Secundario": 2, "Misterioso": 3, "Otro": 4}
+            chars = sorted(
+                pm.metadata.characters,
+                key=lambda c: (_ROLE_ORDER.get(c.role, 5), (c.name or "").lower())
+            )
+            for char in chars:
+                self._char_filter_combo.addItem(f"👤 {char.name}", char.id)
+
+        self._char_filter_combo.blockSignals(False)
 
     def load_presences(self, chapter_id: str | None = None) -> None:
         """Renderiza los badges de presencia en el Atlas para el capítulo dado o la última ubicación global."""
@@ -312,6 +368,44 @@ class PlaceGraphWidget(QWidget):
         """Actualiza los badges al cambiar el capítulo seleccionado."""
         chapter_id = self._chapter_combo.currentData()
         self.load_presences(chapter_id)
+        self.chapter_changed.emit(chapter_id)
+        # Re-aplicar filtro de personaje si estaba activo
+        char_id = self._char_filter_combo.currentData()
+        if char_id:
+            self._apply_char_filter(char_id)
+
+    def _on_char_filter_changed(self, _index: int) -> None:
+        """Resalta la trayectoria del personaje seleccionado en el Atlas."""
+        char_id = self._char_filter_combo.currentData()
+        self._apply_char_filter(char_id)
+
+    def _apply_char_filter(self, char_id: str | None) -> None:
+        """
+        Resalta los nodos donde el personaje tiene presencia y atenúa el resto.
+        Si char_id es None, restaura todos los nodos a opacidad completa.
+        """
+        if not char_id:
+            for node in self._node_map.values():
+                node.setOpacity(1.0)
+            return
+
+        pm = self._project_manager
+        if not pm or not pm.metadata:
+            return
+
+        chapter_id = self._chapter_combo.currentData()
+        all_presences = getattr(pm.metadata, "presences", [])
+
+        # Filtrar presencias del personaje (aplicando capítulo si hay uno activo)
+        char_presences = [
+            p for p in all_presences
+            if p.character_id == char_id
+            and (chapter_id is None or p.chapter_id == chapter_id)
+        ]
+        active_place_ids = {p.place_id for p in char_presences}
+
+        for place_id, node in self._node_map.items():
+            node.setOpacity(1.0 if place_id in active_place_ids else 0.18)
 
     def _on_background_clicked(self):
         pass
@@ -409,18 +503,52 @@ class PlaceGraphWidget(QWidget):
             if node:
                 node.setPos(px, py)
 
+        # Actualizar aristas con las nuevas posiciones
         for edge in self._scene._all_edges:
             edge._update_path()
+            # Respetar la visibilidad actual tras reorganizar
+            edge.setVisible(self._edges_visible)
 
+        # Reposicionar badges de presencia (siguen al nodo padre automáticamente
+        # porque son hijos del QGraphicsItem, pero forzar refresco de la escena)
         self._scene.update()
         self._fit_to_view()
+        # Re-aplicar filtros activos tras reorganizar
+        char_id = self._char_filter_combo.currentData()
+        if char_id:
+            self._apply_char_filter(char_id)
+
+    def _toggle_edges(self) -> None:
+        """Muestra u oculta todas las aristas (órbitas + rutas) del Atlas."""
+        self._edges_visible = self._chk_edges.isChecked()
+
+        for edge in self._scene._all_edges:
+            edge.setVisible(self._edges_visible)
 
     def _on_search(self, text: str):
+        """Filtra y resalta nodos por nombre o categoría del lugar."""
         query = text.lower().strip()
+        char_id = self._char_filter_combo.currentData()
+
         for node in self._node_map.values():
-            match = not query or query in node.place.name.lower() or query in node.place.category.lower()
-            node.setSelected(match if query else False)
-            node.setOpacity(1.0 if (not query or match) else 0.18)
+            if not query:
+                # Al limpiar el buscador, restaurar según el filtro de personaje activo
+                if char_id:
+                    # Dejar que _apply_char_filter se encargue de la opacidad
+                    pass
+                else:
+                    node.set_focused(False, False)
+                    node.setOpacity(1.0)
+            else:
+                place = node.place
+                match = query in place.name.lower() or query in place.category.lower()
+                # Resaltar coincidencias con foco, atenuar el resto
+                node.set_focused(match, not match)
+                node.setOpacity(1.0 if match else 0.18)
+
+        # Si se limpió el buscador y hay filtro de personaje, reaplicarlo
+        if not query and char_id:
+            self._apply_char_filter(char_id)
 
     def _fit_to_view(self):
         rect = self._scene.itemsBoundingRect()

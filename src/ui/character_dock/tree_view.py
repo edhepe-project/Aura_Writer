@@ -45,10 +45,10 @@ class CharacterTreeView(QWidget):
         tree_header.addStretch()
 
         # Botones colapsar / expandir árbol
-        self._btn_collapse = self._icon_btn("fa5s.minus", "#aeaeb2", "Colapsar todo")
-        self._btn_collapse.clicked.connect(self._on_collapse_all)
-        self._btn_expand = self._icon_btn("fa5s.plus", "#aeaeb2", "Expandir todo")
-        self._btn_expand.clicked.connect(self._on_expand_all)
+        self._btn_collapse = self._icon_btn("fa5s.minus", "#aeaeb2", "Colapsar un nivel")
+        self._btn_collapse.clicked.connect(self._on_collapse_level)
+        self._btn_expand = self._icon_btn("fa5s.plus", "#aeaeb2", "Expandir un nivel")
+        self._btn_expand.clicked.connect(self._on_expand_level)
         tree_header.addWidget(self._btn_collapse)
         tree_header.addWidget(self._btn_expand)
 
@@ -243,7 +243,7 @@ class CharacterTreeView(QWidget):
 
             self._tree.addTopLevelItem(root_item)
 
-        if len(self._characters) < 25:
+        if len(self._characters) < 12:
             self._tree.expandAll()
         self._tree.blockSignals(False)
 
@@ -270,11 +270,47 @@ class CharacterTreeView(QWidget):
                 self._tree.setCurrentItem(item)
                 return
 
-    def _on_collapse_all(self):
-        self._tree.collapseAll()
+    def _on_expand_level(self):
+        """Expande un nivel a la vez: primero los nodos raíz; un segundo clic expande sus hijos."""
+        # Detectar si todos los nodos raíz visibles ya están expandidos
+        all_roots_expanded = all(
+            self._tree.topLevelItem(i).isExpanded()
+            for i in range(self._tree.topLevelItemCount())
+            if not self._tree.topLevelItem(i).isHidden()
+        )
+        for i in range(self._tree.topLevelItemCount()):
+            root = self._tree.topLevelItem(i)
+            if root.isHidden():
+                continue
+            if not all_roots_expanded:
+                # Primera pasada: expandir solo los nodos raíz
+                root.setExpanded(True)
+            else:
+                # Segunda pasada: expandir también los grupos de relaciones (hijos directos)
+                root.setExpanded(True)
+                for j in range(root.childCount()):
+                    root.child(j).setExpanded(True)
 
-    def _on_expand_all(self):
-        self._tree.expandAll()
+    def _on_collapse_level(self):
+        """Colapsa un nivel a la vez: primero hijos, luego raíces en el siguiente clic."""
+        # Detectar si hay algún hijo (grupo de relaciones) expandido
+        has_expanded_children = any(
+            self._tree.topLevelItem(i).child(j).isExpanded()
+            for i in range(self._tree.topLevelItemCount())
+            for j in range(self._tree.topLevelItem(i).childCount())
+            if not self._tree.topLevelItem(i).isHidden()
+        )
+        for i in range(self._tree.topLevelItemCount()):
+            root = self._tree.topLevelItem(i)
+            if root.isHidden():
+                continue
+            if has_expanded_children:
+                # Primera pasada: colapsar solo los grupos de relaciones
+                for j in range(root.childCount()):
+                    root.child(j).setExpanded(False)
+            else:
+                # Segunda pasada: colapsar los nodos raíz
+                root.setExpanded(False)
 
     def _on_tree_selection(self, current: QTreeWidgetItem | None, _prev):
         if self._loading or not current:

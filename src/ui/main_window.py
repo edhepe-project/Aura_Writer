@@ -106,10 +106,17 @@ class AuraMainWindow(
 
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Panel izquierdo: Árbol de contenido
+        # ── Panel izquierdo: Árbol + Inspector (splitter vertical) ──────────────
+        from PyQt6.QtWidgets import QStackedWidget
+
+        left_splitter = QSplitter(Qt.Orientation.Vertical)
+        left_splitter.setChildrenCollapsible(False)
+
+        # Sección superior izquierda: Árbol de la novela
         outline_frame = QFrame()
         ol = QVBoxLayout(outline_frame)
         ol.setContentsMargins(6, 6, 6, 6)
+        ol.setSpacing(4)
         lbl = QLabel("UNIVERSO")
         lbl.setStyleSheet("font-weight: bold; color: #9b59b6; margin-bottom: 4px;")
         ol.addWidget(lbl)
@@ -120,25 +127,21 @@ class AuraMainWindow(
         self.outline_tree.node_renamed.connect(self._on_rename_node)
         self.outline_tree.node_moved_requested.connect(self._on_node_moved)
         ol.addWidget(self.outline_tree)
+        outline_frame.setMinimumHeight(120)
+        left_splitter.addWidget(outline_frame)
 
-        # Panel central: Editor
-        editor_frame = QFrame()
-        el = QVBoxLayout(editor_frame)
-        el.setContentsMargins(0, 0, 0, 0)
-        self.editor = AuraEditor()
-        el.addWidget(self.editor)
-
-        # Panel derecho: Inspector + Dock de personajes
+        # Sección inferior izquierda: Inspector de Notas
         inspector_frame = QFrame()
         il = QVBoxLayout(inspector_frame)
-        il.setContentsMargins(6, 6, 6, 6)
-        il.setSpacing(6)
+        il.setContentsMargins(6, 8, 6, 6)
+        il.setSpacing(5)
 
         il.addWidget(self._make_label("INSPECTOR", bold=True, color="#9b59b6"))
-        il.addWidget(self._make_label("Notas del Capitulo:", size=11, color="#8e8e93"))
+        il.addWidget(self._make_label("Notas del Capítulo:", size=11, color="#8e8e93"))
 
         self.notes_list = QListWidget()
-        self.notes_list.setMaximumHeight(140)
+        self.notes_list.setMinimumHeight(60)
+        self.notes_list.setMaximumHeight(130)
         self.notes_list.currentItemChanged.connect(self._on_note_list_selection_changed)
         self.notes_list.itemDoubleClicked.connect(self._on_note_double_clicked)
         il.addWidget(self.notes_list)
@@ -160,8 +163,27 @@ class AuraMainWindow(
         self.inspector_notes.setPlaceholderText(
             "No hay notas.\nUsa '+ Nota' para crear una\no doble click para editar."
         )
-        self.inspector_notes.setMaximumHeight(110)
+        self.inspector_notes.setMinimumHeight(70)
         il.addWidget(self.inspector_notes, 1)
+
+        inspector_frame.setMinimumHeight(80)
+        left_splitter.addWidget(inspector_frame)
+
+        # Proporciones iniciales del splitter izquierdo (árbol:inspector = 65:35)
+        left_splitter.setSizes([420, 220])
+
+        # ── Panel central: Editor ────────────────────────────────────────────────
+        editor_frame = QFrame()
+        el = QVBoxLayout(editor_frame)
+        el.setContentsMargins(0, 0, 0, 0)
+        self.editor = AuraEditor()
+        el.addWidget(self.editor)
+
+        # ── Panel derecho: Dock de Personajes / Lugares ──────────────────────────
+        right_frame = QFrame()
+        rl = QVBoxLayout(right_frame)
+        rl.setContentsMargins(6, 6, 6, 6)
+        rl.setSpacing(6)
 
         self.char_dock = CharacterDock()
         self.char_dock.character_added.connect(self._on_character_added)
@@ -179,7 +201,7 @@ class AuraMainWindow(
         # Segmented Switcher [ 👤 Personajes ] | [ 🏰 Lugares ]
         switcher_frame = QFrame()
         switcher_layout = QHBoxLayout(switcher_frame)
-        switcher_layout.setContentsMargins(0, 4, 0, 4)
+        switcher_layout.setContentsMargins(0, 0, 0, 4)
         switcher_layout.setSpacing(4)
 
         self._btn_tab_chars = QPushButton("👤 Personajes")
@@ -194,24 +216,24 @@ class AuraMainWindow(
 
         switcher_layout.addWidget(self._btn_tab_chars, 1)
         switcher_layout.addWidget(self._btn_tab_places, 1)
-        il.addWidget(switcher_frame)
+        rl.addWidget(switcher_frame)
 
-        # Stacked Widget / Container para Docks
-        from PyQt6.QtWidgets import QStackedWidget
+        # QStackedWidget con Personajes (0) y Lugares (1)
         self._dock_stack = QStackedWidget()
         self._dock_stack.addWidget(self.char_dock)   # index 0
         self._dock_stack.addWidget(self.place_dock)  # index 1
-        il.addWidget(self._dock_stack, 1)
+        rl.addWidget(self._dock_stack, 1)
 
         self._update_segmented_switcher_style()
 
         self._outline_frame = outline_frame
         self._inspector_frame = inspector_frame
+        self._left_splitter = left_splitter
 
-        self.main_splitter.addWidget(outline_frame)
+        self.main_splitter.addWidget(left_splitter)
         self.main_splitter.addWidget(editor_frame)
-        self.main_splitter.addWidget(inspector_frame)
-        self.main_splitter.setSizes([220, 800, 260])
+        self.main_splitter.addWidget(right_frame)
+        self.main_splitter.setSizes([240, 790, 250])
         root.addWidget(self.main_splitter)
 
         # Barra de estado

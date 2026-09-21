@@ -99,6 +99,7 @@ class PlaceGraphDialog(QDialog):
         self._graph_widget = PlaceGraphWidget(self)
         self._graph_widget.place_selected.connect(self._on_place_selected)
         self._graph_widget.place_double_clicked.connect(self._on_place_double_clicked)
+        self._graph_widget.chapter_changed.connect(self._on_chapter_changed_in_toolbar)
         splitter.addWidget(self._graph_widget)
 
         # Panel lateral con pestañas: Rutas, Presencia e Historial
@@ -205,12 +206,24 @@ class PlaceGraphDialog(QDialog):
         splitter.addWidget(panel)
         root.addWidget(splitter)
 
+    def _on_chapter_changed_in_toolbar(self, chapter_id: str | None):
+        """Actualiza la presencia e historial del lugar seleccionado cuando cambia el capítulo activo en la toolbar."""
+        if self._selected_place_id and self.pm and self.pm.metadata:
+            place = next((p for p in getattr(self.pm.metadata, "places", []) if p.id == self._selected_place_id), None)
+            if place:
+                self._presence_panel.load_place(place, chapter_id=chapter_id)
+                self._history_panel.load_place(place)
+
     def _on_presence_changed_in_panel(self):
-        """Refresca los badges en el grafo cuando el usuario modifica una presencia en el panel."""
+        """Refresca los badges en el grafo y la pestaña Historial cuando el usuario modifica una presencia."""
         if self.pm:
             self.pm.save_project()
         chapter_id = self._graph_widget._chapter_combo.currentData()
         self._graph_widget.load_presences(chapter_id)
+        if self._selected_place_id:
+            place = next((p for p in getattr(self.pm.metadata, "places", []) if p.id == self._selected_place_id), None)
+            if place:
+                self._history_panel.load_place(place)
 
     def _load_data(self):
         if not self.pm or not self.pm.metadata:

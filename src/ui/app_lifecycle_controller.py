@@ -145,24 +145,38 @@ class AppLifecycleMixin:
             if hasattr(self, "main_splitter"):
                 self._saved_splitter_sizes = self.main_splitter.sizes()
 
-            if hasattr(self, "_outline_frame"):
+            # Ocultar panel izquierdo (splitter vertical con árbol + inspector)
+            if hasattr(self, "_left_splitter"):
+                self._left_splitter.hide()
+            elif hasattr(self, "_outline_frame"):
                 self._outline_frame.hide()
             if hasattr(self, "_inspector_frame"):
                 self._inspector_frame.hide()
+
+            # Ocultar panel derecho (personajes / lugares)
+            if hasattr(self, "main_splitter") and self.main_splitter.count() >= 3:
+                self.main_splitter.widget(2).hide()
 
             if hasattr(self, "_zen_act"):
                 self._zen_act.setChecked(True)
             self.statusBar().showMessage("🧘 Modo Zen activado (F11 para restaurar paneles)", 4000)
         else:
-            if hasattr(self, "_outline_frame"):
+            # Restaurar panel izquierdo
+            if hasattr(self, "_left_splitter"):
+                self._left_splitter.show()
+            elif hasattr(self, "_outline_frame"):
                 self._outline_frame.show()
             if hasattr(self, "_inspector_frame"):
                 self._inspector_frame.show()
 
+            # Restaurar panel derecho
+            if hasattr(self, "main_splitter") and self.main_splitter.count() >= 3:
+                self.main_splitter.widget(2).show()
+
             if hasattr(self, "main_splitter") and hasattr(self, "_saved_splitter_sizes"):
                 self.main_splitter.setSizes(self._saved_splitter_sizes)
             elif hasattr(self, "main_splitter"):
-                self.main_splitter.setSizes([220, 800, 260])
+                self.main_splitter.setSizes([240, 790, 250])
 
             if hasattr(self, "_zen_act"):
                 self._zen_act.setChecked(False)

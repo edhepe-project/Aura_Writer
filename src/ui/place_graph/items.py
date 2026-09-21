@@ -111,7 +111,11 @@ class PlaceNodeItem(QGraphicsEllipseItem):
 
     def boundingRect(self) -> QRectF:
         r = self.radius
-        return QRectF(-r - 26, -r - 26, (r + 26) * 2, (r + 26) * 2 + 42)
+        # Debe cubrir el aura máxima en estado enfocado (aura_mult=0.85) + margen de etiqueta
+        max_aura = r + r * 0.85 + 10 + 8  # +8px margen antialiasing
+        hw = max(max_aura, r + 26)         # garantizar que también cubra la etiqueta
+        label_h = 50                        # nombre + subcategoría debajo del nodo
+        return QRectF(-hw, -hw, hw * 2, hw * 2 + label_h)
 
     def set_focused(self, focused: bool, dimmed: bool = False):
         self._is_focused = focused
@@ -124,6 +128,12 @@ class PlaceNodeItem(QGraphicsEllipseItem):
             return
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+        # Suprimir el rectángulo de selección estilo sistema operativo que dibuja Qt.
+        # Usamos nuestro propio anillo circular enfocado en su lugar.
+        if option is not None and hasattr(option, 'state'):
+            from PyQt6.QtWidgets import QStyle
+            option.state &= ~QStyle.StateFlag.State_Selected
+            option.state &= ~QStyle.StateFlag.State_HasFocus
 
         r = self.radius
         c = self._color
