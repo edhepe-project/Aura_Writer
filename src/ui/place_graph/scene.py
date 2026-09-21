@@ -14,7 +14,7 @@ from PyQt6.QtGui import (
 )
 
 from core.theme_manager import ThemeManager
-from .items import PlaceNodeItem, PlaceLinkItem, PresenceBadgeItem
+from .items import PlaceNodeItem, PlaceLinkItem, PresenceBadgeItem, PresenceOverflowBadgeItem
 
 
 class PlaceGraphScene(QGraphicsScene):
@@ -125,7 +125,12 @@ class PlaceGraphScene(QGraphicsScene):
                 continue
 
             badges = []
-            for i, presence in enumerate(place_presences[:5]):  # máx 5 badges por nodo
+            total_count = len(place_presences)
+            
+            # Si hay más de 3 personajes, mostrar los primeros 3 y 1 badge contador (+N)
+            max_individual = 3 if total_count > 4 else total_count
+
+            for i, presence in enumerate(place_presences[:max_individual]):
                 char_initial = "?"
                 char_full_name = ""
                 if character_map:
@@ -143,6 +148,25 @@ class PlaceGraphScene(QGraphicsScene):
                     parent=node,
                 )
                 badges.append(badge)
+
+            # Badge de multitud si hay excedente (+N)
+            if total_count > max_individual:
+                overflow_count = total_count - max_individual
+                remaining_presences = place_presences[max_individual:]
+                remaining_names = []
+                for p in remaining_presences:
+                    if character_map and p.character_id in character_map:
+                        remaining_names.append(character_map[p.character_id].name)
+                    else:
+                        remaining_names.append("Personaje")
+
+                overflow_badge = PresenceOverflowBadgeItem(
+                    overflow_count=overflow_count,
+                    remaining_names=remaining_names,
+                    index=max_individual,
+                    parent=node,
+                )
+                badges.append(overflow_badge)
 
             self._presence_badges[place_id] = badges
 

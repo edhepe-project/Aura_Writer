@@ -482,3 +482,77 @@ class PresenceBadgeItem(QGraphicsEllipseItem):
         )
         painter.restore()
 
+
+class PresenceOverflowBadgeItem(QGraphicsEllipseItem):
+    """
+    Badge contador de multitud (+N) cuando hay más de 3 personajes en un mismo lugar.
+    Muestra los personajes restantes en tooltip y mantiene la escena limpia y legible.
+    """
+    _BADGE_RADIUS = 8.0
+    _COLOR = QColor("#5856d6")  # Púrpura / Índigo sofisticado para multitudes
+
+    def __init__(
+        self,
+        overflow_count: int,
+        remaining_names: list[str],
+        index: int = 3,
+        parent: QGraphicsItem | None = None,
+    ):
+        r = self._BADGE_RADIUS
+        super().__init__(-r, -r, r * 2, r * 2, parent)
+
+        self._count = overflow_count
+        self._text = f"+{overflow_count}"
+
+        if remaining_names:
+            names_preview = "\n• ".join(remaining_names[:10])
+            if len(remaining_names) > 10:
+                names_preview += f"\n... y {len(remaining_names) - 10} más"
+            self.setToolTip(f"👥 {overflow_count} personajes más presentes aquí:\n• {names_preview}")
+
+        # ── Posición: arco continuo después del 3er badge ─────────────
+        parent_radius = getattr(parent, "radius", 22.0) if parent else 22.0
+        angle_deg = -65 + index * 32
+        angle_rad = math.radians(angle_deg)
+        offset_x = math.cos(angle_rad) * (parent_radius + r + 3)
+        offset_y = math.sin(angle_rad) * (parent_radius + r + 3)
+        self.setPos(offset_x, offset_y)
+
+        self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
+        self.setZValue(21)
+
+    def paint(self, painter: QPainter | None, option, widget=None):
+        if painter is None:
+            return
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+
+        color = self._COLOR
+        r = self._BADGE_RADIUS
+
+        # Resplandor sutil
+        glow = QRadialGradient(0, 0, r + 3)
+        glow.setColorAt(0.0, QColor(color.red(), color.green(), color.blue(), 120))
+        glow.setColorAt(1.0, QColor(color.red(), color.green(), color.blue(), 0))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(glow))
+        painter.drawEllipse(QRectF(-r - 3, -r - 3, (r + 3) * 2, (r + 3) * 2))
+
+        # Fondo
+        painter.setBrush(QBrush(color.darker(180)))
+        painter.setPen(QPen(color.lighter(130), 1.4))
+        painter.drawEllipse(QRectF(-r, -r, r * 2, r * 2))
+
+        # Texto +N
+        font = QFont("Inter", int(r * 0.75), QFont.Weight.Bold)
+        painter.setFont(font)
+        painter.setPen(QPen(QColor("#ffffff")))
+        painter.drawText(
+            QRectF(-r, -r, r * 2, r * 2),
+            Qt.AlignmentFlag.AlignCenter,
+            self._text,
+        )
+        painter.restore()
+
