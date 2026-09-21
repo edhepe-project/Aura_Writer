@@ -228,13 +228,19 @@ class PresencePanel(QWidget):
                     for libro in getattr(obra, "libros", []):
                         for c in getattr(libro, "capitulos", []):
                             if c.id == chapter_id:
-                                cap_title = f"Cap. {c.in_world_order}: {c.title}"
+                                raw_title = c.title.strip() if c.title else ""
+                                if raw_title:
+                                    cap_title = raw_title
+                                elif c.in_world_order and c.in_world_order > 0:
+                                    cap_title = f"Capítulo {c.in_world_order}"
+                                else:
+                                    cap_title = "Capítulo actual"
                                 break
 
             if cap_title:
-                self.lbl_cap_status.setText(f"📌 Asignando en: {cap_title}")
+                self.lbl_cap_status.setText(f"📌 Ubicar en: {cap_title}")
             else:
-                self.lbl_cap_status.setText("📌 Asignando en: 📖 Todos los capítulos (Global)")
+                self.lbl_cap_status.setText("📌 Ubicar en: 📖 Vista Global (Todos los cap.)")
 
         # Poblar el combo de personajes
         self.combo_add_char.clear()
