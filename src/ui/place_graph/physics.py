@@ -169,9 +169,12 @@ def compute_places_layout(
         positions[u_id] = (math.cos(u_theta) * u_dist, math.sin(u_theta) * u_dist)
 
     # ── 4. Relajación Física Real N-Body (Ley de Coulomb con Spatial Grid) ────
+    # Número de iteraciones reducido para no bloquear la UI más de ~100-150ms.
+    # La espiral áurea ya produce un layout de alta calidad; la relajación solo
+    # corrige solapamientos extremos. 10 iteraciones son suficientes visualmente.
     nodes_list = list(place_map.keys())
     n = len(nodes_list)
-    max_it = 28 if n <= 300 else 16
+    max_it = 10 if n <= 150 else 6
 
     if max_it > 0:
         radius_dict = {nid: TIER_NODE_RADIUS.get(tier_map.get(nid, 4), 16.0) for nid in nodes_list}

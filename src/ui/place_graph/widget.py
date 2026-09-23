@@ -9,9 +9,9 @@ from typing import Optional
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QLineEdit, QFrame, QComboBox, QMessageBox
+    QPushButton, QLineEdit, QFrame, QComboBox, QMessageBox, QStackedWidget
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QThread, pyqtSlot
 
 from core.models import Place, PlaceLink
 from core.theme_manager import ThemeManager
@@ -35,7 +35,8 @@ class PlaceGraphWidget(QWidget):
         self._places: list[Place] = []
         self._links: list[PlaceLink] = []
         self._node_map: dict[str, PlaceNodeItem] = {}
-        self._project_manager = None   # se asigna desde el controlador externo
+        self._project_manager = None
+        self._layout_worker: "_LayoutWorker | None" = None  # hilo de fisica activo
         self._setup_ui()
 
     @property
@@ -187,19 +188,46 @@ class PlaceGraphWidget(QWidget):
 
         root.addWidget(tb)
 
+        # -- Contenedor con QStackedWidget: Overlay de carga + Vista --------
+        self._stack = QStackedWidget()
 
+        # Capa 0: Overlay de carga (se muestra mientras calcula el layout)
+        is_dark_now = ThemeManager.is_dark()
+        overlay_bg = "#1c1c1e" if is_dark_now else "#f0ece3"
+        overlay = QFrame()
+        overlay.setStyleSheet(f"background: {overlay_bg};")
+        overlay_lay = QVBoxLayout(overlay)
+        overlay_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._loading_lbl = QLabel("Calculando mapa orbital...")
+        self._loading_lbl.setStyleSheet(
+            "color: #ffd60a; font-size: 14px; font-weight: bold;"
+        )
+        overlay_lay.addWidget(self._loading_lbl)
+        self._stack.addWidget(overlay)        # index 0
 
-        # Escena + Vista
+        # Capa 1: Escena + Vista real
+        graph_container = QWidget()
+        gc_lay = QVBoxLayout(graph_container)
+        gc_lay.setContentsMargins(0, 0, 0, 0)
+        gc_lay.setSpacing(0)
+
         self._scene = PlaceGraphScene(self)
         self._scene.place_selected.connect(self.place_selected)
         self._scene.place_double_clicked.connect(self.place_double_clicked)
         self._scene.background_clicked.connect(self._on_background_clicked)
 
         self._view = PlaceGraphView(self._scene, self)
-        root.addWidget(self._view, stretch=1)
+        gc_lay.addWidget(self._view, stretch=1)
+        self._stack.addWidget(graph_container)  # index 1
+
+        root.addWidget(self._stack, stretch=1)
 
         # Leyenda inferior
         root.addWidget(self._build_legend())
+
+        # Mostrar overlay al inicio hasta que los datos lleguen
+        self._stack.setCurrentIndex(0)
+
 
     def _build_legend(self) -> QFrame:
         is_dark = ThemeManager.is_dark()
@@ -413,6 +441,14 @@ class PlaceGraphWidget(QWidget):
     # ── Construcción del Grafo Planetario ────────────────────────────────────
 
     def _rebuild_graph(self):
+        """
+        Inicia la reconstruccion del grafo en dos fases:
+          1. Limpia la escena y muestra el overlay de carga (instantaneo, en el hilo principal).
+          2. Lanza un QThread que calcula compute_places_layout() en background.
+          3. Al terminar el hilo, _on_layout_ready() construye nodos/edges y oculta el overlay.
+        Esto evita que la UI se congele durante el calculo de fisica orbital.
+        """
+        # Limpiar estado anterior
         self._scene.clear()
         self._node_map.clear()
         self._scene._nodes.clear()
@@ -421,8 +457,24 @@ class PlaceGraphWidget(QWidget):
         self._scene._focused_id = None
 
         if not self._places:
+            self._stack.setCurrentIndex(1)  # mostrar grafo vacio
             return
 
+        # Mostrar overlay mientras calcula
+        self._stack.setCurrentIndex(0)
+
+        # Cancelar hilo previo si sigue vivo
+        if self._layout_worker and self._layout_worker.isRunning():
+            self._layout_worker.quit()
+            self._layout_worker.wait(200)
+
+        self._layout_worker = _LayoutWorker(self._places, self._links)
+        self._layout_worker.layout_ready.connect(self._on_layout_ready)
+        self._layout_worker.start()
+
+    @pyqtSlot(dict)
+    def _on_layout_ready(self, positions: dict):
+        """Recibe las posiciones calculadas por el hilo y construye el grafo en el hilo principal."""
         parent_map = {p.id: p.parent_place_id for p in self._places}
         children_map: dict[str, list[str]] = {p.id: [] for p in self._places}
         for p in self._places:
@@ -436,9 +488,6 @@ class PlaceGraphWidget(QWidget):
                 seen.add(cur); d += 1; cur = parent_map.get(cur, "")
             depth_map[p.id] = d
 
-        # Calcular posiciones planetarias
-        positions = compute_places_layout(self._places, self._links)
-
         for place in self._places:
             pos = positions.get(place.id, (0.0, 0.0))
             depth = depth_map.get(place.id, 0)
@@ -449,7 +498,7 @@ class PlaceGraphWidget(QWidget):
             self._scene._nodes[place.id] = node
             self._scene._adj[place.id] = set()
 
-        # 1. Enlaces orbitales (Planeta Padre → Luna/Estancia)
+        # 1. Enlaces orbitales (Planeta Padre -> Luna/Estancia)
         edge_idx: dict[frozenset, int] = {}
         for p in self._places:
             if p.parent_place_id and p.parent_place_id in self._node_map and p.id in self._node_map:
@@ -458,7 +507,7 @@ class PlaceGraphWidget(QWidget):
                 h_link = PlaceLink(
                     place_id_a=p.parent_place_id,
                     place_id_b=p.id,
-                    label="órbita",
+                    label="orbita",
                     connection_type="contiene",
                     bidirectional=False
                 )
@@ -471,7 +520,7 @@ class PlaceGraphWidget(QWidget):
                 self._scene._adj.setdefault(p.parent_place_id, set()).add(p.id)
                 self._scene._adj.setdefault(p.id, set()).add(p.parent_place_id)
 
-        # 2. Enlaces de Rutas Geográficas manuales
+        # 2. Enlaces de Rutas Geograficas manuales
         seen_pairs: set[frozenset] = set()
         for link in self._links:
             pair = frozenset([link.place_id_a, link.place_id_b])
@@ -489,34 +538,52 @@ class PlaceGraphWidget(QWidget):
                 self._scene._adj.setdefault(link.place_id_a, set()).add(link.place_id_b)
                 self._scene._adj.setdefault(link.place_id_b, set()).add(link.place_id_a)
 
+        # Mostrar el grafo y ajustar camara
+        self._stack.setCurrentIndex(1)
         self._fit_to_view()
+        # Cargar presencias con el capitulo activo (si hay proyecto)
+        if self._project_manager:
+            chapter_id = self._chapter_combo.currentData()
+            self.load_presences(chapter_id)
+
 
     # ── Reorganización y Búsqueda ───────────────────────────────────────────
 
     def reorganize_layout(self):
-        """Recalcula la física planetaria y actualiza el grafo."""
+        """Recalcula la fisica planetaria en background y actualiza el grafo sin bloquear la UI."""
         if not self._places:
             return
-        positions = compute_places_layout(self._places, self._links)
+
+        # Mostrar overlay mientras recalcula
+        self._stack.setCurrentIndex(0)
+
+        if self._layout_worker and self._layout_worker.isRunning():
+            self._layout_worker.quit()
+            self._layout_worker.wait(200)
+
+        self._layout_worker = _LayoutWorker(self._places, self._links)
+        self._layout_worker.layout_ready.connect(self._on_reorganize_ready)
+        self._layout_worker.start()
+
+    @pyqtSlot(dict)
+    def _on_reorganize_ready(self, positions: dict):
+        """Aplica las nuevas posiciones al grafo tras reorganizar."""
         for place_id, (px, py) in positions.items():
             node = self._node_map.get(place_id)
             if node:
                 node.setPos(px, py)
 
-        # Actualizar aristas con las nuevas posiciones
         for edge in self._scene._all_edges:
             edge._update_path()
-            # Respetar la visibilidad actual tras reorganizar
             edge.setVisible(self._edges_visible)
 
-        # Reposicionar badges de presencia (siguen al nodo padre automáticamente
-        # porque son hijos del QGraphicsItem, pero forzar refresco de la escena)
         self._scene.update()
+        self._stack.setCurrentIndex(1)
         self._fit_to_view()
-        # Re-aplicar filtros activos tras reorganizar
         char_id = self._char_filter_combo.currentData()
         if char_id:
             self._apply_char_filter(char_id)
+
 
     def _toggle_edges(self) -> None:
         """Muestra u oculta todas las aristas (órbitas + rutas) del Atlas."""
@@ -555,3 +622,38 @@ class PlaceGraphWidget(QWidget):
         if not rect.isEmpty():
             self._view.fitInView(rect.adjusted(-90, -90, 90, 90),
                                  Qt.AspectRatioMode.KeepAspectRatio)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Worker: calcula el layout de física orbital en un hilo secundario
+# ─────────────────────────────────────────────────────────────────────────────
+
+class _LayoutWorker(QThread):
+    """
+    Ejecuta compute_places_layout() en un hilo secundario para no bloquear la UI.
+
+    El cálculo N-Body con espiral áurea puede tomar 100-300 ms con proyectos
+    grandes. Al moverlo fuera del hilo principal, el diálogo del Atlas se abre
+    instantáneamente y el grafo aparece ~200ms después.
+
+    Señales:
+        layout_ready(dict): mapa {place_id: (x, y)} cuando termina el cálculo.
+    """
+    layout_ready = pyqtSignal(dict)
+
+    def __init__(self, places: list[Place], links: list[PlaceLink], parent=None):
+        super().__init__(parent)
+        # Copiar referencias (son inmutables durante el cálculo)
+        self._places = places
+        self._links  = links
+
+    def run(self) -> None:
+        """Ejecutado en el hilo secundario. No llamar directamente — usar .start()."""
+        try:
+            positions = compute_places_layout(self._places, self._links)
+            self.layout_ready.emit(positions)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("_LayoutWorker: error calculando layout")
+            # Emitir posiciones vacías para que el grafo se muestre aunque sea sin layout
+            self.layout_ready.emit({p.id: (0.0, 0.0) for p in self._places})
