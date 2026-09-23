@@ -35,49 +35,26 @@ class StorySidePanel(QWidget):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(10)
 
-        # Estilo visual panel lateral oscuro elegante
-        self.setStyleSheet("""
-            QWidget#StorySidePanel {
-                background-color: #252528;
-                border-left: 1px solid #3a3a3c;
-            }
-            QLabel {
-                color: #e5e5ea;
-                font-weight: bold;
-                font-size: 11px;
-            }
-            QLineEdit, QTextEdit, QComboBox {
-                background-color: #1c1c1e;
+        # Dejamos que el tema global (ThemeManager) decida los colores base.
+        # Solo definimos un borde separador para el panel.
+        from core.theme_manager import ThemeManager
+        is_dark = ThemeManager.is_dark()
+        border_col = "#3a3a3c" if is_dark else "#d4cfc8"
+        bg_col = "#252528" if is_dark else "#faf7f3"
+        
+        self.setStyleSheet(f"""
+            QWidget#StorySidePanel {{
+                background-color: {bg_col};
+                border-left: 1px solid {border_col};
+            }}
+            QPushButton#SaveBtn {{
+                background-color: {"#30d158" if is_dark else "#16a34a"};
+                color: {"#000000" if is_dark else "#ffffff"};
+            }}
+            QPushButton#DeleteBtn {{
+                background-color: {"#ff453a" if is_dark else "#dc2626"};
                 color: #ffffff;
-                border: 1px solid #3a3a3c;
-                border-radius: 6px;
-                padding: 6px;
-            }
-            QLineEdit:focus, QTextEdit:focus, QComboBox:focus {
-                border-color: #0a84ff;
-            }
-            QPushButton {
-                background-color: #3a3a3c;
-                color: #ffffff;
-                border: none;
-                border-radius: 6px;
-                padding: 8px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #48484a;
-            }
-            QPushButton#SaveBtn {
-                background-color: #30d158;
-                color: #000000;
-            }
-            QPushButton#SaveBtn:hover {
-                background-color: #34c759;
-            }
-            QPushButton#DeleteBtn {
-                background-color: #ff453a;
-                color: #ffffff;
-            }
+            }}
         """)
         self.setObjectName("StorySidePanel")
 
@@ -115,7 +92,8 @@ class StorySidePanel(QWidget):
 
         # 3b. Capítulo vinculado (solo visible cuando status == "escrito")
         self.chapter_row_label = QLabel("📖 CAPÍTULO VINCULADO")
-        self.chapter_row_label.setStyleSheet("color: #ffd60a; font-size: 11px; font-weight: bold;")
+        _ch_color = "#ffd60a" if is_dark else "#b45309"
+        self.chapter_row_label.setStyleSheet(f"color: {_ch_color}; font-size: 11px; font-weight: bold;")
         self.chapter_combo = QComboBox()
         self.chapter_combo.addItem("— Sin capítulo asignado —", None)
         form.addWidget(self.chapter_row_label)

@@ -114,7 +114,7 @@ class MainMenuBuilderMixin:
         grid_act.triggered.connect(self.open_presence_grid_dialog)
         view_menu.addAction(grid_act)
 
-        places_act = QAction("🏰 Lugares & Escenarios", self)
+        places_act = QAction("🏰 Lugares && Escenarios", self)
         places_act.setShortcut("Ctrl+Alt+L")
         places_act.triggered.connect(lambda: self.open_place_edit_dialog(None))
         view_menu.addAction(places_act)

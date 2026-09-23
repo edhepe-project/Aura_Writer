@@ -93,31 +93,7 @@ class StoryGraphWidget(QWidget):
 
         # 1. Toolbar superior
         toolbar = QToolBar()
-        from core.theme_manager import ThemeManager
-        _is_dark = ThemeManager.is_dark()
-        _tb_bg   = "#1c1c1e" if _is_dark else "#f0f0f2"
-        _tb_sep  = "#2c2c2e" if _is_dark else "#d1d5db"
-        _btn_bg  = "#2c2c2e" if _is_dark else "#e5e7eb"
-        _btn_fg  = "#ffffff" if _is_dark else "#1c1c1e"
-        _btn_hov = "#3a3a3c" if _is_dark else "#d1d5db"
-        toolbar.setStyleSheet(f"""
-            QToolBar {{
-                background-color: {_tb_bg};
-                border-bottom: 1px solid {_tb_sep};
-                padding: 4px;
-                spacing: 8px;
-            }}
-            QToolButton {{
-                background-color: {_btn_bg};
-                color: {_btn_fg};
-                border-radius: 4px;
-                padding: 6px 12px;
-                font-weight: bold;
-            }}
-            QToolButton:hover {{
-                background-color: {_btn_hov};
-            }}
-        """)
+        # Se remueve setStyleSheet para heredar los estilos del ThemeManager globales
 
         act_add_node = QAction("✨ Nuevo Bloque", self)
         act_add_node.triggered.connect(self._on_add_block_clicked)
