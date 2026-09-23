@@ -169,6 +169,15 @@ class StoryGraphWidget(QWidget):
         self.view.setOptimizationFlag(QGraphicsView.OptimizationFlag.DontSavePainterState)
         self.view.setOptimizationFlag(QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing)
         self._apply_theme()
+        center_layout.addWidget(self.view, stretch=1)
+
+        # Panel lateral
+        self.side_panel = StorySidePanel(self)
+        self.side_panel.block_updated.connect(self._on_block_updated)
+        self.side_panel.block_deleted.connect(self._on_node_deleted)
+        center_layout.addWidget(self.side_panel)
+
+        main_layout.addWidget(center_widget)
 
     def _apply_theme(self):
         """Aplica colores de fondo según el tema activo (claro u oscuro)."""
@@ -179,15 +188,6 @@ class StoryGraphWidget(QWidget):
         self.view.setStyleSheet(f"QGraphicsView {{ border: none; background-color: {bg_color}; }}")
         self.scene.setBackgroundBrush(QBrush(QColor(bg_color)))
 
-        center_layout.addWidget(self.view, stretch=1)
-
-        # Panel lateral
-        self.side_panel = StorySidePanel(self)
-        self.side_panel.block_updated.connect(self._on_block_updated)
-        self.side_panel.block_deleted.connect(self._on_node_deleted)
-        center_layout.addWidget(self.side_panel)
-
-        main_layout.addWidget(center_widget)
 
     def _reload_graph(self):
         # Construir lookup {chapter_id: chapter_title} para mostrar en las tarjetas
