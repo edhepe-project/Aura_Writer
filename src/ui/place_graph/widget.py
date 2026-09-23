@@ -186,7 +186,35 @@ class PlaceGraphWidget(QWidget):
         btn_fit.clicked.connect(self._fit_to_view)
         tbl.addWidget(btn_fit)
 
+        # Separador
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.VLine)
+        sep.setFixedWidth(1)
+        sep.setStyleSheet("background: #3a3a3c;")
+        tbl.addWidget(sep)
+
+        # Boton Cuadricula de Presencias
+        btn_grid = QPushButton("  Cuadricula")
+        btn_grid.setFixedHeight(28)
+        btn_grid.setToolTip("Abrir la Cuadricula de Presencias (personajes x capitulos)")
+        btn_grid.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_grid.setStyleSheet("""
+            QPushButton {
+                background: #ffd60a18;
+                color: #ffd60a;
+                border: 1px solid #ffd60a44;
+                border-radius: 6px;
+                font-size: 11px;
+                font-weight: bold;
+                padding: 0 10px;
+            }
+            QPushButton:hover { background: #ffd60a30; border-color: #ffd60a; }
+        """)
+        btn_grid.clicked.connect(self._open_presence_grid)
+        tbl.addWidget(btn_grid)
+
         root.addWidget(tb)
+
 
         # -- Contenedor con QStackedWidget: Overlay de carga + Vista --------
         self._stack = QStackedWidget()
@@ -622,6 +650,16 @@ class PlaceGraphWidget(QWidget):
         if not rect.isEmpty():
             self._view.fitInView(rect.adjusted(-90, -90, 90, 90),
                                  Qt.AspectRatioMode.KeepAspectRatio)
+
+    def _open_presence_grid(self):
+        """Abre la Cuadricula de Presencias (personajes x capitulos)."""
+        if not self._project_manager:
+            return
+        from ui.presence_grid import PresenceGridDialog
+        dlg = PresenceGridDialog(self._project_manager, parent=self)
+        dlg.exec()
+        # Recargar el atlas con los datos actualizados por la cuadricula
+        self._rebuild_graph()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
