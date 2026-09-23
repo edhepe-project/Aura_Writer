@@ -355,10 +355,36 @@ class PresencePanel(QWidget):
 
         root.addWidget(ctx_frame)
 
-        # -- Formulario de asignacion ----------------------------------------
-        form_frame = QFrame()
-        form_frame.setStyleSheet("QFrame { background: transparent; border: none; }")
-        form_lay = QVBoxLayout(form_frame)
+        # -- Hint: seleccionar capitulo primero (visible solo en vista global) -
+        self._chapter_hint = QFrame()
+        self._chapter_hint.setStyleSheet("""
+            QFrame {
+                background: rgba(10, 132, 255, 0.07);
+                border: 1px solid rgba(10, 132, 255, 0.25);
+                border-radius: 8px;
+            }
+        """)
+        hint_lay = QVBoxLayout(self._chapter_hint)
+        hint_lay.setContentsMargins(12, 10, 12, 10)
+        hint_lay.setSpacing(4)
+        hint_icon = QLabel("Selecciona un capitulo para editar")
+        hint_icon.setStyleSheet("font-weight: bold; font-size: 11px; color: #0a84ff;")
+        hint_lay.addWidget(hint_icon)
+        hint_desc = QLabel(
+            "La vista Todos los capitulos es solo de lectura.\n"
+            "Elige un capitulo especifico en la toolbar para\n"
+            "colocar o mover personajes en este escenario."
+        )
+        hint_desc.setStyleSheet("font-size: 10px; color: #636366; line-height: 1.4;")
+        hint_desc.setWordWrap(True)
+        hint_lay.addWidget(hint_desc)
+        root.addWidget(self._chapter_hint)
+        self._chapter_hint.setVisible(False)  # oculto por defecto
+
+        # -- Formulario de asignacion (solo visible con capitulo activo) ------
+        self._form_frame = QFrame()
+        self._form_frame.setStyleSheet("QFrame { background: transparent; border: none; }")
+        form_lay = QVBoxLayout(self._form_frame)
         form_lay.setContentsMargins(0, 0, 0, 0)
         form_lay.setSpacing(6)
 
@@ -403,7 +429,7 @@ class PresencePanel(QWidget):
         self.btn_add.clicked.connect(self._on_add_character_manual)
         form_lay.addWidget(self.btn_add)
 
-        root.addWidget(form_frame)
+        root.addWidget(self._form_frame)
 
         # -- Separador y titulo de lista ------------------------------------
         sep = QFrame()
@@ -449,12 +475,17 @@ class PresencePanel(QWidget):
         self._update_context_labels(place, chapter_id)
         self._populate_char_combo()
 
+        # Mostrar u ocultar el formulario segun si hay capitulo seleccionado
+        has_chapter = chapter_id is not None
+        self._form_frame.setVisible(has_chapter)
+        self._chapter_hint.setVisible(not has_chapter)
+
         if not place:
             self._show_empty("Selecciona un lugar en el mapa.")
             self.btn_add.setEnabled(False)
             return
 
-        self.btn_add.setEnabled(True)
+        self.btn_add.setEnabled(has_chapter)
 
         if not self._project_manager or not self._project_manager.metadata:
             return
@@ -483,10 +514,13 @@ class PresencePanel(QWidget):
             place_presences = [p for p in merged if p.place_id == place.id]
 
         if not place_presences:
-            self._show_empty(
-                "Ningun personaje esta aqui en esta escena.\n"
-                "Usa el formulario de arriba para anadirlos."
-            )
+            if chapter_id is None:
+                self._show_empty("Ningun personaje tiene registro aqui todavia.")
+            else:
+                self._show_empty(
+                    "Ningun personaje esta aqui en este capitulo.\n"
+                    "Usa el formulario de arriba para anadirlos."
+                )
             return
 
         all_places = getattr(meta, "places", [])
