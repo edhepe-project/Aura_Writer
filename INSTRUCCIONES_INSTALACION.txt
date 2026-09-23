@@ -1,84 +1,100 @@
-╔═══════════════════════════════════════════════════════════════╗
-║                AURA WRITER — GUÍA DE INSTALACIÓN              ║
-║         "Tu obra masiva, protegida y profesional"             ║
-╚═══════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════════╗
+║           AURA WRITER v1.7.2 — GUÍA DE INSTALACIÓN               ║
+║         "Tu obra masiva, protegida y profesional"                 ║
+╚═══════════════════════════════════════════════════════════════════╝
 
-Aura Writer es una aplicación 100% offline. El código del programa se 
-descarga independientemente de tus novelas (los archivos .aura viajan 
-en tu USB o donde prefieras).
+Aura Writer es una aplicación 100% offline. Tus archivos .aura son
+portátiles y viajan contigo en USB, disco externo o donde prefieras.
 
------------------------------------------------------------------
-🚀 INSTALACIÓN RÁPIDA EN UNA SOLA LÍNEA (WINDOWS POWERSHELL)
------------------------------------------------------------------
+═══════════════════════════════════════════════════════════════════
+  OPCIÓN 1 — INSTALADOR VISUAL (WINDOWS) ✅ Recomendada
+═══════════════════════════════════════════════════════════════════
 
-Abre PowerShell en la carpeta donde quieras instalar el programa y pega:
+1. Descarga  AuraWriter_Setup_v1.7.2.exe  desde la sección Releases
+   del repositorio en GitHub.
+
+2. Ejecuta el instalador y sigue el asistente (siguiente → siguiente).
+
+3. Aura Writer quedará instalado como aplicación nativa de Windows,
+   con acceso directo en el escritorio y en el menú Inicio.
+
+4. Para actualizar versiones anteriores, instala directamente encima —
+   el asistente detecta la instalación previa y la actualiza limpiamente.
+
+═══════════════════════════════════════════════════════════════════
+  OPCIÓN 2 — INSTALACIÓN RÁPIDA DESDE POWERSHELL (WINDOWS)
+═══════════════════════════════════════════════════════════════════
+
+Abre PowerShell en la carpeta donde quieras instalar y pega:
 
 git clone https://github.com/edhepe-project/Aura_Writer.git; cd Aura_Writer; python -m venv venv; .\venv\Scripts\pip install -r requirements.txt; python launcher.py
 
-(Requisito previo: Tener instalado Git y Python 3.10+ con la opción "Add Python to PATH").
+(Requisitos previos: Git + Python 3.10+ con "Add to PATH" activado)
 
------------------------------------------------------------------
-🔑 IMPORTANTE: LLAVE MAESTRA EN EQUIPOS NUEVOS
------------------------------------------------------------------
+═══════════════════════════════════════════════════════════════════
+  OPCIÓN 3 — PASO A PASO EN WINDOWS 10 / 11
+═══════════════════════════════════════════════════════════════════
 
-Aura Writer utiliza doble capa de cifrado (Contraseña + Llave Maestra).
-Para abrir tus archivos .aura en otra computadora:
-
-1. En tu computadora principal:
-   - Abre Aura Writer.
-   - En la pantalla de inicio, haz clic en el botón superior: "🔑 Llave..."
-   - Presiona "📋 Copiar" para copiar tu Llave Maestra (código de 64 caracteres).
-
-2. En la computadora nueva:
-   - Abre Aura Writer.
-   - Haz clic en "🔑 Llave...".
-   - Pega tu llave en "Ingresar o generar nueva llave" y pulsa "💾 Guardar Llave".
-   - ¡Listo! Ahora podrás abrir tus novelas introduciendo tu contraseña normal.
-
------------------------------------------------------------------
-1. INSTALACIÓN MANUAL PASO A PASO (WINDOWS 10 / 11)
------------------------------------------------------------------
-
-Paso 1: Clonar o descargar el repositorio
+Paso 1 — Clonar o descargar el repositorio:
   git clone https://github.com/edhepe-project/Aura_Writer.git
   cd Aura_Writer
 
-Paso 2: Configurar el entorno virtual e instalar dependencias
+Paso 2 — Crear entorno virtual e instalar dependencias:
   python -m venv venv
   .\venv\Scripts\activate
   pip install -r requirements.txt
 
-Paso 3: Lanzar la aplicación
+Paso 3 — Lanzar la aplicación:
   python launcher.py
 
------------------------------------------------------------------
-2. UBUNTU / DEBIAN / LINUX MINT
------------------------------------------------------------------
+═══════════════════════════════════════════════════════════════════
+  OPCIÓN 4 — UBUNTU / DEBIAN / LINUX MINT
+═══════════════════════════════════════════════════════════════════
 
-Paso 1: Instalar dependencias del sistema
+Paso 1 — Instalar dependencias del sistema:
   sudo apt update
   sudo apt install -y git python3 python3-pip python3-venv \
       libxcb-cursor0 libxcb-xinerama0 libxcb-icccm4 \
       libxcb-image0 libxcb-keysyms1 libxcb-render-util0 \
       libxcb-xkb1 libxkbcommon-x11-0 libegl1 libgl1-mesa-glx
 
-Paso 2: Clonar y configurar
+Paso 2 — Clonar y configurar:
   git clone https://github.com/edhepe-project/Aura_Writer.git
   cd Aura_Writer
   python3 -m venv venv
   source venv/bin/activate
   pip install -r requirements.txt
 
-Paso 3: Lanzar aplicación
+Paso 3 — Lanzar:
   python3 launcher.py
 
------------------------------------------------------------------
-🛡️ NOTAS DE SEGURIDAD Y PRIVACIDAD
------------------------------------------------------------------
+═══════════════════════════════════════════════════════════════════
+  🔑 LLAVE MAESTRA — TRASLADAR A UNA NUEVA COMPUTADORA
+═══════════════════════════════════════════════════════════════════
+
+Aura Writer usa doble cifrado (Contraseña + Llave Maestra AES-256).
+Para abrir tus archivos .aura en un equipo nuevo:
+
+EN TU COMPUTADORA PRINCIPAL:
+  1. Abre Aura Writer y en la pantalla de inicio haz clic en "🔑 Llave..."
+  2. Presiona "📋 Copiar" — obtendrás un código de 64 caracteres.
+
+EN LA COMPUTADORA NUEVA:
+  1. Abre Aura Writer → clic en "🔑 Llave..."
+  2. Pega tu llave en el campo "Ingresar o generar nueva llave".
+  3. Pulsa "💾 Guardar Llave".
+  4. ¡Listo! Ahora podrás abrir tus novelas con tu contraseña habitual.
+
+═══════════════════════════════════════════════════════════════════
+  🛡️ NOTAS DE SEGURIDAD Y PRIVACIDAD
+═══════════════════════════════════════════════════════════════════
+
 - La aplicación NO requiere internet. Está aislada por diseño.
-- Si usas 2FA, mantén tus códigos de recuperación (Recovery Codes)
-  en formato físico o en un gestor de contraseñas seguro.
-- Sin contraseña ni Llave Maestra, la recuperación de datos es imposible.
+- Si usas 2FA (TOTP), guarda tus Recovery Codes en un lugar seguro
+  (gestor de contraseñas, papel físico en lugar seguro).
+- Sin Contraseña + Llave Maestra, la recuperación de datos es imposible.
+  No hay "recuperar cuenta" porque no hay servidores.
 
-Aura Writer — Diseñado por escritores para escritores.
+═══════════════════════════════════════════════════════════════════
 
+Aura Writer v1.7.2 — Diseñado por escritores, para escritores.
