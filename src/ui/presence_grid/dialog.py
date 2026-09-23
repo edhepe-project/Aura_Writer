@@ -207,19 +207,24 @@ class _PresenceCell(QFrame):
         is_dark = self._is_dark
         if self._place_id:
             color = _TYPE_INFO.get(self._pres_type, ("", "#8e8e93"))[1]
-            bg, bord, text_c = f"{color}18", f"{color}55", color
+            # Tema oscuro: colores con transparencia sobre negro
+            # Tema claro: colores mas saturados y legibles sobre blanco
+            if is_dark:
+                bg, bord, text_c = f"{color}22", f"{color}66", color
+            else:
+                bg, bord, text_c = f"{color}28", f"{color}99", color
         else:
-            bg     = "#2a2a2c" if is_dark else "#f2ede4"
-            bord   = "#3a3a3c" if is_dark else "#ddd8cf"
-            text_c = "#48484a" if is_dark else "#c7c3bc"
+            bg     = "#2a2a2c" if is_dark else "#ffffff"
+            bord   = "#3a3a3c" if is_dark else "#c8d0dc"
+            text_c = "#48484a" if is_dark else "#9ba8b8"
             color  = "transparent"
 
         self.setStyleSheet(f"background: {bg}; border: 1px solid {bord}; border-radius: 6px;")
         self._pill.setStyleSheet(
-            f"font-size: 11px; font-weight: {'bold' if self._place_id else 'normal'}; "
+            f"font-size: 12px; font-weight: {'bold' if self._place_id else 'normal'}; "
             f"color: {text_c}; background: transparent;"
         )
-        self._type_lbl.setStyleSheet(f"font-size: 8px; color: {color}; background: transparent;")
+        self._type_lbl.setStyleSheet(f"font-size: 9px; color: {color}; background: transparent;")
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -362,14 +367,21 @@ class _PresenceGridWidget(QWidget):
                 pres_map[key] = p
 
         is_dark = self._is_dark
-        fg      = "#f2f2f7" if is_dark else "#1c1c1e"
-        bg_hdr  = "#1c1c1e" if is_dark else "#e8e4dc"
-        bord    = "#3a3a3c" if is_dark else "#d4cfc8"
+        fg      = "#f2f2f7" if is_dark else "#1a1d23"
+        bg_hdr  = "#1c1c1e" if is_dark else "#edf0f7"
+        bord    = "#3a3a3c" if is_dark else "#c2cbd9"
 
-        role_colors = {
-            "Protagonista": "#ffd60a", "Antagonista": "#ff453a",
-            "Secundario":   "#30d158", "Misterioso":  "#bf5af2", "Otro": "#636366",
-        }
+        # Colores de rol: versiones mas oscuras/saturadas para tema claro
+        if is_dark:
+            role_colors = {
+                "Protagonista": "#ffd60a", "Antagonista": "#ff453a",
+                "Secundario":   "#30d158", "Misterioso":  "#bf5af2", "Otro": "#636366",
+            }
+        else:
+            role_colors = {
+                "Protagonista": "#c07800", "Antagonista": "#c41e0e",
+                "Secundario":   "#1a7a38", "Misterioso":  "#7a1fa8", "Otro": "#4a5568",
+            }
 
         # Limpiar contenidos anteriores
         self._clear_layout(self._q2_lay)
@@ -377,26 +389,29 @@ class _PresenceGridWidget(QWidget):
         self._clear_grid(self._q4_lay)
 
         # ── Q2: Headers de capitulos ─────────────────────────────────────────
+        accent_hdr = "#2c2c3a" if is_dark else "#3d5a8a"  # color acento del header
         total_w = 0
         for chapter in self._chapters:
             hdr = QFrame()
             hdr.setFixedSize(_COL_CHAPTER_W, _ROW_HEADER_H)
             hdr.setStyleSheet(
-                f"background: {bg_hdr}; border-right: 1px solid {bord}; border-bottom: 2px solid {bord};"
+                f"background: {bg_hdr}; border-right: 1px solid {bord}; "
+                f"border-bottom: 2px solid {accent_hdr};"
             )
             hl = QVBoxLayout(hdr)
             hl.setContentsMargins(4, 6, 4, 4)
             hl.setSpacing(2)
             hl.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
+            num_color = "#8e8e93" if is_dark else "#6b7fa8"
             n = QLabel(f"#{chapter.in_world_order}" if chapter.in_world_order > 0 else "")
-            n.setStyleSheet("font-size: 9px; color: #8e8e93; font-weight: bold;")
+            n.setStyleSheet(f"font-size: 10px; color: {num_color}; font-weight: bold;")
             n.setAlignment(Qt.AlignmentFlag.AlignCenter)
             hl.addWidget(n)
 
             raw = (chapter.title or "").strip()
             t = QLabel((raw[:14] + "...") if len(raw) > 14 else raw or "Sin titulo")
-            t.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {fg};")
+            t.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {fg};")
             t.setAlignment(Qt.AlignmentFlag.AlignCenter)
             t.setToolTip(raw)
             hl.addWidget(t)
@@ -445,12 +460,12 @@ class _PresenceGridWidget(QWidget):
             txt_lay.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
             nl = QLabel((char.name[:22] + "...") if len(char.name) > 22 else char.name)
-            nl.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {fg}; background: transparent;")
+            nl.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {fg}; background: transparent;")
             nl.setToolTip(char.name)
             txt_lay.addWidget(nl)
 
             rl = QLabel(char.role)
-            rl.setStyleSheet(f"font-size: 9px; color: {rc}; background: transparent;")
+            rl.setStyleSheet(f"font-size: 10px; color: {rc}; background: transparent; font-weight: 500;")
             txt_lay.addWidget(rl)
 
             ch_row.addWidget(text_area, stretch=1)
@@ -627,15 +642,16 @@ class PresenceGridDialog(QDialog):
         self.resize(w, h)
 
         is_dark = ThemeManager.is_dark()
-        bg = "#141416" if is_dark else "#f0ece3"
+        bg = "#141416" if is_dark else "#f4f6fa"
         self.setStyleSheet(f"QDialog {{ background: {bg}; }}")
         self._setup_ui(is_dark)
         self._grid_widget.build()
 
     def _setup_ui(self, is_dark):
-        fg    = "#f2f2f7" if is_dark else "#1c1c1e"
-        bord  = "#3a3a3c" if is_dark else "#d4cfc8"
-        bg_tb = "#1c1c1e" if is_dark else "#e8e4dc"
+        fg    = "#f2f2f7" if is_dark else "#1a1d23"
+        bord  = "#3a3a3c" if is_dark else "#c2cbd9"
+        bg_tb = "#1c1c1e" if is_dark else "#dde3f0"
+        sub   = "#636366" if is_dark else "#5a6a8a"
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -654,15 +670,21 @@ class PresenceGridDialog(QDialog):
         tbl.addWidget(tl)
 
         sl = QLabel("Filas = personajes  |  Columnas = capitulos")
-        sl.setStyleSheet("font-size: 10px; color: #636366;")
+        sl.setStyleSheet(f"font-size: 10px; color: {sub};")
         tbl.addWidget(sl)
         tbl.addStretch()
 
-        for lbl, col in [("Presente", "#30d158"), ("En transito", "#0a84ff"), ("Salida", "#ff453a")]:
+        # Pills de estado — colores adaptados al tema
+        if is_dark:
+            pills = [("Presente", "#30d158"), ("En transito", "#0a84ff"), ("Salida", "#ff453a")]
+        else:
+            pills = [("Presente", "#1a7a38"), ("En transito", "#1a56b0"), ("Salida", "#c41e0e")]
+
+        for lbl, col in pills:
             pill = QLabel(f"  {lbl}")
             pill.setStyleSheet(
                 f"font-size: 10px; color: {col}; font-weight: bold; "
-                f"border: 1px solid {col}44; border-radius: 4px; padding: 2px 8px; background: {col}18;"
+                f"border: 1px solid {col}55; border-radius: 4px; padding: 2px 8px; background: {col}18;"
             )
             tbl.addWidget(pill)
 
