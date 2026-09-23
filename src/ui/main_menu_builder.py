@@ -118,12 +118,6 @@ class MainMenuBuilderMixin:
         timeline_act.triggered.connect(self.open_timeline_dialog)
         view_menu.addAction(timeline_act)
 
-        atlas_act = QAction("🗺️ Atlas Literario (Grafo de Lugares)", self)
-        atlas_act.setShortcut("Ctrl+Alt+G")
-        atlas_act.triggered.connect(self.open_place_graph_dialog)
-        view_menu.addAction(atlas_act)
-
-
 
         view_menu.addSeparator()
         self._appearance_act = QAction("🎨 Apariencia…", self)
