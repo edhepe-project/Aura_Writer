@@ -1,696 +1,18 @@
 """
-presence_grid/dialog.py - Cuadricula de Presencias (tipo spreadsheet).
+presence_grid/dialog.py - Dialogo principal de la Cuadricula de Presencias.
 
-Arquitectura de 4 cuadrantes con columna y header FIJOS:
-  Q1 (arriba-izq):  Esquina estatica (PERSONAJE label)
-  Q2 (arriba-der):  Headers de capitulos - scroll horizontal sincronizado
-  Q3 (abajo-izq):   Nombres de personajes - scroll vertical sincronizado
-  Q4 (abajo-der):   Celdas de presencia - scroll maestro (ambas direcciones)
-
-El scroll de Q4 (maestro) se sincroniza con Q2 (horizontal) y Q3 (vertical).
-Resultado: la columna de personajes y el header de capitulos nunca desaparecen.
+Este modulo solo contiene PresenceGridDialog (el contenedor del dialogo).
+La logica de la cuadricula esta en grid_widget.py y place_picker.py.
 """
 from __future__ import annotations
-import logging
 
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
-    QPushButton, QScrollArea, QWidget, QGridLayout,
-    QListWidget, QListWidgetItem, QComboBox,
-    QApplication, QLineEdit, QSizePolicy
+    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QPushButton, QApplication,
 )
-from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtGui import QCursor
+from PyQt6.QtCore import Qt
 
-from core.models import Character, CharacterPresence, Place
 from core.theme_manager import ThemeManager
-
-log = logging.getLogger(__name__)
-
-_ROLE_ORDER = ["Protagonista", "Antagonista", "Secundario", "Misterioso", "Otro"]
-
-_TYPE_INFO = {
-    "present":    ("Presente",    "#30d158"),
-    "transit":    ("En transito", "#0a84ff"),
-    "departed":   ("Salida",      "#ff453a"),
-    "referenced": ("Mencion",     "#8e8e93"),
-}
-
-_STATUS_OPTIONS = [
-    ("Presente",    "present"),
-    ("En transito", "transit"),
-    ("Salida",      "departed"),
-]
-
-_COL_CHAR_WIDTH = 210   # ancho fijo de la columna de personajes (Q1 y Q3)
-_COL_CHAPTER_W  = 130   # ancho de cada columna de capitulo
-_ROW_HEADER_H   = 72    # alto del header de capitulos (Q1 y Q2) - mas alto para mejor visibilidad
-_ROW_CELL_H     = 54    # alto de cada fila de personaje
-
-
-# ---------------------------------------------------------------------------
-#  Picker de lugar (popup al hacer clic en una celda)
-# ---------------------------------------------------------------------------
-class _PlacePickerDialog(QDialog):
-    def __init__(self, char_name, cap_title, places, current_place_id, current_type, is_dark, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Asignar ubicacion")
-        self.setFixedSize(380, 460)
-        self.selected_place_id = current_place_id or None
-        self.selected_type = current_type or "present"
-        self.cleared = False
-        self._is_dark = is_dark
-
-        bg   = "#1c1c1e" if is_dark else "#f8f9fc"
-        fg   = "#f2f2f7" if is_dark else "#1a1d23"
-        card = "#2c2c2e" if is_dark else "#ffffff"
-        bord = "#3a3a3c" if is_dark else "#c8d0dc"
-        sub  = "#8e8e93" if is_dark else "#5a6a8a"
-
-        self.setStyleSheet(f"""
-            QDialog {{ background: {bg}; }}
-            QLabel {{ color: {fg}; }}
-            QListWidget {{
-                background: {card}; border: 1px solid {bord};
-                border-radius: 8px; color: {fg}; font-size: 12px; outline: none;
-            }}
-            QListWidget::item {{ padding: 9px 12px; border-bottom: 1px solid {bord}; }}
-            QListWidget::item:selected {{ background: #0a84ff; color: #fff; border-radius: 4px; }}
-            QListWidget::item:hover {{ background: {'#3a3a3c' if is_dark else '#eef1f8'}; }}
-            QLineEdit {{
-                background: {card}; border: 1px solid {bord};
-                border-radius: 8px; color: {fg}; padding: 5px 10px; font-size: 12px;
-            }}
-            QLineEdit:focus {{ border-color: #0a84ff; }}
-        """)
-
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(0)
-
-        # ── Header de color ─────────────────────────────────────────────────
-        hdr_bg = "#1a2a3a" if is_dark else "#3d5a8a"
-        hdr = QFrame()
-        hdr.setFixedHeight(72)
-        hdr.setStyleSheet(f"background: {hdr_bg}; border: none;")
-        hdr_lay = QVBoxLayout(hdr)
-        hdr_lay.setContentsMargins(18, 12, 18, 12)
-        hdr_lay.setSpacing(3)
-
-        name_lbl = QLabel(char_name)
-        name_lbl.setStyleSheet("font-size: 15px; font-weight: bold; color: #ffffff; background: transparent;")
-        hdr_lay.addWidget(name_lbl)
-
-        cap_lbl = QLabel(cap_title)
-        cap_lbl.setStyleSheet("font-size: 11px; color: #a8c4e0; background: transparent;")
-        cap_lbl.setWordWrap(True)
-        hdr_lay.addWidget(cap_lbl)
-
-        lay.addWidget(hdr)
-
-        # ── Contenido ───────────────────────────────────────────────────────
-        body = QWidget()
-        body.setStyleSheet(f"background: {bg};")
-        body_lay = QVBoxLayout(body)
-        body_lay.setContentsMargins(16, 14, 16, 14)
-        body_lay.setSpacing(10)
-
-        # Buscador
-        self._search = QLineEdit()
-        self._search.setPlaceholderText("Buscar lugar...")
-        self._search.setFixedHeight(36)
-        self._search.textChanged.connect(self._filter_places)
-        body_lay.addWidget(self._search)
-
-        # Lista de lugares
-        self._list = QListWidget()
-        self._all_places = places
-        self._populate_list(places, current_place_id)
-        body_lay.addWidget(self._list, stretch=1)
-
-        # ── Pastillas de estado ──────────────────────────────────────────────
-        state_lbl = QLabel("Estado de presencia:")
-        state_lbl.setStyleSheet(f"font-size: 10px; color: {sub}; font-weight: bold; letter-spacing: 0.5px;")
-        body_lay.addWidget(state_lbl)
-
-        pills_row = QHBoxLayout()
-        pills_row.setSpacing(8)
-        self._pill_btns = {}
-        pill_defs = [
-            ("present",  "Presente",    "#1a7a38" if not is_dark else "#30d158"),
-            ("transit",  "En transito", "#1a56b0" if not is_dark else "#0a84ff"),
-            ("departed", "Salida",      "#c41e0e" if not is_dark else "#ff453a"),
-        ]
-        for key, label, color in pill_defs:
-            btn = QPushButton(label)
-            btn.setFixedHeight(34)
-            btn.setCheckable(True)
-            btn.setProperty("pill_key", key)
-            btn.setProperty("pill_color", color)
-            btn.setChecked(key == self.selected_type)
-            btn.clicked.connect(lambda checked, k=key: self._on_pill_clicked(k))
-            self._pill_btns[key] = btn
-            pills_row.addWidget(btn)
-        self._apply_pill_styles()
-        body_lay.addLayout(pills_row)
-
-        # ── Botones de accion ────────────────────────────────────────────────
-        btn_row = QHBoxLayout()
-        btn_row.setSpacing(8)
-        btn_clear = QPushButton("Limpiar")
-        btn_clear.setFixedHeight(36)
-        btn_clear.setStyleSheet(
-            f"QPushButton {{ background: transparent; border: 1px solid {'#636366' if is_dark else '#c2cbd9'}; "
-            f"border-radius: 8px; color: {'#8e8e93' if is_dark else '#5a6a8a'}; font-size: 12px; }}"
-            f"QPushButton:hover {{ border-color: #ff453a; color: #ff453a; }}"
-        )
-        btn_clear.clicked.connect(self._on_clear)
-        btn_row.addWidget(btn_clear)
-
-        btn_ok = QPushButton("Guardar")
-        btn_ok.setFixedHeight(36)
-        btn_ok.setDefault(True)
-        btn_ok.setStyleSheet(
-            "QPushButton { background: #0a84ff; color: #fff; border: none; "
-            "border-radius: 8px; font-weight: bold; font-size: 12px; }"
-            "QPushButton:hover { background: #3399ff; }"
-        )
-        btn_ok.clicked.connect(self._on_accept)
-        btn_row.addWidget(btn_ok)
-        body_lay.addLayout(btn_row)
-
-        lay.addWidget(body, stretch=1)
-
-    def _on_pill_clicked(self, key):
-        self.selected_type = key
-        for k, btn in self._pill_btns.items():
-            btn.setChecked(k == key)
-        self._apply_pill_styles()
-
-    def _apply_pill_styles(self):
-        for key, btn in self._pill_btns.items():
-            color = btn.property("pill_color")
-            if btn.isChecked():
-                btn.setStyleSheet(
-                    f"QPushButton {{ background: {color}; color: #ffffff; border: 2px solid {color}; "
-                    f"border-radius: 8px; font-weight: bold; font-size: 11px; }}"
-                    f"QPushButton:hover {{ background: {color}cc; }}"
-                )
-            else:
-                btn.setStyleSheet(
-                    f"QPushButton {{ background: transparent; color: {color}; border: 1.5px solid {color}66; "
-                    f"border-radius: 8px; font-size: 11px; }}"
-                    f"QPushButton:hover {{ background: {color}18; border-color: {color}; }}"
-                )
-
-    def _populate_list(self, places, selected_id):
-        self._list.clear()
-        for p in places:
-            item = QListWidgetItem(f"  {p.name}")
-            item.setData(Qt.ItemDataRole.UserRole, p.id)
-            self._list.addItem(item)
-            if p.id == selected_id:
-                self._list.setCurrentItem(item)
-
-    def _filter_places(self, query):
-        q = query.strip().lower()
-        filtered = [p for p in self._all_places if q in p.name.lower()] if q else self._all_places
-        self._populate_list(filtered, self.selected_place_id or "")
-
-    def _on_accept(self):
-        item = self._list.currentItem()
-        if item:
-            self.selected_place_id = item.data(Qt.ItemDataRole.UserRole)
-        self.accept()
-
-    def _on_clear(self):
-        self.cleared = True
-        self.accept()
-
-
-# ---------------------------------------------------------------------------
-#  Celda individual de presencia
-# ---------------------------------------------------------------------------
-class _PresenceCell(QFrame):
-    def __init__(self, char_id, chapter_id, is_dark, grid_widget_ref, parent=None):
-        super().__init__(parent)
-        self.char_id     = char_id
-        self.chapter_id  = chapter_id
-        self._is_dark    = is_dark
-        self._grid_ref   = grid_widget_ref   # referencia directa, sin buscar por arbol
-        self._place_id   = ""
-        self._place_name = ""
-        self._pres_type  = ""
-
-        self.setFixedSize(_COL_CHAPTER_W - 2, _ROW_CELL_H - 2)
-        self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.setToolTip("Clic para asignar  |  Clic derecho para limpiar")
-
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(5, 3, 5, 3)
-        lay.setSpacing(1)
-        lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self._pill = QLabel("--")
-        self._pill.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(self._pill)
-
-        self._type_lbl = QLabel("")
-        self._type_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(self._type_lbl)
-
-        self._refresh_style()
-
-    def set_presence(self, place_name, place_id, pres_type):
-        self._place_name = place_name
-        self._place_id   = place_id
-        self._pres_type  = pres_type
-        short = (place_name[:12] + "...") if len(place_name) > 12 else place_name
-        self._pill.setText(short)
-        self._type_lbl.setText(_TYPE_INFO.get(pres_type, ("", "#8e8e93"))[0])
-        self._refresh_style()
-
-    def clear_presence(self):
-        self._place_id = self._place_name = self._pres_type = ""
-        self._pill.setText("--")
-        self._type_lbl.setText("")
-        self._refresh_style()
-
-    def get_place_id(self): return self._place_id
-    def get_pres_type(self): return self._pres_type
-
-    def _refresh_style(self):
-        is_dark = self._is_dark
-        if self._place_id:
-            color = _TYPE_INFO.get(self._pres_type, ("", "#8e8e93"))[1]
-            # Tema oscuro: colores con transparencia sobre negro
-            # Tema claro: colores mas saturados y legibles sobre blanco
-            if is_dark:
-                bg, bord, text_c = f"{color}22", f"{color}66", color
-            else:
-                bg, bord, text_c = f"{color}28", f"{color}99", color
-        else:
-            bg     = "#2a2a2c" if is_dark else "#ffffff"
-            bord   = "#3a3a3c" if is_dark else "#c8d0dc"
-            text_c = "#48484a" if is_dark else "#9ba8b8"
-            color  = "transparent"
-
-        self.setStyleSheet(f"background: {bg}; border: 1px solid {bord}; border-radius: 6px;")
-        self._pill.setStyleSheet(
-            f"font-size: 12px; font-weight: {'bold' if self._place_id else 'normal'}; "
-            f"color: {text_c}; background: transparent;"
-        )
-        self._type_lbl.setStyleSheet(f"font-size: 9px; color: {color}; background: transparent;")
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._grid_ref._on_cell_clicked(self)
-        elif event.button() == Qt.MouseButton.RightButton:
-            self._grid_ref._on_cell_right_clicked(self)
-        super().mousePressEvent(event)
-
-
-# ---------------------------------------------------------------------------
-#  Widget principal de la cuadricula con 4 cuadrantes + scroll sincronizado
-# ---------------------------------------------------------------------------
-class _PresenceGridWidget(QWidget):
-    """
-    Layout de 4 cuadrantes para simular columnas y headers congelados:
-
-      [Q1: Esquina]  |  [Q2: Headers capitulos (H-scroll sincronizado)]
-      ---------------+--------------------------------------------------
-      [Q3: Nombres   |  [Q4: Celdas de presencia (SCROLL MAESTRO)]
-           (V-scroll  |
-           sincronizado)]
-
-    El Q4 es el scroll maestro. Su scrollbar horizontal se conecta al de Q2,
-    y su scrollbar vertical se conecta al de Q3. Resultado: la columna de
-    personajes y el header de capitulos permanecen fijos al hacer scroll.
-    """
-
-    def __init__(self, project_manager, parent=None):
-        super().__init__(parent)
-        self._pm         = project_manager
-        self._cells: dict = {}
-        self._places     = []
-        self._characters = []
-        self._chapters   = []
-        self._is_dark    = ThemeManager.is_dark()
-        self._build_layout()
-
-    def _build_layout(self):
-        """Construye la estructura de 4 cuadrantes con scrollbars sincronizados."""
-        is_dark  = self._is_dark
-        bg_hdr   = "#1c1c1e" if is_dark else "#e8e4dc"
-        bord     = "#3a3a3c" if is_dark else "#d4cfc8"
-
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(0)
-
-        # ── Fila superior: Q1 (esquina) + Q2 (headers capitulos) ─────────────
-        top_row = QHBoxLayout()
-        top_row.setContentsMargins(0, 0, 0, 0)
-        top_row.setSpacing(0)
-
-        # Q1: Esquina estatica
-        self._q1_corner = QFrame()
-        self._q1_corner.setFixedSize(_COL_CHAR_WIDTH, _ROW_HEADER_H)
-        self._q1_corner.setStyleSheet(
-            f"background: {bg_hdr}; border-right: 2px solid {bord}; border-bottom: 2px solid {bord};"
-        )
-        q1_lay = QHBoxLayout(self._q1_corner)
-        q1_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        q1_lbl = QLabel("PERSONAJE")
-        q1_lbl.setStyleSheet("font-size: 9px; font-weight: bold; color: #636366; letter-spacing: 0.8px;")
-        q1_lay.addWidget(q1_lbl)
-        top_row.addWidget(self._q1_corner)
-
-        # Q2: Headers de capitulos (scroll horizontal, sin barra visible)
-        self._q2_scroll = QScrollArea()
-        self._q2_scroll.setFixedHeight(_ROW_HEADER_H)
-        self._q2_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._q2_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._q2_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._q2_content = QWidget()
-        self._q2_lay = QHBoxLayout(self._q2_content)
-        self._q2_lay.setContentsMargins(0, 0, 0, 0)
-        self._q2_lay.setSpacing(2)
-        self._q2_lay.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self._q2_scroll.setWidget(self._q2_content)
-        top_row.addWidget(self._q2_scroll, stretch=1)
-
-        outer.addLayout(top_row)
-
-        # ── Fila inferior: Q3 (nombres personajes) + Q4 (celdas - scroll maestro) ─
-        bottom_row = QHBoxLayout()
-        bottom_row.setContentsMargins(0, 0, 0, 0)
-        bottom_row.setSpacing(0)
-
-        # Q3: Nombres de personajes (scroll vertical, sin barra visible)
-        self._q3_scroll = QScrollArea()
-        self._q3_scroll.setFixedWidth(_COL_CHAR_WIDTH)
-        self._q3_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._q3_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._q3_scroll.setFrameShape(Qt.ScrollBarPolicy.ScrollBarAlwaysOff if False else QFrame.Shape.NoFrame)
-        self._q3_content = QWidget()
-        self._q3_lay = QVBoxLayout(self._q3_content)
-        self._q3_lay.setContentsMargins(0, 0, 0, 0)
-        self._q3_lay.setSpacing(2)
-        self._q3_lay.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self._q3_scroll.setWidget(self._q3_content)
-        bottom_row.addWidget(self._q3_scroll)
-
-        # Q4: Celdas de presencia (SCROLL MAESTRO - ambas direcciones)
-        self._q4_scroll = QScrollArea()
-        self._q4_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._q4_scroll.setWidgetResizable(False)
-        self._q4_content = QWidget()
-        self._q4_lay = QGridLayout(self._q4_content)
-        self._q4_lay.setContentsMargins(0, 0, 0, 0)
-        self._q4_lay.setSpacing(2)
-        self._q4_scroll.setWidget(self._q4_content)
-        bottom_row.addWidget(self._q4_scroll, stretch=1)
-
-        outer.addLayout(bottom_row, stretch=1)
-
-        # ── Sincronizacion de scrollbars ─────────────────────────────────────
-        # Q4 horizontal → Q2 horizontal (mover headers de capitulos)
-        self._q4_scroll.horizontalScrollBar().valueChanged.connect(
-            self._q2_scroll.horizontalScrollBar().setValue
-        )
-        # Q4 vertical → Q3 vertical (mover nombres de personajes)
-        self._q4_scroll.verticalScrollBar().valueChanged.connect(
-            self._q3_scroll.verticalScrollBar().setValue
-        )
-
-    def build(self):
-        """Carga los datos del proyecto y puebla los 4 cuadrantes."""
-        meta = self._pm.metadata
-        if not meta:
-            return
-
-        self._places     = list(getattr(meta, "places", []))
-        self._characters = self._sorted_characters(getattr(meta, "characters", []))
-        self._chapters   = self._sorted_chapters(meta)
-        self._cells      = {}
-        place_map        = {p.id: p.name for p in self._places}
-
-        pres_map: dict = {}
-        for p in getattr(meta, "presences", []):
-            key = (p.character_id, p.chapter_id)
-            if key not in pres_map or p.is_manual:
-                pres_map[key] = p
-
-        is_dark = self._is_dark
-        fg      = "#f2f2f7" if is_dark else "#1a1d23"
-        bg_hdr  = "#1c1c1e" if is_dark else "#edf0f7"
-        bord    = "#3a3a3c" if is_dark else "#c2cbd9"
-
-        # Colores de rol: versiones mas oscuras/saturadas para tema claro
-        if is_dark:
-            role_colors = {
-                "Protagonista": "#ffd60a", "Antagonista": "#ff453a",
-                "Secundario":   "#30d158", "Misterioso":  "#bf5af2", "Otro": "#636366",
-            }
-        else:
-            role_colors = {
-                "Protagonista": "#c07800", "Antagonista": "#c41e0e",
-                "Secundario":   "#1a7a38", "Misterioso":  "#7a1fa8", "Otro": "#4a5568",
-            }
-
-        # Limpiar contenidos anteriores
-        self._clear_layout(self._q2_lay)
-        self._clear_layout(self._q3_lay)
-        self._clear_grid(self._q4_lay)
-
-        # ── Q2: Headers de capitulos ─────────────────────────────────────────
-        accent_hdr = "#2c2c3a" if is_dark else "#3d5a8a"  # color acento del header
-        total_w = 0
-        for chapter in self._chapters:
-            hdr = QFrame()
-            hdr.setFixedSize(_COL_CHAPTER_W, _ROW_HEADER_H)
-            hdr.setStyleSheet(
-                f"background: {bg_hdr}; border-right: 1px solid {bord}; "
-                f"border-bottom: 2px solid {accent_hdr};"
-            )
-            hl = QVBoxLayout(hdr)
-            hl.setContentsMargins(4, 6, 4, 4)
-            hl.setSpacing(2)
-            hl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-            num_color = "#8e8e93" if is_dark else "#6b7fa8"
-            n = QLabel(f"#{chapter.in_world_order}" if chapter.in_world_order > 0 else "")
-            n.setStyleSheet(f"font-size: 10px; color: {num_color}; font-weight: bold;")
-            n.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            hl.addWidget(n)
-
-            raw = (chapter.title or "").strip()
-            t = QLabel((raw[:14] + "...") if len(raw) > 14 else raw or "Sin titulo")
-            t.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {fg};")
-            t.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            t.setToolTip(raw)
-            hl.addWidget(t)
-
-            self._q2_lay.addWidget(hdr)
-            total_w += _COL_CHAPTER_W + 2
-
-        # Ajustar tamano del contenido Q2
-        self._q2_content.setFixedSize(total_w, _ROW_HEADER_H)
-
-        # ── Q3: Nombres de personajes + Q4: Celdas ───────────────────────────
-        total_h = 0
-        for ri, char in enumerate(self._characters):
-            rc = role_colors.get(char.role, "#636366")
-
-            # Q3: Fila de personaje — barra de color como widget separado (no CSS border)
-            # Usando QHBoxLayout: [barra color 4px] [texto nombre+rol]
-            # Esto evita que el border-left CSS se superponga al texto.
-            ch = QFrame()
-            ch.setFixedSize(_COL_CHAR_WIDTH, _ROW_CELL_H)
-            ch.setStyleSheet(
-                f"QFrame {{ background: {bg_hdr}; "
-                f"border-right: 1px solid {bord}; "
-                f"border-bottom: 1px solid {bord}; }}"
-            )
-            ch_row = QHBoxLayout(ch)
-            ch_row.setContentsMargins(0, 0, 0, 0)
-            ch_row.setSpacing(0)
-
-            # Barra de color del rol (widget independiente, no CSS border)
-            color_bar = QFrame()
-            color_bar.setFixedWidth(4)
-            color_bar.setSizePolicy(
-                QSizePolicy.Policy.Fixed,
-                QSizePolicy.Policy.Expanding
-            )
-            color_bar.setStyleSheet(f"background: {rc}; border: none;")
-            ch_row.addWidget(color_bar)
-
-            # Área de texto — separada limpiamente de la barra de color
-            text_area = QWidget()
-            text_area.setStyleSheet("background: transparent; border: none;")
-            txt_lay = QVBoxLayout(text_area)
-            txt_lay.setContentsMargins(10, 6, 8, 6)
-            txt_lay.setSpacing(2)
-            txt_lay.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-
-            nl = QLabel((char.name[:22] + "...") if len(char.name) > 22 else char.name)
-            nl.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {fg}; background: transparent;")
-            nl.setToolTip(char.name)
-            txt_lay.addWidget(nl)
-
-            rl = QLabel(char.role)
-            rl.setStyleSheet(f"font-size: 10px; color: {rc}; background: transparent; font-weight: 500;")
-            txt_lay.addWidget(rl)
-
-            ch_row.addWidget(text_area, stretch=1)
-            self._q3_lay.addWidget(ch)
-
-            total_h += _ROW_CELL_H + 2
-
-
-            # Q4: Celdas de presencia para este personaje
-            for ci, chapter in enumerate(self._chapters):
-                cell = _PresenceCell(
-                    char.id, chapter.id, is_dark,
-                    grid_widget_ref=self,
-                    parent=self._q4_content
-                )
-                key  = (char.id, chapter.id)
-                pres = pres_map.get(key)
-                if pres and pres.place_id:
-                    cell.set_presence(place_map.get(pres.place_id, "?"), pres.place_id, pres.presence_type)
-                self._cells[key] = cell
-
-                wrapper = QWidget(self._q4_content)
-                wrapper.setFixedSize(_COL_CHAPTER_W, _ROW_CELL_H)
-                wl = QVBoxLayout(wrapper)
-                wl.setContentsMargins(1, 1, 1, 1)
-                wl.addWidget(cell)
-                self._q4_lay.addWidget(wrapper, ri, ci)
-
-        # Ajustar tamanos del contenido
-        self._q3_content.setFixedSize(_COL_CHAR_WIDTH, total_h)
-        self._q4_content.setFixedSize(total_w, total_h)
-
-    # ── Limpieza de layouts ──────────────────────────────────────────────────
-
-    @staticmethod
-    def _clear_layout(lay):
-        while lay.count():
-            item = lay.takeAt(0)
-            w = item.widget()
-            if w:
-                w.deleteLater()
-
-    @staticmethod
-    def _clear_grid(lay):
-        while lay.count():
-            item = lay.takeAt(0)
-            w = item.widget()
-            if w:
-                w.deleteLater()
-
-    # ── Interaccion usuario ───────────────────────────────────────────────────
-
-    def _on_cell_clicked(self, cell):
-        meta = self._pm.metadata
-        if not meta:
-            return
-
-        cap_title = next(
-            ((c.title or "").strip() or f"Cap. {c.in_world_order}"
-             for c in self._chapters if c.id == cell.chapter_id),
-            "este capitulo"
-        )
-        char_name = next(
-            (c.name for c in self._characters if c.id == cell.char_id),
-            "Personaje"
-        )
-
-        dlg = _PlacePickerDialog(
-            char_name=char_name, cap_title=cap_title, places=self._places,
-            current_place_id=cell.get_place_id(), current_type=cell.get_pres_type() or "present",
-            is_dark=self._is_dark, parent=self,
-        )
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
-
-        if dlg.cleared:
-            self._remove_presence(cell)
-        elif dlg.selected_place_id:
-            self._set_presence(cell, dlg.selected_place_id, dlg.selected_type)
-
-    def _on_cell_right_clicked(self, cell):
-        if cell.get_place_id():
-            self._remove_presence(cell)
-
-    def _set_presence(self, cell, place_id, pres_type):
-        meta = self._pm.metadata
-        if not meta:
-            return
-        place_map = {p.id: p.name for p in self._places}
-        meta.presences = [
-            p for p in getattr(meta, "presences", [])
-            if not (p.character_id == cell.char_id and p.chapter_id == cell.chapter_id)
-        ]
-        new_p = CharacterPresence(
-            character_id=cell.char_id, place_id=place_id, chapter_id=cell.chapter_id,
-            presence_type=pres_type, confidence=1.0, is_manual=True,
-            matched_text="Cuadricula de Presencias",
-        )
-        meta.presences.append(new_p)
-        cell.set_presence(place_map.get(place_id, "?"), place_id, pres_type)
-        try:
-            self._pm.save_project()
-        except Exception as e:
-            log.warning("Error guardando presencia: %s", e)
-
-    def _remove_presence(self, cell):
-        meta = self._pm.metadata
-        if not meta:
-            return
-        meta.presences = [
-            p for p in getattr(meta, "presences", [])
-            if not (p.character_id == cell.char_id and p.chapter_id == cell.chapter_id)
-        ]
-        cell.clear_presence()
-        try:
-            self._pm.save_project()
-        except Exception as e:
-            log.warning("Error guardando: %s", e)
-
-    # ── Ordenamiento ─────────────────────────────────────────────────────────
-
-    @staticmethod
-    def _sorted_characters(chars):
-        def _key(c):
-            try:
-                ri = _ROLE_ORDER.index(c.role)
-            except ValueError:
-                ri = len(_ROLE_ORDER)
-            return (ri, c.name.lower())
-        return sorted(chars, key=_key)
-
-    @staticmethod
-    def _sorted_chapters(meta):
-        """Orden: in_world_order > 0 primero (por numero), luego por indice estructural."""
-        caps_with_idx = []
-        idx = 0
-        for obra in getattr(meta, "obras", []):
-            for libro in getattr(obra, "libros", []):
-                for cap in getattr(libro, "capitulos", []):
-                    caps_with_idx.append((cap, idx))
-                    idx += 1
-
-        def _key(item):
-            cap, i = item
-            order = cap.in_world_order or 0
-            return (0, order, i) if order > 0 else (1, i, 0)
-
-        caps_with_idx.sort(key=_key)
-        return [cap for cap, _ in caps_with_idx]
+from .grid_widget import _PresenceGridWidget
 
 
 # ---------------------------------------------------------------------------
@@ -698,7 +20,7 @@ class _PresenceGridWidget(QWidget):
 # ---------------------------------------------------------------------------
 class PresenceGridDialog(QDialog):
     """
-    Dialogo independiente - Cuadricula de Presencias con columna congelada.
+    Dialogo independiente — Cuadricula de Presencias con columna congelada.
     Filas = personajes (por rol), Columnas = capitulos (cronologico).
     La columna de personajes y el header de capitulos permanecen fijos al hacer scroll.
     """
@@ -713,7 +35,7 @@ class PresenceGridDialog(QDialog):
             Qt.WindowType.WindowCloseButtonHint
         )
         screen = QApplication.primaryScreen().availableGeometry()
-        w = min(1400, int(screen.width() * 0.90))
+        w = min(1400, int(screen.width()  * 0.90))
         h = min(860,  int(screen.height() * 0.88))
         self.resize(w, h)
 
@@ -723,7 +45,7 @@ class PresenceGridDialog(QDialog):
         self._setup_ui(is_dark)
         self._grid_widget.build()
 
-    def _setup_ui(self, is_dark):
+    def _setup_ui(self, is_dark: bool) -> None:
         fg    = "#f2f2f7" if is_dark else "#1a1d23"
         bord  = "#3a3a3c" if is_dark else "#c2cbd9"
         bg_tb = "#1c1c1e" if is_dark else "#dde3f0"
@@ -733,7 +55,7 @@ class PresenceGridDialog(QDialog):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # Toolbar
+        # -- Toolbar ----------------------------------------------------------
         tb = QFrame()
         tb.setFixedHeight(50)
         tb.setStyleSheet(f"QFrame {{ background: {bg_tb}; border-bottom: 1px solid {bord}; }}")
@@ -750,7 +72,7 @@ class PresenceGridDialog(QDialog):
         tbl.addWidget(sl)
         tbl.addStretch()
 
-        # Pills de estado — colores adaptados al tema
+        # Pastillas de leyenda
         if is_dark:
             pills = [("Presente", "#30d158"), ("En transito", "#0a84ff"), ("Salida", "#ff453a")]
         else:
@@ -766,21 +88,23 @@ class PresenceGridDialog(QDialog):
 
         root.addWidget(tb)
 
-        # La cuadricula con columna congelada (maneja su propio scroll internamente)
+        # -- Cuadricula -------------------------------------------------------
         self._grid_widget = _PresenceGridWidget(self._pm)
         root.addWidget(self._grid_widget, stretch=1)
 
-        # Barra inferior
+        # -- Barra inferior ---------------------------------------------------
         bot = QFrame()
         bot.setFixedHeight(40)
         bot.setStyleSheet(f"QFrame {{ background: {bg_tb}; border-top: 1px solid {bord}; }}")
         bl = QHBoxLayout(bot)
         bl.setContentsMargins(16, 0, 16, 0)
         bl.setSpacing(12)
+
         hl = QLabel("Clic para asignar ubicacion   |   Clic derecho para limpiar")
         hl.setStyleSheet("font-size: 10px; color: #636366;")
         bl.addWidget(hl)
         bl.addStretch()
+
         cb = QPushButton("Cerrar")
         cb.setFixedHeight(28)
         cb.setStyleSheet(

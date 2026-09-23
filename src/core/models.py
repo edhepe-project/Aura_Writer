@@ -324,6 +324,33 @@ class UniverseLink(BaseModel):
     label: str = ""
 
 
+class StoryBlock(BaseModel):
+    """Bloque o evento narrativo para el Cronograma (Grafo de Historia)."""
+    id: str = Field(default_factory=_new_id)
+    title: str = "Nuevo evento"
+    synopsis: str = ""
+    themes: List[str] = Field(default_factory=list)
+    char_ids: List[str] = Field(default_factory=list)
+    place_ids: List[str] = Field(default_factory=list)
+    tone: str = "misterioso"
+    status: str = "idea"    # "idea" | "esbozado" | "listo" | "escrito"
+    notes: str = ""
+    x: float = 0.0
+    y: float = 0.0
+    chapter_id: Optional[str] = None
+    created_at: datetime = Field(default_factory=_now)
+
+
+class StoryArc(BaseModel):
+    """Arco o flecha causal entre dos bloques narrativos."""
+    id: str = Field(default_factory=_new_id)
+    from_block: str = ""
+    to_block: str = ""
+    label: str = ""
+    arc_type: str = "main"   # "main" | "branch" | "parallel" | "flashback"
+    created_at: datetime = Field(default_factory=_now)
+
+
 class TrashedItem(BaseModel):
     """Elemento enviado a la papelera de reciclaje."""
     id: str = Field(default_factory=_new_id)
@@ -363,6 +390,9 @@ class UniverseMetadata(BaseModel):
     totp_recovery_codes: List[str] = Field(default_factory=list)
     # ── Estado de sesión (para reabrir exactamente donde te quedaste) ────
     last_selected_node_id: str = ""
+    # ── Cronograma Narrativo (Grafo de Historia) ──────────────────
+    story_blocks: List[StoryBlock] = Field(default_factory=list)
+    story_arcs: List[StoryArc] = Field(default_factory=list)
     # Timestamps
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)

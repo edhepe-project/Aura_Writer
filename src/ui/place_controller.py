@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 class PlaceControllerMixin:
     """Mixin para AuraMainWindow que maneja eventos del PlaceDock y diálogos de Lugares."""
 
-    def _on_place_added(self: "AuraMainWindow", place: Place):
+    def _on_place_added(self, place: Place):
         """Sincroniza un nuevo lugar creado en el PlaceDock con el metadata del proyecto."""
         if not self.project_manager.metadata:
             return
@@ -26,7 +26,7 @@ class PlaceControllerMixin:
             self.statusBar().showMessage(f"Lugar '{place.name}' creado", 3000)
         self._dirty = True
 
-    def _on_place_updated(self: "AuraMainWindow", place: Place):
+    def _on_place_updated(self, place: Place):
         """Actualiza un lugar modificado en el metadata del proyecto."""
         if not self.project_manager.metadata:
             return
@@ -41,7 +41,7 @@ class PlaceControllerMixin:
             meta.places.append(place)
         self._dirty = True
 
-    def _on_place_deleted(self: "AuraMainWindow", place_id: str):
+    def _on_place_deleted(self, place_id: str):
         """Mueve a la papelera un lugar eliminado desde el PlaceDock."""
         if not self.project_manager.metadata:
             return
@@ -65,11 +65,11 @@ class PlaceControllerMixin:
         self._dirty = True
         self.statusBar().showMessage("Lugar movido a la papelera", 3000)
 
-    def _on_place_selected(self: "AuraMainWindow", place_id: str):
+    def _on_place_selected(self, place_id: str):
         """Responde a la selección de un lugar en el PlaceDock."""
         pass
 
-    def _refresh_place_dock(self: "AuraMainWindow"):
+    def _refresh_place_dock(self):
         """Recarga la lista de lugares en el PlaceDock y las apariciones en capítulos."""
         if not hasattr(self, "place_dock") or self.place_dock is None:
             return
@@ -88,7 +88,7 @@ class PlaceControllerMixin:
         ]
         self.place_dock.update_chapters_data(chapters_data)
 
-    def open_place_edit_dialog(self: "AuraMainWindow", place_id: str | None = None):
+    def open_place_edit_dialog(self, place_id: str | None = None):
         """Abre la ventana de edición/creación de un lugar."""
         if not self.project_manager.metadata:
             return
@@ -105,7 +105,7 @@ class PlaceControllerMixin:
         dlg.place_saved.connect(self._on_place_dialog_saved_from_menu)
         dlg.exec()
 
-    def _on_place_dialog_saved_from_menu(self: "AuraMainWindow", saved_place: Place):
+    def _on_place_dialog_saved_from_menu(self, saved_place: Place):
         """Maneja el guardado de un lugar cuando el diálogo se abrió de forma externa."""
         if not self.project_manager.metadata:
             return
@@ -122,7 +122,7 @@ class PlaceControllerMixin:
         if hasattr(self, "place_dock") and self.place_dock:
             self.place_dock.select_place_by_id(saved_place.id)
 
-    def open_timeline_dialog(self: "AuraMainWindow"):
+    def open_timeline_dialog(self):
         """Abre la ventana interactiva de Cronología / Timeline del Universo."""
         if not self.project_manager.metadata:
             return
@@ -131,7 +131,7 @@ class PlaceControllerMixin:
         dlg.navigate_to_chapter.connect(self._on_chapter_requested_from_dock)
         dlg.exec()
 
-    def open_place_graph_dialog(self: "AuraMainWindow"):
+    def open_place_graph_dialog(self):
         """Abre el Atlas Literario (Grafo de Lugares y Conexiones)."""
         if not self.project_manager.metadata:
             return
@@ -140,13 +140,31 @@ class PlaceControllerMixin:
         dlg.place_selected_for_focus.connect(self._on_graph_place_focused)
         dlg.exec()
 
-    def _on_graph_place_focused(self: "AuraMainWindow", place_id: str):
+    def open_presence_grid_dialog(self):
+        """Abre la Cuadricula de Presencias (personajes x capitulos)."""
+        if not self.project_manager.metadata:
+            return
+        from ui.presence_grid import PresenceGridDialog
+        dlg = PresenceGridDialog(self.project_manager, parent=self)
+        dlg.exec()
+
+    def open_story_graph_dialog(self):
+        """Abre el Cronograma Narrativo (Grafo Causal de Historia)."""
+        if not self.project_manager.metadata:
+            return
+        from ui.story_graph import StoryGraphDialog
+        dlg = StoryGraphDialog(self.project_manager.metadata, parent=self)
+        dlg.graph_widget.metadata_changed.connect(lambda: setattr(self, "_dirty", True))
+        dlg.navigate_to_chapter.connect(self._on_chapter_requested_from_dock)
+        dlg.exec()
+
+    def _on_graph_place_focused(self, place_id: str):
         """Enfoca y selecciona el lugar en el panel inspector PlaceDock."""
         self._switch_inspector_tab("places")
         if hasattr(self, "place_dock") and self.place_dock:
             self.place_dock.select_place_by_id(place_id)
 
-    def open_vocabulary_dialog(self: "AuraMainWindow"):
+    def open_vocabulary_dialog(self):
         """Abre el gestor de Vocabulario y Conlang del Universo."""
         if not self.project_manager.metadata:
             return

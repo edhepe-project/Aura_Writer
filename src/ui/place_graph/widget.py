@@ -19,6 +19,7 @@ from .models import PLACE_CATEGORY_COLORS, CONNECTION_STYLES
 from .items import PlaceNodeItem, PlaceLinkItem
 from .physics import compute_places_layout
 from .scene import PlaceGraphScene, PlaceGraphView
+from .layout_worker import _LayoutWorker
 
 
 class PlaceGraphWidget(QWidget):
@@ -669,34 +670,3 @@ class PlaceGraphWidget(QWidget):
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Worker: calcula el layout de física orbital en un hilo secundario
-# ─────────────────────────────────────────────────────────────────────────────
-
-class _LayoutWorker(QThread):
-    """
-    Ejecuta compute_places_layout() en un hilo secundario para no bloquear la UI.
-
-    El cálculo N-Body con espiral áurea puede tomar 100-300 ms con proyectos
-    grandes. Al moverlo fuera del hilo principal, el diálogo del Atlas se abre
-    instantáneamente y el grafo aparece ~200ms después.
-
-    Señales:
-        layout_ready(dict): mapa {place_id: (x, y)} cuando termina el cálculo.
-    """
-    layout_ready = pyqtSignal(dict)
-
-    def __init__(self, places: list[Place], links: list[PlaceLink], parent=None):
-        super().__init__(parent)
-        # Copiar referencias (son inmutables durante el cálculo)
-        self._places = places
-        self._links  = links
-
-    def run(self) -> None:
-        """Ejecutado en el hilo secundario. No llamar directamente — usar .start()."""
-        try:
-            positions = compute_places_layout(self._places, self._links)
-            self.layout_ready.emit(positions)
-        except Exception:
-            import logging
-            logging.getLogger(__name__).exception("_LayoutWorker: error calculando layout")
-            # Emitir posiciones vacías para que el grafo se muestre aunque sea sin layout
-            self.layout_ready.emit({p.id: (0.0, 0.0) for p in self._places})

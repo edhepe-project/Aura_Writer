@@ -108,6 +108,12 @@ class MainMenuBuilderMixin:
         places_graph_act.triggered.connect(self.open_place_graph_dialog)
         view_menu.addAction(places_graph_act)
 
+        grid_act = QAction("📊 Cuadrícula de Presencias", self)
+        grid_act.setShortcut("Ctrl+Alt+P")
+        grid_act.setToolTip("Ver y editar qué personajes aparecen en cada capítulo")
+        grid_act.triggered.connect(self.open_presence_grid_dialog)
+        view_menu.addAction(grid_act)
+
         places_act = QAction("🏰 Lugares & Escenarios", self)
         places_act.setShortcut("Ctrl+Alt+L")
         places_act.triggered.connect(lambda: self.open_place_edit_dialog(None))
@@ -117,6 +123,12 @@ class MainMenuBuilderMixin:
         timeline_act.setShortcut("Ctrl+Alt+T")
         timeline_act.triggered.connect(self.open_timeline_dialog)
         view_menu.addAction(timeline_act)
+
+        story_graph_act = QAction("🕸️ Cronograma Narrativo (Grafo)", self)
+        story_graph_act.setShortcut("Ctrl+Alt+C")
+        story_graph_act.setToolTip("Grafo causal de la historia con ramificaciones y eventos")
+        story_graph_act.triggered.connect(self.open_story_graph_dialog)
+        view_menu.addAction(story_graph_act)
 
 
         view_menu.addSeparator()
@@ -341,6 +353,7 @@ class MainMenuBuilderMixin:
             self._act_map = self._main_toolbar.addAction(qta.icon("fa5s.globe", color="#bf5af2" if is_dark else "#9333ea"), "Mapa Mental", self.open_universe_map)
             self._act_graph = self._main_toolbar.addAction(qta.icon("fa5s.project-diagram", color="#5e5ce6" if is_dark else "#4f46e5"), "Relaciones", self.open_relation_graph)
             self._act_place_graph = self._main_toolbar.addAction(qta.icon("fa5s.map-marked-alt", color="#ffd60a" if is_dark else "#d97706"), "Atlas de Lugares", self.open_place_graph_dialog)
+            self._act_story_graph = self._main_toolbar.addAction(qta.icon("fa5s.stream", color="#ff9f0a" if is_dark else "#ea580c"), "Cronograma Narrativo", self.open_story_graph_dialog)
             self._main_toolbar.addSeparator()
             self._act_export = self._main_toolbar.addAction(qta.icon("fa5s.file-export", color="#30d158" if is_dark else "#16a34a"), "Exportar", self.open_exporter)
             self._act_trash = self._main_toolbar.addAction(qta.icon("fa5s.trash-alt", color="#ff453a" if is_dark else "#dc2626"), "Papelera", self.open_trash_dialog)
