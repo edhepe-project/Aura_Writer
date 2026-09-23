@@ -15,6 +15,7 @@ from PyQt6.QtCore import Qt, QRectF, QPointF, pyqtSignal as Signal, QObject
 
 from core.models import StoryBlock, StoryArc
 from ui.story_graph.models import STATUS_CONFIG, TONE_CONFIG, ARC_TYPE_CONFIG
+from core.theme_manager import ThemeManager
 
 
 class StoryNodeSignals(QObject):
@@ -111,17 +112,19 @@ class StoryNodeItem(QGraphicsRectItem):
         cfg = STATUS_CONFIG.get(self.block.status, STATUS_CONFIG["idea"])
         tone_cfg = TONE_CONFIG.get(self.block.tone, TONE_CONFIG["neutro"])
         
-        bg_col = QColor(cfg["bg_color"])
-        border_col = QColor(tone_cfg["color"]) # El borde indica el tono
+        is_dark = ThemeManager.is_dark()
+        
+        bg_col = QColor(cfg["bg_color"] if is_dark else cfg.get("light_bg_color", cfg["bg_color"]))
+        border_col = QColor(tone_cfg["color"] if is_dark else tone_cfg.get("light_color", tone_cfg["color"])) # El borde indica el tono
 
         if self.isSelected():
-            border_col = QColor("#ffffff")
+            border_col = QColor("#ffffff" if is_dark else "#000000")
             pen_width = 2.5
         elif self._hovered:
-            border_col = border_col.lighter(130)
+            border_col = border_col.lighter(130) if is_dark else border_col.darker(130)
             pen_width = 1.5
         else:
-            border_col = QColor("#3a3a3c") # Borde sutil por defecto
+            border_col = QColor("#3a3a3c" if is_dark else "#d1d5db") # Borde sutil por defecto
             pen_width = 1.0
 
         r = self.rect()
@@ -132,7 +135,7 @@ class StoryNodeItem(QGraphicsRectItem):
             dash_rect = QRectF(r.x(), r.y() + (r.height() - dash_height) / 2.0, r.width(), dash_height)
             
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QBrush(QColor(tone_cfg["color"]).darker(150)))
+            painter.setBrush(QBrush(QColor(tone_cfg["color"] if is_dark else tone_cfg.get("light_color", tone_cfg["color"])).darker(150)))
             
             path = QPainterPath()
             path.addRoundedRect(dash_rect, 4.0, 4.0)
@@ -140,7 +143,7 @@ class StoryNodeItem(QGraphicsRectItem):
             
             # Dibujamos un círculo central del color del estado
             painter.setBrush(QBrush(bg_col))
-            painter.setPen(QPen(QColor(tone_cfg["color"]), 2.0))
+            painter.setPen(QPen(QColor(tone_cfg["color"] if is_dark else tone_cfg.get("light_color", tone_cfg["color"])), 2.0))
             center_x = r.x() + r.width() / 2.0
             center_y = r.y() + r.height() / 2.0
             painter.drawEllipse(QPointF(center_x, center_y), 16, 16)
@@ -164,7 +167,7 @@ class StoryNodeItem(QGraphicsRectItem):
             painter.drawPath(path)
 
             painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-            painter.setPen(QColor(cfg["text_color"]))
+            painter.setPen(QColor(cfg["text_color"] if is_dark else cfg.get("light_text_color", cfg["text_color"])))
             
             header_text = f"{cfg['badge']} {self.block.title}"
             metrics = QFontMetrics(painter.font())
@@ -187,7 +190,7 @@ class StoryNodeItem(QGraphicsRectItem):
 
         # 1. Cabecera (Badge estado + Título)
         painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-        painter.setPen(QColor(cfg["text_color"]))
+        painter.setPen(QColor(cfg["text_color"] if is_dark else cfg.get("light_text_color", cfg["text_color"])))
         
         header_text = f"{cfg['badge']} {self.block.title}"
         metrics = QFontMetrics(painter.font())
@@ -195,22 +198,23 @@ class StoryNodeItem(QGraphicsRectItem):
         painter.drawText(QRectF(14, 10, r.width() - 28, 24), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, elided_title)
 
         # Línea divisoria suave
-        painter.setPen(QPen(QColor(255, 255, 255, 30), 1.0))
+        painter.setPen(QPen(QColor(255, 255, 255, 30) if is_dark else QColor(0, 0, 0, 30), 1.0))
         painter.drawLine(QPointF(14, 38), QPointF(r.width() - 14, 38))
 
         # 2. Sinopsis
         painter.setFont(QFont("Segoe UI", 9))
-        painter.setPen(QColor("#d1d1d6"))
+        painter.setPen(QColor("#d1d1d6" if is_dark else "#4b5563"))
         synopsis_text = self.block.synopsis if self.block.synopsis else "Sin sinopsis detallada..."
         painter.drawText(QRectF(14, 46, r.width() - 28, 50), Qt.TextFlag.TextWordWrap, synopsis_text)
 
         # 3. Footer: Tono y Temas
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QBrush(QColor(tone_cfg["color"])))
+        tone_color = QColor(tone_cfg["color"] if is_dark else tone_cfg.get("light_color", tone_cfg["color"]))
+        painter.setBrush(QBrush(tone_color))
         painter.drawEllipse(QPointF(20, r.height() - 16), 4, 4)
 
         painter.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
-        painter.setPen(QColor("#a1a1a6"))
+        painter.setPen(QColor("#a1a1a6" if is_dark else "#6b7280"))
         painter.drawText(QRectF(30, r.height() - 24, 100, 16), Qt.AlignmentFlag.AlignVCenter, tone_cfg["label"].upper())
 
         # Temas contador
@@ -219,7 +223,7 @@ class StoryNodeItem(QGraphicsRectItem):
             if len(self.block.themes) > 2:
                 tags_text += " ..."
             painter.setFont(QFont("Segoe UI", 8))
-            painter.setPen(QColor("#8e8e93"))
+            painter.setPen(QColor("#8e8e93" if is_dark else "#9ca3af"))
             painter.drawText(QRectF(120, r.height() - (44 if self._has_chapter else 24), r.width() - 134, 16), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, tags_text)
 
         # 4. Capítulo vinculado (solo si escrito + chapter asignado)
@@ -235,14 +239,14 @@ class StoryNodeItem(QGraphicsRectItem):
 
             # Icono + texto
             painter.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
-            painter.setPen(QColor("#ffd60a"))
+            painter.setPen(QColor("#ffd60a" if is_dark else "#b45309"))
             metrics = QFontMetrics(painter.font())
             elided_ch = metrics.elidedText(f"📖 {self.chapter_title}", Qt.TextElideMode.ElideRight, int(r.width() - 20))
             painter.drawText(QRectF(12, chapter_row_y, r.width() - 24, 18), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, elided_ch)
 
             # Indicador de "doble clic para ir"
             painter.setFont(QFont("Segoe UI", 7))
-            painter.setPen(QColor("#8e8e93"))
+            painter.setPen(QColor("#8e8e93" if is_dark else "#9ca3af"))
             painter.drawText(QRectF(0, chapter_row_y, r.width() - 10, 18), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, "↩ doble clic")
 
 

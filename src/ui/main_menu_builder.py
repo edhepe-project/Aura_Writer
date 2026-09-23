@@ -103,7 +103,7 @@ class MainMenuBuilderMixin:
         graph_act.triggered.connect(self.open_relation_graph)
         view_menu.addAction(graph_act)
 
-        places_graph_act = QAction("🗺️ Atlas de Lugares & Conexiones", self)
+        places_graph_act = QAction("🗺️ Atlas de Lugares y Conexiones", self)
         places_graph_act.setShortcut("Ctrl+Alt+G")
         places_graph_act.triggered.connect(self.open_place_graph_dialog)
         view_menu.addAction(places_graph_act)
@@ -232,14 +232,14 @@ class MainMenuBuilderMixin:
         compare_act.triggered.connect(self.open_chapter_comparator)
         tools_menu.addAction(compare_act)
 
-        history_act = QAction("📜 Historial de Versiones & Diff…", self)
+        history_act = QAction("📜 Historial de Versiones y Diff…", self)
         history_act.setShortcut("Ctrl+H")
         history_act.triggered.connect(self.open_chapter_history)
         tools_menu.addAction(history_act)
 
         tools_menu.addSeparator()
 
-        vocab_act = QAction("📖 Vocabulario & Conlang…", self)
+        vocab_act = QAction("📖 Vocabulario y Conlang…", self)
         vocab_act.setShortcut("Ctrl+Shift+V")
         vocab_act.triggered.connect(self.open_vocabulary_dialog)
         tools_menu.addAction(vocab_act)

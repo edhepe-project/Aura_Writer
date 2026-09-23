@@ -38,8 +38,10 @@ class StoryGraphScene(QGraphicsScene):
         if painter is None: return
         super().drawBackground(painter, rect)
 
+        from core.theme_manager import ThemeManager
         # Rejilla suave de fondo (grid dots)
-        painter.setPen(QPen(QColor("#2a2a2c"), 1.0))
+        grid_color = "#2a2a2c" if ThemeManager.is_dark() else "#d1d5db"
+        painter.setPen(QPen(QColor(grid_color), 1.0))
         grid_size = 30
         left = int(rect.left()) - (int(rect.left()) % grid_size)
         top = int(rect.top()) - (int(rect.top()) % grid_size)

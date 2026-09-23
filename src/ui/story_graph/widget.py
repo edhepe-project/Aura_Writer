@@ -159,7 +159,9 @@ class StoryGraphWidget(QWidget):
         self.view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.view.setOptimizationFlag(QGraphicsView.OptimizationFlag.DontSavePainterState)
         self.view.setOptimizationFlag(QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing)
-        self.view.setStyleSheet("QGraphicsView { border: none; background-color: #121214; }")
+        from core.theme_manager import ThemeManager
+        bg_color = "#121214" if ThemeManager.is_dark() else "#f9fafb"
+        self.view.setStyleSheet(f"QGraphicsView {{ border: none; background-color: {bg_color}; }}")
 
         center_layout.addWidget(self.view, stretch=1)
 
