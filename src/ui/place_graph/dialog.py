@@ -31,6 +31,11 @@ class PlaceGraphDialog(QDialog):
         self.setWindowTitle("🗺️ Atlas Literario — Grafo de Lugares & Conexiones")
         self.resize(1200, 720)
         self.setMinimumSize(900, 520)
+        self.setWindowFlags(
+            self.windowFlags()
+            | Qt.WindowType.WindowMaximizeButtonHint
+            | Qt.WindowType.WindowMinimizeButtonHint
+        )
 
         self._selected_place_id: str | None = None
         self._data_loaded: bool = False
