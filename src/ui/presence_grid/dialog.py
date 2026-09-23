@@ -44,8 +44,8 @@ _STATUS_OPTIONS = [
 
 _COL_CHAR_WIDTH = 210   # ancho fijo de la columna de personajes (Q1 y Q3)
 _COL_CHAPTER_W  = 130   # ancho de cada columna de capitulo
-_ROW_HEADER_H   = 62    # alto del header de capitulos (Q1 y Q2)
-_ROW_CELL_H     = 52    # alto de cada fila de personaje
+_ROW_HEADER_H   = 72    # alto del header de capitulos (Q1 y Q2) - mas alto para mejor visibilidad
+_ROW_CELL_H     = 54    # alto de cada fila de personaje
 
 
 # ---------------------------------------------------------------------------
@@ -54,77 +54,154 @@ _ROW_CELL_H     = 52    # alto de cada fila de personaje
 class _PlacePickerDialog(QDialog):
     def __init__(self, char_name, cap_title, places, current_place_id, current_type, is_dark, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(char_name)
-        self.setFixedSize(360, 420)
+        self.setWindowTitle("Asignar ubicacion")
+        self.setFixedSize(380, 460)
         self.selected_place_id = current_place_id or None
         self.selected_type = current_type or "present"
         self.cleared = False
+        self._is_dark = is_dark
 
-        bg   = "#1c1c1e" if is_dark else "#f5f0ea"
-        fg   = "#f2f2f7" if is_dark else "#1c1c1e"
+        bg   = "#1c1c1e" if is_dark else "#f8f9fc"
+        fg   = "#f2f2f7" if is_dark else "#1a1d23"
         card = "#2c2c2e" if is_dark else "#ffffff"
-        bord = "#3a3a3c" if is_dark else "#d4cfc8"
+        bord = "#3a3a3c" if is_dark else "#c8d0dc"
+        sub  = "#8e8e93" if is_dark else "#5a6a8a"
 
         self.setStyleSheet(f"""
             QDialog {{ background: {bg}; }}
-            QLabel {{ color: {fg}; font-size: 11px; }}
+            QLabel {{ color: {fg}; }}
             QListWidget {{
                 background: {card}; border: 1px solid {bord};
-                border-radius: 6px; color: {fg}; font-size: 11px; outline: none;
+                border-radius: 8px; color: {fg}; font-size: 12px; outline: none;
             }}
-            QListWidget::item {{ padding: 7px 10px; border-bottom: 1px solid {bord}; }}
+            QListWidget::item {{ padding: 9px 12px; border-bottom: 1px solid {bord}; }}
             QListWidget::item:selected {{ background: #0a84ff; color: #fff; border-radius: 4px; }}
-            QComboBox {{ background: {card}; border: 1px solid {bord}; border-radius: 6px; color: {fg}; padding: 4px 8px; font-size: 11px; }}
-            QComboBox::drop-down {{ border: none; width: 16px; }}
-            QLineEdit {{ background: {card}; border: 1px solid {bord}; border-radius: 6px; color: {fg}; padding: 3px 8px; font-size: 11px; }}
+            QListWidget::item:hover {{ background: {'#3a3a3c' if is_dark else '#eef1f8'}; }}
+            QLineEdit {{
+                background: {card}; border: 1px solid {bord};
+                border-radius: 8px; color: {fg}; padding: 5px 10px; font-size: 12px;
+            }}
+            QLineEdit:focus {{ border-color: #0a84ff; }}
         """)
 
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(16, 14, 16, 14)
-        lay.setSpacing(10)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
 
-        title = QLabel(f"Ubicar a <b>{char_name}</b><br><small>en {cap_title}</small>")
-        title.setWordWrap(True)
-        title.setStyleSheet(f"font-size: 12px; color: {fg};")
-        lay.addWidget(title)
+        # ── Header de color ─────────────────────────────────────────────────
+        hdr_bg = "#1a2a3a" if is_dark else "#3d5a8a"
+        hdr = QFrame()
+        hdr.setFixedHeight(72)
+        hdr.setStyleSheet(f"background: {hdr_bg}; border: none;")
+        hdr_lay = QVBoxLayout(hdr)
+        hdr_lay.setContentsMargins(18, 12, 18, 12)
+        hdr_lay.setSpacing(3)
 
+        name_lbl = QLabel(char_name)
+        name_lbl.setStyleSheet("font-size: 15px; font-weight: bold; color: #ffffff; background: transparent;")
+        hdr_lay.addWidget(name_lbl)
+
+        cap_lbl = QLabel(cap_title)
+        cap_lbl.setStyleSheet("font-size: 11px; color: #a8c4e0; background: transparent;")
+        cap_lbl.setWordWrap(True)
+        hdr_lay.addWidget(cap_lbl)
+
+        lay.addWidget(hdr)
+
+        # ── Contenido ───────────────────────────────────────────────────────
+        body = QWidget()
+        body.setStyleSheet(f"background: {bg};")
+        body_lay = QVBoxLayout(body)
+        body_lay.setContentsMargins(16, 14, 16, 14)
+        body_lay.setSpacing(10)
+
+        # Buscador
         self._search = QLineEdit()
         self._search.setPlaceholderText("Buscar lugar...")
-        self._search.setFixedHeight(30)
+        self._search.setFixedHeight(36)
         self._search.textChanged.connect(self._filter_places)
-        lay.addWidget(self._search)
+        body_lay.addWidget(self._search)
 
+        # Lista de lugares
         self._list = QListWidget()
         self._all_places = places
         self._populate_list(places, current_place_id)
-        lay.addWidget(self._list, stretch=1)
+        body_lay.addWidget(self._list, stretch=1)
 
-        state_row = QHBoxLayout()
-        state_row.addWidget(QLabel("Estado:"))
-        self._combo = QComboBox()
-        self._combo.setFixedHeight(28)
-        for label, data in _STATUS_OPTIONS:
-            self._combo.addItem(label, data)
-        idx = self._combo.findData(current_type)
-        if idx >= 0:
-            self._combo.setCurrentIndex(idx)
-        self._combo.currentIndexChanged.connect(lambda: setattr(self, "selected_type", self._combo.currentData()))
-        state_row.addWidget(self._combo, stretch=1)
-        lay.addLayout(state_row)
+        # ── Pastillas de estado ──────────────────────────────────────────────
+        state_lbl = QLabel("Estado de presencia:")
+        state_lbl.setStyleSheet(f"font-size: 10px; color: {sub}; font-weight: bold; letter-spacing: 0.5px;")
+        body_lay.addWidget(state_lbl)
 
+        pills_row = QHBoxLayout()
+        pills_row.setSpacing(8)
+        self._pill_btns = {}
+        pill_defs = [
+            ("present",  "Presente",    "#1a7a38" if not is_dark else "#30d158"),
+            ("transit",  "En transito", "#1a56b0" if not is_dark else "#0a84ff"),
+            ("departed", "Salida",      "#c41e0e" if not is_dark else "#ff453a"),
+        ]
+        for key, label, color in pill_defs:
+            btn = QPushButton(label)
+            btn.setFixedHeight(34)
+            btn.setCheckable(True)
+            btn.setProperty("pill_key", key)
+            btn.setProperty("pill_color", color)
+            btn.setChecked(key == self.selected_type)
+            btn.clicked.connect(lambda checked, k=key: self._on_pill_clicked(k))
+            self._pill_btns[key] = btn
+            pills_row.addWidget(btn)
+        self._apply_pill_styles()
+        body_lay.addLayout(pills_row)
+
+        # ── Botones de accion ────────────────────────────────────────────────
         btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
         btn_clear = QPushButton("Limpiar")
-        btn_clear.setFixedHeight(30)
-        btn_clear.setStyleSheet("QPushButton { background: transparent; border: 1px solid #636366; border-radius: 6px; color: #636366; } QPushButton:hover { border-color: #ff453a; color: #ff453a; }")
+        btn_clear.setFixedHeight(36)
+        btn_clear.setStyleSheet(
+            f"QPushButton {{ background: transparent; border: 1px solid {'#636366' if is_dark else '#c2cbd9'}; "
+            f"border-radius: 8px; color: {'#8e8e93' if is_dark else '#5a6a8a'}; font-size: 12px; }}"
+            f"QPushButton:hover {{ border-color: #ff453a; color: #ff453a; }}"
+        )
         btn_clear.clicked.connect(self._on_clear)
         btn_row.addWidget(btn_clear)
+
         btn_ok = QPushButton("Guardar")
-        btn_ok.setFixedHeight(30)
+        btn_ok.setFixedHeight(36)
         btn_ok.setDefault(True)
-        btn_ok.setStyleSheet("QPushButton { background: #0a84ff; color: #fff; border: none; border-radius: 6px; font-weight: bold; } QPushButton:hover { background: #3399ff; }")
+        btn_ok.setStyleSheet(
+            "QPushButton { background: #0a84ff; color: #fff; border: none; "
+            "border-radius: 8px; font-weight: bold; font-size: 12px; }"
+            "QPushButton:hover { background: #3399ff; }"
+        )
         btn_ok.clicked.connect(self._on_accept)
         btn_row.addWidget(btn_ok)
-        lay.addLayout(btn_row)
+        body_lay.addLayout(btn_row)
+
+        lay.addWidget(body, stretch=1)
+
+    def _on_pill_clicked(self, key):
+        self.selected_type = key
+        for k, btn in self._pill_btns.items():
+            btn.setChecked(k == key)
+        self._apply_pill_styles()
+
+    def _apply_pill_styles(self):
+        for key, btn in self._pill_btns.items():
+            color = btn.property("pill_color")
+            if btn.isChecked():
+                btn.setStyleSheet(
+                    f"QPushButton {{ background: {color}; color: #ffffff; border: 2px solid {color}; "
+                    f"border-radius: 8px; font-weight: bold; font-size: 11px; }}"
+                    f"QPushButton:hover {{ background: {color}cc; }}"
+                )
+            else:
+                btn.setStyleSheet(
+                    f"QPushButton {{ background: transparent; color: {color}; border: 1.5px solid {color}66; "
+                    f"border-radius: 8px; font-size: 11px; }}"
+                    f"QPushButton:hover {{ background: {color}18; border-color: {color}; }}"
+                )
 
     def _populate_list(self, places, selected_id):
         self._list.clear()
@@ -144,7 +221,6 @@ class _PlacePickerDialog(QDialog):
         item = self._list.currentItem()
         if item:
             self.selected_place_id = item.data(Qt.ItemDataRole.UserRole)
-            self.selected_type = self._combo.currentData()
         self.accept()
 
     def _on_clear(self):
