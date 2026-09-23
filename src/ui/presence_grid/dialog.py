@@ -412,30 +412,52 @@ class _PresenceGridWidget(QWidget):
         for ri, char in enumerate(self._characters):
             rc = role_colors.get(char.role, "#636366")
 
-            # Q3: Header de personaje (nombre + rol) — sin avatar, solo borde de color
+            # Q3: Fila de personaje — barra de color como widget separado (no CSS border)
+            # Usando QHBoxLayout: [barra color 4px] [texto nombre+rol]
+            # Esto evita que el border-left CSS se superponga al texto.
             ch = QFrame()
             ch.setFixedSize(_COL_CHAR_WIDTH, _ROW_CELL_H)
             ch.setStyleSheet(
-                f"background: {bg_hdr}; border-right: 2px solid {bord}; "
-                f"border-bottom: 1px solid {bord}; border-left: 4px solid {rc};"
+                f"QFrame {{ background: {bg_hdr}; "
+                f"border-right: 1px solid {bord}; "
+                f"border-bottom: 1px solid {bord}; }}"
             )
-            chl = QVBoxLayout(ch)
-            chl.setContentsMargins(12, 6, 8, 6)
-            chl.setSpacing(2)
-            chl.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+            ch_row = QHBoxLayout(ch)
+            ch_row.setContentsMargins(0, 0, 0, 0)
+            ch_row.setSpacing(0)
+
+            # Barra de color del rol (widget independiente, no CSS border)
+            color_bar = QFrame()
+            color_bar.setFixedWidth(4)
+            color_bar.setSizePolicy(
+                QSizePolicy.Policy.Fixed,
+                QSizePolicy.Policy.Expanding
+            )
+            color_bar.setStyleSheet(f"background: {rc}; border: none;")
+            ch_row.addWidget(color_bar)
+
+            # Área de texto — separada limpiamente de la barra de color
+            text_area = QWidget()
+            text_area.setStyleSheet("background: transparent; border: none;")
+            txt_lay = QVBoxLayout(text_area)
+            txt_lay.setContentsMargins(10, 6, 8, 6)
+            txt_lay.setSpacing(2)
+            txt_lay.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
             nl = QLabel((char.name[:22] + "...") if len(char.name) > 22 else char.name)
-            nl.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {fg};")
+            nl.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {fg}; background: transparent;")
             nl.setToolTip(char.name)
-            chl.addWidget(nl)
+            txt_lay.addWidget(nl)
 
             rl = QLabel(char.role)
-            rl.setStyleSheet(f"font-size: 9px; color: {rc};")
-            chl.addWidget(rl)
+            rl.setStyleSheet(f"font-size: 9px; color: {rc}; background: transparent;")
+            txt_lay.addWidget(rl)
 
+            ch_row.addWidget(text_area, stretch=1)
             self._q3_lay.addWidget(ch)
 
             total_h += _ROW_CELL_H + 2
+
 
             # Q4: Celdas de presencia para este personaje
             for ci, chapter in enumerate(self._chapters):
