@@ -1,4 +1,4 @@
-﻿"""
+"""
 presence_grid/dialog.py - Cuadricula de Presencias (tipo spreadsheet).
 
 Vista principal para gestionar manualmente donde esta cada personaje
@@ -423,13 +423,36 @@ class _PresenceGridWidget(QWidget):
 
     @staticmethod
     def _sorted_chapters(meta):
-        caps = []
+        """
+        Retorna capitulos en el orden correcto para la cuadricula:
+          1. Orden primario: in_world_order (si > 0) — orden cronologico del mundo.
+          2. Orden fallback: indice de insercion en el esquema (obra -> libro -> capitulo).
+             Esto preserva el orden narrativo que el autor definio en el panel de estructura,
+             incluso cuando no ha asignado un in_world_order explicito.
+        Si mezcla de capitulos con y sin in_world_order, los que tienen van primero
+        por numero, el resto sigue el orden del esquema al final.
+        """
+        caps_with_idx = []
+        struct_idx = 0
         for obra in getattr(meta, "obras", []):
             for libro in getattr(obra, "libros", []):
                 for cap in getattr(libro, "capitulos", []):
-                    caps.append(cap)
-        caps.sort(key=lambda c: (c.in_world_order or 0, c.title or ""))
-        return caps
+                    caps_with_idx.append((cap, struct_idx))
+                    struct_idx += 1
+
+        def _sort_key(item):
+            cap, idx = item
+            order = cap.in_world_order or 0
+            if order > 0:
+                # Tiene orden explicito: va primero, ordenado por ese numero
+                return (0, order, idx)
+            else:
+                # Sin orden explicito: preservar orden del esquema
+                return (1, idx, 0)
+
+        caps_with_idx.sort(key=_sort_key)
+        return [cap for cap, _ in caps_with_idx]
+
 
 
 class PresenceGridDialog(QDialog):
