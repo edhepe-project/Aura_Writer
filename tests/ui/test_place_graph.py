@@ -17,6 +17,8 @@ def test_place_graph_widget_population_and_spring_layout(qtbot):
 
     widget.set_data([p1, p2], [link])
 
+    qtbot.waitUntil(lambda: len(widget._node_map) == 2, timeout=2000)
+
     assert len(widget._node_map) == 2
     assert len(widget._link_items) == 1
     assert p1.id in widget._node_map
@@ -24,13 +26,14 @@ def test_place_graph_widget_population_and_spring_layout(qtbot):
 
     # Test Spring layout execution
     widget.reorganize_layout()
+    qtbot.waitUntil(lambda: widget._stack.currentIndex() == 1, timeout=2000)
 
     # Búsqueda interactiva
     widget._search_input.setText("Castillo")
     node_castillo = widget._node_map[p2.id]
     node_valle = widget._node_map[p1.id]
-    assert node_castillo.isSelected() is True
-    assert node_valle.isSelected() is False
+    assert node_castillo._is_focused is True
+    assert node_valle._is_focused is False
 
 
 def test_place_graph_dialog_connections_management(qtbot, tmp_path):
@@ -52,6 +55,10 @@ def test_place_graph_dialog_connections_management(qtbot, tmp_path):
 
     dialog = PlaceGraphDialog(project_manager=pm)
     qtbot.addWidget(dialog)
+
+    # Forzar carga de datos y esperar a que el layout termine de procesar
+    dialog._load_data()
+    qtbot.waitUntil(lambda: dialog._graph_widget._stack.currentIndex() == 1, timeout=3000)
 
     # Seleccionar p1
     dialog._on_place_selected(p1.id)
@@ -96,6 +103,8 @@ def test_place_graph_hierarchy_orbital_mode(qtbot):
     mazmorra = Place(name="Mazmorras Bajas", category="Mazmorra / Cueva", parent_place_id=salon.id)
 
     widget.set_data([castillo, salon, mazmorra], [])
+
+    qtbot.waitUntil(lambda: len(widget._node_map) == 3, timeout=2000)
 
     assert len(widget._node_map) == 3
     node_castillo = widget._node_map[castillo.id]
