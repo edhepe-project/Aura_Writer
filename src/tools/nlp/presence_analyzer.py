@@ -1,11 +1,33 @@
 """
-presence_analyzer.py — Orquestador principal del pipeline de detección.
-Responsabilidad: coordinar text_cleaner → normalizer → entity_detector → verb_classifier
-y producir lista de CharacterPresence.
+presence_analyzer.py — Orquestador principal del pipeline de detección automática NLP.
 
-Fase 1: FlashText + patrones regex de conjugación (sin spaCy).
-Fase 2: FlashText + spaCy lematización real (si está disponible).
-Fallback automático: si spaCy no está instalado, usa Fase 1 silenciosamente.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️  MOTOR AUTOMÁTICO DESACTIVADO — Septiembre 2026
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+El motor de análisis automático de presencias fue desactivado temporalmente
+porque la tecnología NLP aún no es suficientemente madura para entender
+el contexto completo de una obra literaria, en especial cuando involucra
+narrativas no lineales, nombres de conlang o estructuras no convencionales.
+
+El sistema actual usa presencias MANUALES: el autor ubica y mueve a los
+personajes explícitamente desde el Atlas Literario (presence_panel.py).
+
+PARA RETOMAR ESTE MÓDULO EN EL FUTURO:
+  1. Revisar entity_detector.py → EntityDetector: mejorar detección de
+     coreferenciales y pronombres (ej: "él", "ella", "el rey").
+  2. Integrar spaCy con modelo en español (es_core_news_lg) para
+     lematización real de verbos de movimiento.
+  3. Agregar un botón "🔬 Analizar capítulo" en el PresencePanel (modo asistido,
+     no automático), que muestre sugerencias para que el autor confirme o rechace.
+  4. Conectar de nuevo PlaceGraphWidget._on_analyze_clicked() en widget.py.
+  5. Revisar presence_merger.py para manejar conflictos entre presencias
+     manuales y sugerencias automáticas.
+
+PIPELINE ORIGINAL (Fases):
+  Fase 1: FlashText + patrones regex de conjugación (sin spaCy) — rápido.
+  Fase 2: FlashText + spaCy lematización real (si está disponible) — preciso.
+  Fallback automático: si spaCy no está instalado, usa Fase 1 silenciosamente.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 from __future__ import annotations
 
