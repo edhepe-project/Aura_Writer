@@ -33,13 +33,23 @@ class PlaceGraphDialog(QDialog):
         self.setMinimumSize(900, 520)
 
         self._selected_place_id: str | None = None
+        self._data_loaded: bool = False
         self._setup_ui()
-        self._load_data()
+        # NO llamar _load_data() aqui — se difiere al showEvent
+        # para que el dialogo aparezca inmediatamente con el overlay de carga
+        # en lugar de quedarse en blanco mientras construye el grafo.
 
     def showEvent(self, event):
         super().showEvent(event)
         from PyQt6.QtCore import QTimer
-        QTimer.singleShot(50, self._graph_widget._fit_to_view)
+        if not self._data_loaded:
+            self._data_loaded = True
+            # Cargar datos tras el primer pintado del dialogo:
+            # el usuario ve el overlay de carga, no una ventana en blanco.
+            QTimer.singleShot(0, self._load_data)
+        else:
+            # Reaperturas: solo reajustar la camara
+            QTimer.singleShot(50, self._graph_widget._fit_to_view)
 
     def _setup_ui(self):
         is_dark = ThemeManager.is_dark()
