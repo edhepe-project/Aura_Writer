@@ -412,38 +412,29 @@ class _PresenceGridWidget(QWidget):
         for ri, char in enumerate(self._characters):
             rc = role_colors.get(char.role, "#636366")
 
-            # Q3: Header de personaje (nombre + rol)
+            # Q3: Header de personaje (nombre + rol) — sin avatar, solo borde de color
             ch = QFrame()
             ch.setFixedSize(_COL_CHAR_WIDTH, _ROW_CELL_H)
             ch.setStyleSheet(
                 f"background: {bg_hdr}; border-right: 2px solid {bord}; "
-                f"border-bottom: 1px solid {bord}; border-left: 3px solid {rc};"
+                f"border-bottom: 1px solid {bord}; border-left: 4px solid {rc};"
             )
-            chl = QHBoxLayout(ch)
-            chl.setContentsMargins(8, 0, 6, 0)
-            chl.setSpacing(6)
+            chl = QVBoxLayout(ch)
+            chl.setContentsMargins(12, 6, 8, 6)
+            chl.setSpacing(2)
+            chl.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-            av = QLabel(char.name[:1].upper() if char.name else "?")
-            av.setFixedSize(26, 26)
-            av.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            av.setStyleSheet(
-                f"background: {rc}22; color: {rc}; border: 1px solid {rc}66; "
-                f"border-radius: 13px; font-weight: bold; font-size: 11px;"
-            )
-            chl.addWidget(av)
-
-            nc = QVBoxLayout()
-            nc.setSpacing(1)
-            nl = QLabel((char.name[:20] + "...") if len(char.name) > 20 else char.name)
+            nl = QLabel((char.name[:22] + "...") if len(char.name) > 22 else char.name)
             nl.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {fg};")
             nl.setToolTip(char.name)
-            nc.addWidget(nl)
+            chl.addWidget(nl)
+
             rl = QLabel(char.role)
-            rl.setStyleSheet(f"font-size: 8px; color: {rc};")
-            nc.addWidget(rl)
-            chl.addLayout(nc, stretch=1)
+            rl.setStyleSheet(f"font-size: 9px; color: {rc};")
+            chl.addWidget(rl)
 
             self._q3_lay.addWidget(ch)
+
             total_h += _ROW_CELL_H + 2
 
             # Q4: Celdas de presencia para este personaje
