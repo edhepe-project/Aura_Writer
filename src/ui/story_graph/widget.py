@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QToolBar, QGraphicsView,
     QInputDialog, QComboBox, QDialog, QFormLayout, QLineEdit, QDialogButtonBox, QMessageBox
 )
-from PyQt6.QtGui import QPainter, QIcon, QFont, QAction
+from PyQt6.QtGui import QPainter, QIcon, QFont, QAction, QColor
 from PyQt6.QtCore import Qt, pyqtSignal as Signal, QTimer
 
 from core.models import UniverseMetadata, StoryBlock, StoryArc
@@ -80,6 +80,8 @@ class StoryGraphWidget(QWidget):
 
     def showEvent(self, a0):
         super().showEvent(a0)
+        # Re-aplicar tema por si cambió entre sesiones
+        self._apply_theme()
         # Ajustar vista automáticamente poco después de que el widget se muestra
         QTimer.singleShot(100, self._fit_in_view)
 
@@ -91,23 +93,30 @@ class StoryGraphWidget(QWidget):
 
         # 1. Toolbar superior
         toolbar = QToolBar()
-        toolbar.setStyleSheet("""
-            QToolBar {
-                background-color: #1c1c1e;
-                border-bottom: 1px solid #2c2c2e;
+        from core.theme_manager import ThemeManager
+        _is_dark = ThemeManager.is_dark()
+        _tb_bg   = "#1c1c1e" if _is_dark else "#f0f0f2"
+        _tb_sep  = "#2c2c2e" if _is_dark else "#d1d5db"
+        _btn_bg  = "#2c2c2e" if _is_dark else "#e5e7eb"
+        _btn_fg  = "#ffffff" if _is_dark else "#1c1c1e"
+        _btn_hov = "#3a3a3c" if _is_dark else "#d1d5db"
+        toolbar.setStyleSheet(f"""
+            QToolBar {{
+                background-color: {_tb_bg};
+                border-bottom: 1px solid {_tb_sep};
                 padding: 4px;
                 spacing: 8px;
-            }
-            QToolButton {
-                background-color: #2c2c2e;
-                color: #ffffff;
+            }}
+            QToolButton {{
+                background-color: {_btn_bg};
+                color: {_btn_fg};
                 border-radius: 4px;
                 padding: 6px 12px;
                 font-weight: bold;
-            }
-            QToolButton:hover {
-                background-color: #3a3a3c;
-            }
+            }}
+            QToolButton:hover {{
+                background-color: {_btn_hov};
+            }}
         """)
 
         act_add_node = QAction("✨ Nuevo Bloque", self)
@@ -159,9 +168,16 @@ class StoryGraphWidget(QWidget):
         self.view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.view.setOptimizationFlag(QGraphicsView.OptimizationFlag.DontSavePainterState)
         self.view.setOptimizationFlag(QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing)
+        self._apply_theme()
+
+    def _apply_theme(self):
+        """Aplica colores de fondo según el tema activo (claro u oscuro)."""
         from core.theme_manager import ThemeManager
-        bg_color = "#121214" if ThemeManager.is_dark() else "#f9fafb"
+        from PyQt6.QtGui import QBrush
+        is_dark = ThemeManager.is_dark()
+        bg_color = "#121214" if is_dark else "#f5f5f7"
         self.view.setStyleSheet(f"QGraphicsView {{ border: none; background-color: {bg_color}; }}")
+        self.scene.setBackgroundBrush(QBrush(QColor(bg_color)))
 
         center_layout.addWidget(self.view, stretch=1)
 

@@ -29,8 +29,8 @@ from PyQt6.QtWidgets import QGraphicsDropShadowEffect
 class StoryNodeItem(QGraphicsRectItem):
     """Nodo gráfico que representa un StoryBlock (Tarjeta Premium)."""
 
-    NODE_WIDTH = 250.0
-    MIN_HEIGHT = 130.0
+    NODE_WIDTH = 260.0
+    MIN_HEIGHT = 158.0
 
     def __init__(self, block: StoryBlock, chapter_title: str = ""):
         super().__init__()
@@ -47,10 +47,9 @@ class StoryNodeItem(QGraphicsRectItem):
         self.setAcceptHoverEvents(True)
         self.setCacheMode(QGraphicsItem.CacheMode.DeviceCoordinateCache)
         
-        
         # Altura dinámica: si tiene capítulo vinculado, se añade una fila extra
         self._has_chapter = bool(chapter_title and block.status == "escrito")
-        self.setRect(0, 0, self.NODE_WIDTH, self.MIN_HEIGHT + (20 if self._has_chapter else 0))
+        self.setRect(0, 0, self.NODE_WIDTH, self.MIN_HEIGHT + (26 if self._has_chapter else 0))
         self.setPos(block.x, block.y)
 
         # Efecto de sombra premium
@@ -176,10 +175,18 @@ class StoryNodeItem(QGraphicsRectItem):
             return
 
         # Nivel 1: Tarjeta Premium Completa
+        # ── Zonas fijas ──────────────────────────────────────────────
+        # Y=0..42   : Cabecera (título + badge estado)
+        # Y=42      : Separador
+        # Y=44..108 : Sinopsis (3 líneas aprox.)
+        # Y=108..128: Footer Tono
+        # Y=130..158: (extra si _has_chapter) Capítulo vinculado
+        # ─────────────────────────────────────────────────────────────
+
         from PyQt6.QtGui import QLinearGradient
-        grad = QLinearGradient(0, 0, 0, self.MIN_HEIGHT)
-        grad.setColorAt(0.0, bg_col.lighter(110))
-        grad.setColorAt(1.0, bg_col.darker(120))
+        grad = QLinearGradient(0, 0, 0, r.height())
+        grad.setColorAt(0.0, bg_col.lighter(108))
+        grad.setColorAt(1.0, bg_col.darker(108))
 
         path = QPainterPath()
         path.addRoundedRect(r, 12.0, 12.0)
@@ -188,66 +195,91 @@ class StoryNodeItem(QGraphicsRectItem):
         painter.setBrush(QBrush(grad))
         painter.drawPath(path)
 
-        # 1. Cabecera (Badge estado + Título)
-        painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-        painter.setPen(QColor(cfg["text_color"] if is_dark else cfg.get("light_text_color", cfg["text_color"])))
-        
+        text_primary   = QColor(cfg["text_color"] if is_dark else cfg.get("light_text_color", cfg["text_color"]))
+        text_secondary = QColor("#d1d1d6" if is_dark else "#4b5563")
+        text_muted     = QColor("#8e8e93" if is_dark else "#6b7280")
+        divider_color  = QColor(255, 255, 255, 25) if is_dark else QColor(0, 0, 0, 20)
+        tone_color     = QColor(tone_cfg["color"] if is_dark else tone_cfg.get("light_color", tone_cfg["color"]))
+
+        # ── 1. Cabecera ──────────────────────────────────────────────
+        painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        painter.setPen(text_primary)
         header_text = f"{cfg['badge']} {self.block.title}"
         metrics = QFontMetrics(painter.font())
-        elided_title = metrics.elidedText(header_text, Qt.TextElideMode.ElideRight, int(r.width() - 20))
-        painter.drawText(QRectF(14, 10, r.width() - 28, 24), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, elided_title)
+        elided_title = metrics.elidedText(header_text, Qt.TextElideMode.ElideRight, int(r.width() - 24))
+        painter.drawText(QRectF(12, 8, r.width() - 24, 28),
+                         Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, elided_title)
 
-        # Línea divisoria suave
-        painter.setPen(QPen(QColor(255, 255, 255, 30) if is_dark else QColor(0, 0, 0, 30), 1.0))
-        painter.drawLine(QPointF(14, 38), QPointF(r.width() - 14, 38))
+        # Etiqueta de estado pequeña (esquina superior derecha)
+        status_label = cfg["label"].upper()
+        painter.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
+        painter.setPen(text_primary.lighter(140) if is_dark else text_primary.darker(110))
+        painter.drawText(QRectF(0, 8, r.width() - 10, 20),
+                         Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop, status_label)
 
-        # 2. Sinopsis
-        painter.setFont(QFont("Segoe UI", 9))
-        painter.setPen(QColor("#d1d1d6" if is_dark else "#4b5563"))
+        # ── Separador ────────────────────────────────────────────────
+        painter.setPen(QPen(divider_color, 1.0))
+        painter.drawLine(QPointF(12, 40), QPointF(r.width() - 12, 40))
+
+        # ── 2. Sinopsis ──────────────────────────────────────────────
+        painter.setFont(QFont("Segoe UI", 8))
+        painter.setPen(text_secondary)
         synopsis_text = self.block.synopsis if self.block.synopsis else "Sin sinopsis detallada..."
-        painter.drawText(QRectF(14, 46, r.width() - 28, 50), Qt.TextFlag.TextWordWrap, synopsis_text)
+        painter.drawText(QRectF(12, 46, r.width() - 24, 62),
+                         Qt.TextFlag.TextWordWrap, synopsis_text)
 
-        # 3. Footer: Tono y Temas
+        # ── Separador antes del footer ────────────────────────────────
+        painter.setPen(QPen(divider_color, 1.0))
+        painter.drawLine(QPointF(12, 112), QPointF(r.width() - 12, 112))
+
+        # ── 3. Footer: Tono + Temas ───────────────────────────────────
         painter.setPen(Qt.PenStyle.NoPen)
-        tone_color = QColor(tone_cfg["color"] if is_dark else tone_cfg.get("light_color", tone_cfg["color"]))
         painter.setBrush(QBrush(tone_color))
-        painter.drawEllipse(QPointF(20, r.height() - 16), 4, 4)
+        painter.drawEllipse(QPointF(18, 126), 4, 4)
 
-        painter.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
-        painter.setPen(QColor("#a1a1a6" if is_dark else "#6b7280"))
-        painter.drawText(QRectF(30, r.height() - 24, 100, 16), Qt.AlignmentFlag.AlignVCenter, tone_cfg["label"].upper())
+        painter.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
+        painter.setPen(tone_color.darker(120) if not is_dark else tone_color.lighter(120))
+        painter.drawText(QRectF(28, 116, 110, 20),
+                         Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                         tone_cfg["label"].upper())
 
-        # Temas contador
         if self.block.themes:
             tags_text = " • ".join(self.block.themes[:2])
             if len(self.block.themes) > 2:
-                tags_text += " ..."
-            painter.setFont(QFont("Segoe UI", 8))
-            painter.setPen(QColor("#8e8e93" if is_dark else "#9ca3af"))
-            painter.drawText(QRectF(120, r.height() - (44 if self._has_chapter else 24), r.width() - 134, 16), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, tags_text)
-
-        # 4. Capítulo vinculado (solo si escrito + chapter asignado)
-        if self._has_chapter:
-            chapter_row_y = r.height() - 22
-
-            # Fondo de la fila de capítulo (levemente diferente)
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QBrush(QColor(255, 214, 10, 25)))
-            chapter_bg = QPainterPath()
-            chapter_bg.addRoundedRect(QRectF(0, chapter_row_y - 4, r.width(), 26), 0, 0)
-            painter.drawPath(chapter_bg)
-
-            # Icono + texto
-            painter.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
-            painter.setPen(QColor("#ffd60a" if is_dark else "#b45309"))
-            metrics = QFontMetrics(painter.font())
-            elided_ch = metrics.elidedText(f"📖 {self.chapter_title}", Qt.TextElideMode.ElideRight, int(r.width() - 20))
-            painter.drawText(QRectF(12, chapter_row_y, r.width() - 24, 18), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, elided_ch)
-
-            # Indicador de "doble clic para ir"
+                tags_text += " …"
             painter.setFont(QFont("Segoe UI", 7))
-            painter.setPen(QColor("#8e8e93" if is_dark else "#9ca3af"))
-            painter.drawText(QRectF(0, chapter_row_y, r.width() - 10, 18), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, "↩ doble clic")
+            painter.setPen(text_muted)
+            painter.drawText(QRectF(130, 116, r.width() - 142, 20),
+                             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, tags_text)
+
+        # ── 4. Capítulo vinculado (fila extra al fondo) ───────────────
+        if self._has_chapter:
+            chapter_y = 160.0  # top de la franja de capítulo
+
+            # Franja de fondo dorado translúcido
+            painter.setPen(Qt.PenStyle.NoPen)
+            chapter_bg_color = QColor(255, 214, 10, 30) if is_dark else QColor(180, 83, 9, 20)
+            painter.setBrush(QBrush(chapter_bg_color))
+            ch_path = QPainterPath()
+            ch_path.addRoundedRect(QRectF(0, chapter_y - 2, r.width(), 24), 0, 0)
+            painter.drawPath(ch_path)
+
+            # Icono + título capítulo
+            painter.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
+            ch_color = QColor("#ffd60a" if is_dark else "#b45309")
+            painter.setPen(ch_color)
+            metrics = QFontMetrics(painter.font())
+            elided_ch = metrics.elidedText(
+                f"📖 {self.chapter_title}", Qt.TextElideMode.ElideRight, int(r.width() - 80))
+            painter.drawText(QRectF(10, chapter_y, r.width() - 20, 20),
+                             Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, elided_ch)
+
+            # Sugerencia "↩ doble clic"
+            painter.setFont(QFont("Segoe UI", 7))
+            painter.setPen(text_muted)
+            painter.drawText(QRectF(0, chapter_y, r.width() - 8, 20),
+                             Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, "↩ clic")
+
 
 
 class StoryArcItem(QGraphicsPathItem):
