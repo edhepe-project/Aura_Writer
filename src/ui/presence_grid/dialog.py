@@ -1,4 +1,4 @@
-﻿"""
+"""
 presence_grid/dialog.py - Cuadricula de Presencias (tipo spreadsheet).
 
 Arquitectura de 4 cuadrantes con columna y header FIJOS:
@@ -42,7 +42,7 @@ _STATUS_OPTIONS = [
     ("Salida",      "departed"),
 ]
 
-_COL_CHAR_WIDTH = 172   # ancho fijo de la columna de personajes (Q1 y Q3)
+_COL_CHAR_WIDTH = 210   # ancho fijo de la columna de personajes (Q1 y Q3)
 _COL_CHAPTER_W  = 130   # ancho de cada columna de capitulo
 _ROW_HEADER_H   = 62    # alto del header de capitulos (Q1 y Q2)
 _ROW_CELL_H     = 52    # alto de cada fila de personaje
@@ -434,7 +434,7 @@ class _PresenceGridWidget(QWidget):
 
             nc = QVBoxLayout()
             nc.setSpacing(1)
-            nl = QLabel((char.name[:16] + "...") if len(char.name) > 16 else char.name)
+            nl = QLabel((char.name[:20] + "...") if len(char.name) > 20 else char.name)
             nl.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {fg};")
             nl.setToolTip(char.name)
             nc.addWidget(nl)
