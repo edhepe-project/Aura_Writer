@@ -174,8 +174,14 @@ class PlaceGraphScene(QGraphicsScene):
         """Elimina todos los badges de presencia actuales de la escena."""
         for badge_list in self._presence_badges.values():
             for badge in badge_list:
-                if badge.scene():
-                    self.removeItem(badge)
+                try:
+                    # badge.scene() lanza RuntimeError si el objeto C++ ya fue
+                    # destruido por scene.clear() antes de que se limpiara el dict.
+                    if badge.scene():
+                        self.removeItem(badge)
+                except RuntimeError:
+                    # El objeto C++ subyacente ya fue destruido — ignorar de forma segura.
+                    pass
         self._presence_badges.clear()
 
 

@@ -477,6 +477,11 @@ class PlaceGraphWidget(QWidget):
         Esto evita que la UI se congele durante el calculo de fisica orbital.
         """
         # Limpiar estado anterior
+        # IMPORTANTE: limpiar _presence_badges ANTES de scene.clear().
+        # scene.clear() destruye los QGraphicsItem en C++, pero las referencias
+        # Python en _presence_badges siguen vivas y causarian RuntimeError
+        # si _clear_presence_badges() las toca despues.
+        self._scene._presence_badges.clear()
         self._scene.clear()
         self._node_map.clear()
         self._scene._nodes.clear()
