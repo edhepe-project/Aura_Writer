@@ -122,6 +122,7 @@ class AuraMainWindow(
         ol.addWidget(lbl)
         self.outline_tree = OutlineTree()
         self.outline_tree.item_selected.connect(self.on_item_selected)
+        self.outline_tree.item_double_clicked.connect(self._on_tree_item_double_clicked)
         self.outline_tree.node_add_requested.connect(self._on_add_node)
         self.outline_tree.node_delete_requested.connect(self._on_delete_node)
         self.outline_tree.node_renamed.connect(self._on_rename_node)
@@ -357,7 +358,11 @@ class AuraMainWindow(
             chapter = self.project_manager.find_chapter(item_id)
             if chapter:
                 self._load_chapter(chapter)
-        elif item_type == "media":
+
+    def _on_tree_item_double_clicked(self, item_id: str, item_type: str):
+        """Responde al doble clic en un nodo del árbol. Los nodos 'media' abren
+        su previsualización solo cuando el usuario hace doble clic explícito."""
+        if item_type == "media":
             self._show_media_preview(item_id)
 
     def closeEvent(self, a0):  # noqa: N802  # Qt uses 'a0' in stubs

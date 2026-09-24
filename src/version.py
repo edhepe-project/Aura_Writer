@@ -4,7 +4,7 @@
 # build_windows.bat y installer.iss lo leen automáticamente.
 # ─────────────────────────────────────────────────────────────────────────────
 
-__version__ = "1.7.2"
+__version__ = "1.7.3"
 
 APP_NAME = "Aura Writer"
 APP_AUTHOR = "Aura Studio"

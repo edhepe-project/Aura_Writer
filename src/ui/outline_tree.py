@@ -15,6 +15,7 @@ class OutlineTree(QTreeView):
     - Edición de nombres directo (doble clic o F2)
     """
     item_selected = pyqtSignal(str, str)              # (id, type)
+    item_double_clicked = pyqtSignal(str, str)        # (id, type)
     node_add_requested = pyqtSignal(str, str, str)     # (parent_id, parent_type, new_type)
     node_delete_requested = pyqtSignal(str, str)       # (id, type)
     node_renamed = pyqtSignal(str, str, str)           # (id, type, new_name)
@@ -38,6 +39,7 @@ class OutlineTree(QTreeView):
         self.customContextMenuRequested.connect(self._show_context_menu)
 
         self.clicked.connect(self._on_clicked)
+        self.doubleClicked.connect(self._on_double_clicked)
 
         # Iconos
         self.icons = {}
@@ -125,8 +127,15 @@ class OutlineTree(QTreeView):
         self._model.blockSignals(False)
         self.expandAll()
 
-    def select_node_by_id(self, target_id: str) -> bool:
-        """Busca y selecciona visualmente el nodo con el ID dado en el árbol."""
+    def select_node_by_id(self, target_id: str, emit_signal: bool = True) -> bool:
+        """Busca y selecciona visualmente el nodo con el ID dado en el árbol.
+        
+        Args:
+            target_id: ID del nodo a seleccionar.
+            emit_signal: Si False, solo hace la selección visual sin emitir item_selected.
+                         Útil al restaurar estado en arranque para nodos 'media' que no
+                         deben abrir el diálogo de previsualización automáticamente.
+        """
         def _search_item(parent_item):
             for row in range(parent_item.rowCount()):
                 child = parent_item.child(row)
@@ -135,7 +144,11 @@ class OutlineTree(QTreeView):
                         idx = child.index()
                         self.setCurrentIndex(idx)
                         self.selectionModel().select(idx, self.selectionModel().SelectionFlag.ClearAndSelect)
-                        self.item_selected.emit(target_id, child.data(Qt.ItemDataRole.UserRole + 1))
+                        node_type = child.data(Qt.ItemDataRole.UserRole + 1)
+                        # Los nodos 'media' no emiten señal en restauración de sesión:
+                        # el preview solo se abre con doble clic deliberado del usuario.
+                        if emit_signal and node_type != "media":
+                            self.item_selected.emit(target_id, node_type)
                         return True
                     if _search_item(child):
                         return True
@@ -339,6 +352,14 @@ class OutlineTree(QTreeView):
         item_id   = item.data(Qt.ItemDataRole.UserRole)
         item_type = item.data(Qt.ItemDataRole.UserRole + 1)
         self.item_selected.emit(item_id, item_type)
+
+    def _on_double_clicked(self, index):
+        item = self._model.itemFromIndex(index)
+        if item is None:
+            return
+        item_id   = item.data(Qt.ItemDataRole.UserRole)
+        item_type = item.data(Qt.ItemDataRole.UserRole + 1)
+        self.item_double_clicked.emit(item_id, item_type)
 
     # ------------------------------------------------------------------
     # Drag and Drop Override
