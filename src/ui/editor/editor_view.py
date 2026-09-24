@@ -475,18 +475,14 @@ class AuraEditor(QTextEdit):
             )
             self._image_cache.append(image)
 
-        if not name:
-            name = f"img_{uuid.uuid4().hex[:8]}"
-        safe_name = name.replace("\\", "/").split("/")[-1]
-        resource_name = f"aura_{uuid.uuid4().hex[:6]}_{safe_name}"
-
-        try:
-            self.document().addResource(
-                self.document().ResourceType.ImageResource,
-                QUrl(resource_name), image
-            )
-        except Exception:
-            return
+        # Convertir a Base64 para que se guarde de forma nativa en el HTML
+        from PyQt6.QtCore import QByteArray, QBuffer, QIODevice
+        ba = QByteArray()
+        buffer = QBuffer(ba)
+        buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+        image.save(buffer, "PNG")
+        b64_data = ba.toBase64().data().decode("utf-8")
+        resource_name = f"data:image/png;base64,{b64_data}"
 
         cursor = self.textCursor()
         cursor.insertBlock()
