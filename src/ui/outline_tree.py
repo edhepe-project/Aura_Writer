@@ -41,16 +41,15 @@ class OutlineTree(QTreeView):
         self.clicked.connect(self._on_clicked)
         self.doubleClicked.connect(self._on_double_clicked)
 
-        # Iconos
-        self.icons = {}
+        # Iconos monocromáticos elegantes (Estilo Suizo / Minimal)
         try:
             self.icons = {
-                "universe":    qta.icon("fa5s.globe",        color="#9b59b6"),
-                "obra":        qta.icon("fa5s.book-open",    color="#e67e22"),
-                "libro":       qta.icon("fa5s.book",         color="#d4a017"),
-                "chapter":     qta.icon("fa5s.bookmark",     color="#27ae60"),
-                "media":       qta.icon("fa5s.image",        color="#3498db"),
-                "author_note": qta.icon("fa5s.sticky-note",  color="#95a5a6"),
+                "universe":    qta.icon("fa5s.globe",        color="#a1a1aa"),
+                "obra":        qta.icon("fa5s.book-open",    color="#d97706"),
+                "libro":       qta.icon("fa5s.book",         color="#71717a"),
+                "chapter":     qta.icon("fa5s.bookmark",     color="#a1a1aa"),
+                "media":       qta.icon("fa5s.image",        color="#71717a"),
+                "author_note": qta.icon("fa5s.sticky-note",  color="#52525b"),
             }
         except Exception:
             pass
@@ -197,32 +196,32 @@ class OutlineTree(QTreeView):
         menu = QMenu(self)
 
         # ── Sección: Añadir (opciones contextuales según el tipo de nodo) ───────
-        add_menu = menu.addMenu("➕ Añadir…")
+        add_menu = menu.addMenu("Añadir…")
 
         if item_type == "universe":
-            add_menu.addAction("🏛️ Nueva Obra / Saga", lambda: self.node_add_requested.emit(
+            add_menu.addAction("Nueva Obra / Saga", lambda: self.node_add_requested.emit(
                 item_id, item_type, "obra"))
 
         if item_type in ("universe", "obra"):
-            add_menu.addAction("📘 Nuevo Libro", lambda: self.node_add_requested.emit(
+            add_menu.addAction("Nuevo Libro", lambda: self.node_add_requested.emit(
                 item_id, item_type, "libro"))
 
         if item_type in ("universe", "obra", "libro", "chapter"):
-            add_menu.addAction("📑 Nuevo Capítulo", lambda: self.node_add_requested.emit(
+            add_menu.addAction("Nuevo Capítulo", lambda: self.node_add_requested.emit(
                 item_id, item_type, "chapter"))
 
         add_menu.addSeparator()
-        add_menu.addAction("🖼️ Media (Imagen / Mapa)", lambda: self.node_add_requested.emit(
+        add_menu.addAction("Media (Imagen / Mapa)", lambda: self.node_add_requested.emit(
             item_id, item_type, "media"))
 
         menu.addSeparator()
 
         # ── Renombrar ────────────────────────────────────
-        menu.addAction("✏️ Renombrar", lambda: self._start_rename(index))
+        menu.addAction("Renombrar", lambda: self._start_rename(index))
 
         # ── Eliminar (no se puede eliminar el nodo universo raíz) ──────────
         if item_type != "universe":
-            menu.addAction("🗑️ Eliminar", lambda: self._request_delete(item_id, item_type, item.text()))
+            menu.addAction("Eliminar", lambda: self._request_delete(item_id, item_type, item.text()))
 
         menu.exec(self.viewport().mapToGlobal(position))
 

@@ -192,15 +192,15 @@ PLACE_CATEGORIES = [
 ]
 
 PLACE_ICONS = {
-    "Reino / Nación": "👑",
-    "Ciudad / Poblado": "🏛️",
-    "Fortaleza / Castillo": "🏰",
-    "Taberna / Interior": "🍻",
-    "Mazmorra / Cueva": "🗝️",
-    "Naturaleza / Bosque": "🌲",
-    "Región Mágica": "✨",
-    "Planeta / Espacio": "🪐",
-    "Otro": "📍"
+    "Reino / Nación": "◆",
+    "Ciudad / Poblado": "◈",
+    "Fortaleza / Castillo": "▲",
+    "Taberna / Interior": "■",
+    "Mazmorra / Cueva": "❖",
+    "Naturaleza / Bosque": "✦",
+    "Región Mágica": "★",
+    "Planeta / Espacio": "⬡",
+    "Otro": "●"
 }
 
 
@@ -399,9 +399,18 @@ class UniverseMetadata(BaseModel):
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> UniverseMetadata:
+        if not isinstance(data, dict):
+            data = {}
         if "obras" not in data:
-            return _migrate_v1_to_v2(data)
-        return cls.model_validate(data)
+            try:
+                return _migrate_v1_to_v2(data)
+            except Exception:
+                pass # fallback to default if migration fails
+        try:
+            return cls.model_validate(data)
+        except Exception:
+            # Fallback for heavily corrupted json: return default metadata
+            return cls()
 
     def to_dict(self) -> Dict[str, Any]:
         return self.model_dump(mode="json")
@@ -439,12 +448,27 @@ def _migrate_v1_to_v2(data: Dict[str, Any]) -> UniverseMetadata:
                     title=old_chap.get("title", "Sin título"),
                 ))
 
-    book = Book(title=data.get("title", "Libro 1"), capitulos=capitulos)
-    obra = Obra(title=data.get("title", "Obra migrada"), libros=[book])
+    book = Book(title=data.get("title") or "Libro 1", capitulos=capitulos)
+    obra = Obra(title=data.get("title") or "Obra migrada", libros=[book])
 
     # Convertir personajes y lugares desde los dicts crudos usando Pydantic
-    chars = [Character.model_validate(c) for c in data.get("characters", [])]
-    places = [Place.model_validate(p) for p in data.get("places", [])]
+    chars_data = data.get("characters") or []
+    chars = []
+    for c in chars_data:
+        if isinstance(c, dict):
+            try:
+                chars.append(Character.model_validate(c))
+            except Exception:
+                pass
+                
+    places_data = data.get("places") or []
+    places = []
+    for p in places_data:
+        if isinstance(p, dict):
+            try:
+                places.append(Place.model_validate(p))
+            except Exception:
+                pass
 
     return UniverseMetadata(
         title=data.get("title", "Universo migrado"),

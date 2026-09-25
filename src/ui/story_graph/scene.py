@@ -102,81 +102,37 @@ class StoryGraphScene(QGraphicsScene):
     def drawForeground(self, painter: QPainter | None, rect: QRectF):
         if painter is None: return
         super().drawForeground(painter, rect)
-        if self._connecting_source_item and self._temp_mouse_pos:
-            p1 = self._connecting_source_item.get_output_port_pos()
-            p2 = self._temp_mouse_pos
-            
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            painter.setPen(QPen(QColor("#0a84ff"), 2.0, Qt.PenStyle.DashLine))
-            
-            dx = abs(p2.x() - p1.x()) * 0.5
-            if p2.x() < p1.x():
-                dx = max(dx, 80.0)
-            else:
-                dx = max(dx, 40.0)
-
-            path = QPainterPath()
-            path.moveTo(p1)
-            path.cubicTo(p1.x() + dx, p1.y(), p2.x() - dx, p2.y(), p2.x(), p2.y())
-            painter.drawPath(path)
 
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent | None):
         if event is None: return
-        if event.button() == Qt.MouseButton.LeftButton:
-            item = self.itemAt(event.scenePos(), self.views()[0].transform() if self.views() else None)
-            if isinstance(item, StoryNodeItem):
-                local_pos = item.mapFromScene(event.scenePos())
-                r = item.rect()
-                
-                # Verificar área del borde derecho para iniciar conexión (últimos 20 píxeles de ancho)
-                if local_pos.x() > r.width() - 20:
-                    self._connecting_source_item = item
-                    self._temp_mouse_pos = event.scenePos()
-                    event.accept()
-                    return
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent | None):
         if event is None: return
-        if self._connecting_source_item:
-            self._temp_mouse_pos = event.scenePos()
-            self.update()
-            event.accept()
-            return
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent | None):
         if event is None: return
-        if self._connecting_source_item:
-            target_item = self.itemAt(event.scenePos(), self.views()[0].transform() if self.views() else None)
-            if isinstance(target_item, StoryNodeItem) and target_item != self._connecting_source_item:
-                self.connection_created.emit(self._connecting_source_item.block.id, target_item.block.id)
-            
-            self._connecting_source_item = None
-            self._temp_mouse_pos = None
-            self.update()
-            event.accept()
-            return
         super().mouseReleaseEvent(event)
 
     def contextMenuEvent(self, event):
         item = self.itemAt(event.scenePos(), self.views()[0].transform() if self.views() else None)
         menu = QMenu()
         if isinstance(item, StoryNodeItem):
-            act_connect = menu.addAction("🔗 Conectar con...")
-            act_del = menu.addAction("🗑 Eliminar Bloque")
+            act_connect = menu.addAction("Conectar con...")
+            act_del = menu.addAction("Eliminar Bloque")
             res = menu.exec(event.screenPos())
             if res == act_del:
                 self.node_deleted.emit(item.block.id)
             elif res == act_connect:
                 self.request_full_connection.emit(item.block.id)
         elif isinstance(item, StoryArcItem):
-            act_del = menu.addAction("✂️ Eliminar Conexión")
+            act_del = menu.addAction("Eliminar Conexión")
             res = menu.exec(event.screenPos())
             if res == act_del:
                 self.arc_deleted.emit(item.arc.id)
         else:
-            act_new = menu.addAction("✨ Nuevo Bloque Aquí")
+            act_new = menu.addAction("Nuevo Bloque Aquí")
             res = menu.exec(event.screenPos())
             if res == act_new:
                 pos = event.scenePos()

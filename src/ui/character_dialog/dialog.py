@@ -88,7 +88,7 @@ class CharacterEditDialog(QDialog):
             self._genealogy_widget = GenealogyWidget(
                 self._char, self._characters, self._all_relations, parent=self
             )
-            self._tabs.addTab(self._genealogy_widget, "🗺️ Genealogía")
+            self._tabs.addTab(self._genealogy_widget, "Genealogía")
 
         # Botones
         btn_row = QHBoxLayout()

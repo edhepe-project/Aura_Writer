@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QPushButton, QApplication,
 )
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QCursor
 
 from core.theme_manager import ThemeManager
 from .grid_widget import _PresenceGridWidget
@@ -40,16 +41,17 @@ class PresenceGridDialog(QDialog):
         self.resize(w, h)
 
         is_dark = ThemeManager.is_dark()
-        bg = "#141416" if is_dark else "#f4f6fa"
+        bg = "#121214" if is_dark else "#f4f6fa"
         self.setStyleSheet(f"QDialog {{ background: {bg}; }}")
         self._setup_ui(is_dark)
         self._grid_widget.build()
 
     def _setup_ui(self, is_dark: bool) -> None:
-        fg    = "#f2f2f7" if is_dark else "#1a1d23"
-        bord  = "#3a3a3c" if is_dark else "#c2cbd9"
-        bg_tb = "#1c1c1e" if is_dark else "#dde3f0"
-        sub   = "#636366" if is_dark else "#5a6a8a"
+        fg     = "#f2f2f7" if is_dark else "#1c1e21"
+        bord   = "#2c2c2e" if is_dark else "#d1d5db"
+        bg_tb  = "#1a1a1c" if is_dark else "#ffffff"
+        sub    = "#8e8e93" if is_dark else "#6b7280"
+        atlas_col = "#ffd60a" if is_dark else "#d97706"
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -57,32 +59,32 @@ class PresenceGridDialog(QDialog):
 
         # -- Toolbar ----------------------------------------------------------
         tb = QFrame()
-        tb.setFixedHeight(50)
+        tb.setFixedHeight(52)
         tb.setStyleSheet(f"QFrame {{ background: {bg_tb}; border-bottom: 1px solid {bord}; }}")
         tbl = QHBoxLayout(tb)
         tbl.setContentsMargins(16, 0, 16, 0)
         tbl.setSpacing(12)
 
-        tl = QLabel("Cuadricula de Presencias")
-        tl.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {fg};")
+        tl = QLabel("Cuadrícula de Presencias")
+        tl.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {atlas_col};")
         tbl.addWidget(tl)
 
-        sl = QLabel("Filas = personajes  |  Columnas = capitulos")
-        sl.setStyleSheet(f"font-size: 10px; color: {sub};")
+        sl = QLabel("Filas = personajes  |  Columnas = capítulos")
+        sl.setStyleSheet(f"font-size: 11px; color: {sub}; font-weight: 500;")
         tbl.addWidget(sl)
         tbl.addStretch()
 
         # Pastillas de leyenda
         if is_dark:
-            pills = [("Presente", "#30d158"), ("En transito", "#0a84ff"), ("Salida", "#ff453a")]
+            pills = [("Presente", "#30d158"), ("En tránsito", "#0a84ff"), ("Salida", "#ff453a")]
         else:
-            pills = [("Presente", "#1a7a38"), ("En transito", "#1a56b0"), ("Salida", "#c41e0e")]
+            pills = [("Presente", "#16a34a"), ("En tránsito", "#2563eb"), ("Salida", "#dc2626")]
 
         for lbl, col in pills:
             pill = QLabel(f"  {lbl}")
             pill.setStyleSheet(
-                f"font-size: 10px; color: {col}; font-weight: bold; "
-                f"border: 1px solid {col}55; border-radius: 4px; padding: 2px 8px; background: {col}18;"
+                f"font-size: 11px; color: {col}; font-weight: bold; "
+                f"border: 1px solid {col}44; border-radius: 6px; padding: 3px 10px; background: {col}18;"
             )
             tbl.addWidget(pill)
 
@@ -94,23 +96,27 @@ class PresenceGridDialog(QDialog):
 
         # -- Barra inferior ---------------------------------------------------
         bot = QFrame()
-        bot.setFixedHeight(40)
+        bot.setFixedHeight(44)
         bot.setStyleSheet(f"QFrame {{ background: {bg_tb}; border-top: 1px solid {bord}; }}")
         bl = QHBoxLayout(bot)
         bl.setContentsMargins(16, 0, 16, 0)
         bl.setSpacing(12)
 
-        hl = QLabel("Clic para asignar ubicacion   |   Clic derecho para limpiar")
-        hl.setStyleSheet("font-size: 10px; color: #636366;")
+        hl = QLabel("Clic para asignar ubicación   |   Clic derecho para limpiar")
+        hl.setStyleSheet(f"font-size: 11px; color: {sub}; font-weight: 500;")
         bl.addWidget(hl)
         bl.addStretch()
 
+        btn_bg = "#2c2c2e" if is_dark else "#e5e7eb"
+        btn_fg = "#f2f2f7" if is_dark else "#1f2937"
+        btn_hover = "#3a3a3c" if is_dark else "#d1d5db"
         cb = QPushButton("Cerrar")
-        cb.setFixedHeight(28)
+        cb.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        cb.setFixedHeight(30)
         cb.setStyleSheet(
-            "QPushButton { background: transparent; border: 1px solid #636366; "
-            "border-radius: 6px; color: #8e8e93; padding: 0 14px; } "
-            "QPushButton:hover { border-color: #f2f2f7; color: #f2f2f7; }"
+            f"QPushButton {{ background: {btn_bg}; border: 1px solid {bord}; "
+            f"border-radius: 6px; color: {btn_fg}; font-weight: 600; padding: 0 16px; }} "
+            f"QPushButton:hover {{ background: {btn_hover}; }}"
         )
         cb.clicked.connect(self.accept)
         bl.addWidget(cb)

@@ -24,28 +24,16 @@ class SearchResultCard(QFrame):
         self._query = query
         self._is_regex = is_regex
 
-        is_dark = ThemeManager.is_dark()
-
-        if is_dark:
-            self._even_bg = "#1c1c1e"
-            self._odd_bg = "#242426"
-            self._hover_bg = "#2c2c2e"
-            self._border_col = "#2c2c2e"
-            self._hover_border = "#3a3a3c"
-            self._hover_bar = "#636366"
-            text_col = "#f2f2f7"
-            sub_col = "#8e8e93"
-            loc_col = "#636366"
-        else:
-            self._even_bg = "#f5f0ea"
-            self._odd_bg = "#ede8e1"
-            self._hover_bg = "#dedad2"
-            self._border_col = "#d4cfc8"
-            self._hover_border = "#c4bfb8"
-            self._hover_bar = "#9a9490"
-            text_col = "#1a1a2e"
-            sub_col = "#7a7a8a"
-            loc_col = "#7a7a8a"
+        tc = ThemeManager.theme_colors()
+        self._even_bg = tc["bg_card"]
+        self._odd_bg = tc["bg_main"]
+        self._hover_bg = tc["hover"]
+        self._border_col = tc["border"]
+        self._hover_border = tc["accent"]
+        self._hover_bar = tc["accent"]
+        text_col = tc["fg_text"]
+        sub_col = tc["sub_text"]
+        loc_col = tc["sub_text"]
 
         self._bg = self._even_bg if SearchResultCard._count % 2 == 0 else self._odd_bg
 
@@ -77,7 +65,7 @@ class SearchResultCard(QFrame):
 
         # Snippet
         if snippet:
-            hl = highlight_text(snippet, query, is_dark=is_dark, is_regex=self._is_regex)
+            hl = highlight_text(snippet, query, theme_name=ThemeManager.current(), is_regex=self._is_regex)
             snip = QLabel(hl)
             snip.setTextFormat(Qt.TextFormat.RichText)
             snip.setWordWrap(True)

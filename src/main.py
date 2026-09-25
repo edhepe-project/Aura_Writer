@@ -5,6 +5,9 @@ import ctypes
 from PyQt6.QtWidgets import QApplication, QMessageBox
 from PyQt6.QtGui import QIcon
 
+# Suprimir mensaje de bienvenida de pygame
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+
 # ── Logging Seguro (Guarda en APPDATA para nunca fallar por permisos) ──
 def _setup_logging():
     if sys.platform == "win32":
@@ -16,13 +19,21 @@ def _setup_logging():
     try:
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, "aura_error.log")
+        # También escribir una copia en el directorio de trabajo local
+        workspace_log = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "aura_error.log")
+        handlers = [logging.FileHandler(log_file, mode="a", encoding="utf-8")]
+        try:
+            handlers.append(logging.FileHandler(workspace_log, mode="a", encoding="utf-8"))
+        except Exception:
+            pass
         logging.basicConfig(
-            filename=log_file,
             level=logging.INFO,
             format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+            handlers=handlers,
+            force=True
         )
     except Exception:
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=logging.INFO, force=True)
 
 _setup_logging()
 log = logging.getLogger(__name__)
@@ -311,11 +322,13 @@ def main():
                     QMessageBox.warning(None, "Error de Acceso", msg)
                 log.warning("Error de acceso: %s", ve)
 
-        except Exception:
+        except Exception as exc:
+            import traceback
+            tb = traceback.format_exc()
             log.exception("Error crítico durante la ejecución")
             QMessageBox.critical(
                 None, "Error Inesperado",
-                "Ocurrió un error inesperado.\nRevisa aura_error.log para más detalles."
+                f"Ocurrió un error inesperado:\n\n{exc}\n\nDetalles:\n{tb[-500:]}"
             )
             sys.exit(1)
 

@@ -57,8 +57,9 @@ class AuraEditor(QTextEdit):
             self._zoom_percentage = ConfigManager.get("editor_zoom", 100)
             self._work_font_family = ConfigManager.get("editor_font", "Georgia")
             self._paper_style = ConfigManager.get("editor_paper", "auto")
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("No se pudieron cargar las preferencias de apariencia: %s", e)
         self._apply_appearance()
 
     def _apply_appearance(self):

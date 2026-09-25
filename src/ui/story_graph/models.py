@@ -11,7 +11,7 @@ STATUS_CONFIG = {
         "border_color": "#8e8e93",
         "text_color": "#ebebf5",
         "light_text_color": "#1c1c1e",
-        "badge": "💡"
+        "badge": "•"
     },
     "esbozado": {
         "label": "Esbozado",
@@ -20,7 +20,7 @@ STATUS_CONFIG = {
         "border_color": "#0a84ff",
         "text_color": "#64d2ff",
         "light_text_color": "#0369a1",
-        "badge": "📝"
+        "badge": "•"
     },
     "listo": {
         "label": "Listo",
@@ -29,7 +29,7 @@ STATUS_CONFIG = {
         "border_color": "#30d158",
         "text_color": "#30d158",
         "light_text_color": "#15803d",
-        "badge": "✅"
+        "badge": "•"
     },
     "escrito": {
         "label": "Escrito",
@@ -38,7 +38,7 @@ STATUS_CONFIG = {
         "border_color": "#ffd60a",
         "text_color": "#ffd60a",
         "light_text_color": "#b45309",
-        "badge": "📖"
+        "badge": "•"
     }
 }
 

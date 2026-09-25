@@ -26,7 +26,7 @@ class TimelineDialog(QDialog):
     def __init__(self, project_manager, parent=None):
         super().__init__(parent)
         self.pm = project_manager
-        self.setWindowTitle("⏳ Cronología & Línea de Tiempo del Universo")
+        self.setWindowTitle("Cronología & Línea de Tiempo del Universo")
         self.resize(1120, 620)
         self.setMinimumSize(850, 480)
 
@@ -35,11 +35,11 @@ class TimelineDialog(QDialog):
         self._load_data()
 
     def _setup_ui(self):
-        is_dark = ThemeManager.is_dark()
-        bg_main = "#1c1c1e" if is_dark else "#f4f1eb"
-        bg_header = "#2c2c2e" if is_dark else "#ffffff"
-        fg_title = "#f2f2f7" if is_dark else "#1c1c1e"
-        b_border = "#3a3a3c" if is_dark else "#d4cfc8"
+        tc = ThemeManager.theme_colors()
+        bg_main = tc["bg_main"]
+        bg_header = tc["bg_card"]
+        fg_title = tc["fg_text"]
+        b_border = tc["border"]
 
         self.setStyleSheet(f"""
             QDialog {{
@@ -82,7 +82,7 @@ class TimelineDialog(QDialog):
         hl.setContentsMargins(16, 12, 16, 12)
         hl.setSpacing(12)
 
-        title_label = QLabel("⏳ CRONOLOGÍA NARRATIVA")
+        title_label = QLabel("CRONOLOGÍA NARRATIVA")
         f = QFont()
         f.setBold(True)
         f.setPointSize(12)
@@ -118,7 +118,7 @@ class TimelineDialog(QDialog):
         hl.addStretch()
 
         # Botón Exportar PNG
-        self._btn_export = QPushButton("📸 Exportar PNG")
+        self._btn_export = QPushButton("Exportar PNG")
         self._btn_export.setIcon(qta.icon("fa5s.camera", color=fg_title))
         self._btn_export.clicked.connect(self._export_png)
         hl.addWidget(self._btn_export)

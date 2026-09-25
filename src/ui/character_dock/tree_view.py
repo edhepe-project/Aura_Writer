@@ -69,7 +69,17 @@ class CharacterTreeView(QWidget):
 
         # Barra de búsqueda rápida
         self._search_input = QLineEdit()
-        self._search_input.setPlaceholderText("🔍 Buscar personaje...")
+        self._search_input.setPlaceholderText("Buscar personaje...")
+
+# ...
+
+        menu = QMenu(self)
+        a_edit = menu.addAction("Editar Ficha Completa")
+        a_rel = menu.addAction("Gestionar Relaciones...")
+        menu.addSeparator()
+        a_alias = menu.addAction("Editar Alias de Detección...")
+        menu.addSeparator()
+        a_del = menu.addAction("Eliminar Personaje")
         self._search_input.setClearButtonEnabled(True)
         self._update_search_style(ThemeManager.is_dark())
         self._search_input.textChanged.connect(self._on_search_text_changed)
@@ -95,10 +105,11 @@ class CharacterTreeView(QWidget):
         return btn
 
     def _update_search_style(self, is_dark: bool = True):
-        bg = "#2c2c2e" if is_dark else "#faf7f3"
-        fg = "#f2f2f7" if is_dark else "#1a1a2e"
-        border = "#3a3a3c" if is_dark else "#c4bfb8"
-        focus_border = "#30d158" if is_dark else "#16a34a"
+        tc = ThemeManager.theme_colors()
+        bg = tc["bg_input"]
+        fg = tc["fg_text"]
+        border = tc["border"]
+        focus_border = tc["accent"]
         if hasattr(self, "_search_input"):
             self._search_input.setStyleSheet(f"""
                 QLineEdit {{
@@ -339,12 +350,12 @@ class CharacterTreeView(QWidget):
         self._current_char = char
 
         menu = QMenu(self)
-        a_edit = menu.addAction("✏️  Editar Ficha Completa")
-        a_rel = menu.addAction("🔗  Gestionar Relaciones...")
+        a_edit = menu.addAction("Editar Ficha Completa")
+        a_rel = menu.addAction("Gestionar Relaciones...")
         menu.addSeparator()
-        a_alias = menu.addAction("🏷️  Editar Alias de Detección...")
+        a_alias = menu.addAction("Editar Alias de Detección...")
         menu.addSeparator()
-        a_del = menu.addAction("🗑️  Eliminar Personaje")
+        a_del = menu.addAction("Eliminar Personaje")
 
         action = menu.exec(self._tree.viewport().mapToGlobal(pos))
         if action == a_edit:

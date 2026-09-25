@@ -18,12 +18,12 @@ class TrashDialog(QDialog):
     item_restored = pyqtSignal(str, str)   # (item_id, item_type)
 
     TYPE_LABELS = {
-        "obra": ("📚 Obra", "#e67e22"),
-        "libro": ("📖 Libro", "#d4a017"),
-        "chapter": ("📑 Capítulo", "#27ae60"),
-        "media": ("🖼️ Media", "#3498db"),
-        "author_note": ("📝 Nota de Autor", "#95a5a6"),
-        "character": ("👤 Personaje", "#9b59b6"),
+        "obra": ("Obra", "#e67e22"),
+        "libro": ("Libro", "#d4a017"),
+        "chapter": ("Capítulo", "#27ae60"),
+        "media": ("Media", "#3498db"),
+        "author_note": ("Nota de Autor", "#95a5a6"),
+        "character": ("Personaje", "#9b59b6"),
     }
 
     def __init__(self, project_manager, parent=None):
@@ -31,7 +31,7 @@ class TrashDialog(QDialog):
         self.pm = project_manager
         self.meta: UniverseMetadata = project_manager.metadata
 
-        self.setWindowTitle("🗑️ Papelera de Reciclaje — Aura Writer")
+        self.setWindowTitle("Papelera de Reciclaje — Aura Writer")
         self.resize(750, 480)
         self.setMinimumSize(600, 380)
 
@@ -45,7 +45,7 @@ class TrashDialog(QDialog):
 
         # ── Encabezado ───────────────────────────────────────────────
         header_layout = QHBoxLayout()
-        title_lbl = QLabel("<b style='font-size:15px;'>🗑️ Papelera de Reciclaje</b>")
+        title_lbl = QLabel("<b style='font-size:15px;'>Papelera de Reciclaje</b>")
         self.count_lbl = QLabel("")
         self.count_lbl.setStyleSheet("color: #8e8e93; font-size: 12px;")
         header_layout.addWidget(title_lbl)
@@ -102,11 +102,11 @@ class TrashDialog(QDialog):
 
         btn_layout.addStretch()
 
-        self.btn_delete_perm = QPushButton("🗑️ Eliminar Definitivamente")
+        self.btn_delete_perm = QPushButton("Eliminar Definitivamente")
         self.btn_delete_perm.clicked.connect(self._delete_selected_permanently)
         btn_layout.addWidget(self.btn_delete_perm)
 
-        self.btn_restore = QPushButton("♻️ Restaurar Elemento")
+        self.btn_restore = QPushButton("Restaurar Elemento")
         self.btn_restore.setStyleSheet("background-color: #30d158; color: white; font-weight: bold; padding: 6px 16px;")
         self.btn_restore.clicked.connect(self._restore_selected)
         btn_layout.addWidget(self.btn_restore)

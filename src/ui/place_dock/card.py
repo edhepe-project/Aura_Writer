@@ -40,7 +40,7 @@ class PlaceCard(QFrame):
         layout.setSpacing(10)
 
         # Icono de categoría
-        icon_val = PLACE_ICONS.get(self.place.category, "📍")
+        icon_val = PLACE_ICONS.get(self.place.category, "●")
         self._icon_lbl = QLabel()
         if "." in icon_val:
             icon_color = "#ffd60a" if ThemeManager.is_dark() else "#d97706"
@@ -117,16 +117,16 @@ class PlaceCard(QFrame):
         super().mouseDoubleClickEvent(event)
 
     def _apply_style(self):
-        is_dark = ThemeManager.is_dark()
+        tc = ThemeManager.theme_colors()
         if self._is_selected:
-            bg = "#3a3a3c" if is_dark else "#e5e0d8"
-            border = "#ffd60a" if is_dark else "#d97706"
+            bg = tc["hover"]
+            border = tc["accent"]
         else:
-            bg = "#252528" if is_dark else "#fdfcf9"
-            border = "#3a3a3c" if is_dark else "#e0dbd3"
+            bg = tc["bg_card"]
+            border = tc["border"]
 
-        fg_name = "#f2f2f7" if is_dark else "#1c1c1e"
-        fg_sub = "#8e8e93" if is_dark else "#6e6e73"
+        fg_name = tc["fg_text"]
+        fg_sub = tc["sub_text"]
 
         self.setStyleSheet(f"""
             PlaceCard {{
@@ -135,8 +135,8 @@ class PlaceCard(QFrame):
                 border-radius: 8px;
             }}
             PlaceCard:hover {{
-                border: 1px solid {'#ffd60a' if is_dark else '#d97706'};
-                background-color: {'#2c2c2e' if is_dark else '#f5f0ea'};
+                border: 1px solid {tc['accent']};
+                background-color: {tc['hover']};
             }}
             QPushButton {{
                 background: transparent;
@@ -145,7 +145,7 @@ class PlaceCard(QFrame):
                 padding: 2px;
             }}
             QPushButton:hover {{
-                background: {'rgba(255,255,255,0.1)' if is_dark else 'rgba(0,0,0,0.06)'};
+                background: {tc['border']};
             }}
         """)
         self._name_lbl.setStyleSheet(f"color: {fg_name};")

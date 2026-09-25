@@ -27,18 +27,23 @@ class VocabularyDialog(QDialog):
     def __init__(self, project_manager, parent=None):
         super().__init__(parent)
         self.pm = project_manager
-        self.setWindowTitle("📖 Vocabulario & Conlang del Universo")
+        self.setWindowTitle("Vocabulario & Conlang del Universo")
         self.resize(720, 520)
         self.setMinimumSize(580, 400)
         self._setup_ui()
+        ThemeManager.signals.theme_changed.connect(self._setup_ui)
         self._load_data()
 
     def _setup_ui(self):
-        is_dark = ThemeManager.is_dark()
-        bg_main = "#1c1c1e" if is_dark else "#f5f3ef"
-        border_col = "#3a3a3c" if is_dark else "#d4cfc8"
-        fg_col = "#f2f2f7" if is_dark else "#1c1c1e"
-        input_bg = "#2c2c2e" if is_dark else "#ffffff"
+        tc = ThemeManager.theme_colors()
+        bg_main = tc["bg_main"]
+        border_col = tc["border"]
+        fg_col = tc["fg_text"]
+        input_bg = tc["bg_input"]
+        hover_col = tc["hover"]
+        header_bg = tc["bg_card"]
+        btn_bg = tc["bg_input"]
+        accent = tc["accent"]
 
         self.setStyleSheet(f"""
             QDialog {{ background-color: {bg_main}; }}
@@ -59,7 +64,7 @@ class VocabularyDialog(QDialog):
                 gridline-color: {border_col};
             }}
             QHeaderView::section {{
-                background-color: {'#252528' if is_dark else '#e8e5df'};
+                background-color: {header_bg};
                 color: {fg_col};
                 padding: 6px;
                 border: none;
@@ -67,7 +72,7 @@ class VocabularyDialog(QDialog):
                 font-size: 11px;
             }}
             QPushButton {{
-                background-color: {'#2c2c2e' if is_dark else '#ded8ce'};
+                background-color: {btn_bg};
                 color: {fg_col};
                 border: 1px solid {border_col};
                 border-radius: 6px;
@@ -76,8 +81,8 @@ class VocabularyDialog(QDialog):
                 font-size: 12px;
             }}
             QPushButton:hover {{
-                background-color: {'#3a3a3c' if is_dark else '#d0c9bd'};
-                border-color: #ffd60a;
+                background-color: {hover_col};
+                border-color: {accent};
             }}
         """)
 
@@ -86,7 +91,7 @@ class VocabularyDialog(QDialog):
         root.setSpacing(14)
 
         # Encabezado
-        title = QLabel("📚 Glosario de Términos, Verbos y Conlang")
+        title = QLabel("Glosario de Términos, Verbos y Conlang")
         title_font = QFont()
         title_font.setBold(True)
         title_font.setPointSize(13)
@@ -124,15 +129,15 @@ class VocabularyDialog(QDialog):
         add_layout.addWidget(self.meaning_input, stretch=3)
 
         btn_add = QPushButton("＋ Agregar")
-        btn_add.setStyleSheet("""
-            QPushButton {
-                background-color: #ffd60a22;
-                color: #ffd60a;
-                border: 1px solid #ffd60a;
-            }
-            QPushButton:hover {
-                background-color: #ffd60a44;
-            }
+        btn_add.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {accent};
+                border: 1px solid {accent};
+            }}
+            QPushButton:hover {{
+                background-color: {hover_col};
+            }}
         """)
         btn_add.clicked.connect(self._on_add_entry)
         add_layout.addWidget(btn_add)
@@ -188,10 +193,11 @@ class VocabularyDialog(QDialog):
             self.table.setItem(row, 2, item_meaning)
 
             # Botón Eliminar
-            btn_del = QPushButton("🗑️")
+            btn_del = QPushButton()
+            btn_del.setIcon(qta.icon('ph.trash-bold', color="#ff453a"))
             btn_del.setFixedSize(30, 24)
             btn_del.setToolTip("Eliminar término")
-            btn_del.setStyleSheet("border: none; background: transparent; color: #ff453a;")
+            btn_del.setStyleSheet("border: none; background: transparent;")
             btn_del.clicked.connect(lambda _, w=entry.word: self._on_delete_entry(w))
             self.table.setCellWidget(row, 3, btn_del)
 

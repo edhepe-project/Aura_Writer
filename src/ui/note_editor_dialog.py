@@ -50,9 +50,6 @@ class NoteEditorDialog(QDialog):
 
         # ── Encabezado ─────────────────────────────────────────────
         hdr = QHBoxLayout()
-        icon_lbl = QLabel("📝")
-        icon_lbl.setObjectName("noteIcon")
-        hdr.addWidget(icon_lbl)
 
         title_col = QVBoxLayout()
         title_col.setSpacing(2)
@@ -91,7 +88,7 @@ class NoteEditorDialog(QDialog):
         btn_row = QHBoxLayout()
         btn_row.setSpacing(8)
 
-        self.btn_delete = QPushButton("🗑  Eliminar")
+        self.btn_delete = QPushButton("Eliminar")
         self.btn_delete.setObjectName("btnDelete")
         self.btn_delete.clicked.connect(self._delete)
 
@@ -102,7 +99,7 @@ class NoteEditorDialog(QDialog):
         self.btn_cancel.setObjectName("btnCancel")
         self.btn_cancel.clicked.connect(self.reject)
 
-        self.btn_save = QPushButton("✓  Guardar")
+        self.btn_save = QPushButton("Guardar")
         self.btn_save.setObjectName("btnSave")
         self.btn_save.setDefault(True)
         self.btn_save.clicked.connect(self._save)

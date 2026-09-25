@@ -12,7 +12,7 @@ def escape_html(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def highlight_text(text: str, query: str, is_dark: bool = True, is_regex: bool = False) -> str:
+def highlight_text(text: str, query: str, theme_name: str = "dark", is_regex: bool = False) -> str:
     """Resalta las coincidencias de búsqueda con etiquetas HTML enriquecidas."""
     if not query:
         return escape_html(text)
@@ -23,12 +23,18 @@ def highlight_text(text: str, query: str, is_dark: bool = True, is_regex: bool =
     except re.error:
         pattern = re.compile(re.escape(query), re.IGNORECASE)
 
-    if is_dark:
+    is_sepia = theme_name == "sepia"
+    is_light = theme_name == "light"
+    
+    if is_sepia:
+        hl_color = "#b45309"
+        hl_bg = "#ebdcb9"
+    elif is_light:
+        hl_color = "#d97706"
+        hl_bg = "#f3f0ea"
+    else:
         hl_color = "#ffd60a"
         hl_bg = "#3a3a3c"
-    else:
-        hl_color = "#7c4a00"
-        hl_bg = "#ffe08a"
 
     return pattern.sub(
         lambda m: (
@@ -172,7 +178,7 @@ class SearchEngine:
                     snippet = (extract_snippet(all_text, query, is_regex=is_regex)
                                if not in_name and all_text else f"Categoría: {place.category or 'Lugar'}")
                     results.append({
-                        "icon": "🏰",
+                        "icon": "",
                         "title": place.name,
                         "location": f"Lugares ({place.category or 'General'})",
                         "snippet": snippet,
@@ -190,7 +196,7 @@ class SearchEngine:
                     seen_ids.add(note.id)
                     snippet = extract_snippet(note.content, query, is_regex=is_regex) if matches(note.content) else "Coincidencia en título"
                     results.append({
-                        "icon": "📌",
+                        "icon": "",
                         "title": f"Nota de Universo: {note.title}",
                         "location": "Universo",
                         "snippet": snippet,
@@ -213,7 +219,7 @@ class SearchEngine:
                                 snippet = (extract_snippet(note.content, query, is_regex=is_regex)
                                            if in_body else "Coincidencia en el título")
                                 results.append({
-                                    "icon": "📌",
+                                    "icon": "",
                                     "title": f"Nota: {note.title}",
                                     "location": location,
                                     "snippet": snippet,

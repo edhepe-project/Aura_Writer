@@ -12,6 +12,7 @@ from PyQt6.QtCore import Qt
 import qtawesome as qta
 
 from core.totp_manager import TOTPManager
+from core.theme_manager import ThemeManager
 
 
 class TOTPSetupDialog(QDialog):
@@ -19,7 +20,7 @@ class TOTPSetupDialog(QDialog):
 
     def __init__(self, universe_title: str = "Escritor", parent=None):
         super().__init__(parent)
-        self.setWindowTitle("🔐 Configurar Autenticación 2FA")
+        self.setWindowTitle("Configurar Autenticación 2FA")
         self.setFixedSize(480, 620)
         self.universe_title = universe_title
 
@@ -73,10 +74,19 @@ class TOTPSetupDialog(QDialog):
         layout.addWidget(qr_label)
 
         # ── Secreto manual ──────────────────────────────────────
-        secret_lbl = QLabel(f"<small>Clave manual: <code>{self.secret}</code></small>")
+        is_dark = ThemeManager.is_dark()
+        code_bg = "rgba(255, 255, 255, 0.08)" if is_dark else "rgba(0, 0, 0, 0.04)"
+        code_border = "#3a3a3c" if is_dark else "#d1d5db"
+        txt_col = "#f2f2f7" if is_dark else "#1f2937"
+        sub_col = "#8e8e93" if is_dark else "#6b7280"
+
+        secret_lbl = QLabel(
+            f"<span style='color: {sub_col}; font-weight: 500;'>Clave manual:</span> "
+            f"<code style='background: {code_bg}; border: 1px solid {code_border}; border-radius: 4px; padding: 3px 8px; font-size: 13px; font-family: Monospace, Courier New; color: {txt_col}; font-weight: bold;'>{self.secret}</code>"
+        )
         secret_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         secret_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        secret_lbl.setStyleSheet("color: #636366; font-size: 11px;")
+        secret_lbl.setStyleSheet("font-size: 12px; margin: 4px 0;")
         layout.addWidget(secret_lbl)
 
         # ── Verificación ────────────────────────────────────────
@@ -100,12 +110,15 @@ class TOTPSetupDialog(QDialog):
         # ── Botones ─────────────────────────────────────────────
         btn_row = QHBoxLayout()
         btn_cancel = QPushButton("Cancelar")
+        btn_cancel.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_cancel.clicked.connect(self.reject)
 
-        self.btn_confirm = QPushButton("✅ Confirmar y Activar")
+        self.btn_confirm = QPushButton("Confirmar y Activar")
+        self.btn_confirm.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_confirm.setIcon(qta.icon("fa5s.check-circle", color="#ffffff"))
         self.btn_confirm.setStyleSheet(
             "background-color: #30d158; color: white; font-weight: bold; "
-            "padding: 10px; font-size: 13px;"
+            "padding: 10px; font-size: 13px; border-radius: 6px;"
         )
         self.btn_confirm.clicked.connect(self._verify_and_accept)
 
@@ -131,7 +144,7 @@ class TOTPSetupDialog(QDialog):
     def _show_recovery_codes(self):
         """Muestra los códigos de recuperación ANTES de cerrar."""
         dlg = QDialog(self)
-        dlg.setWindowTitle("🔑 Códigos de Recuperación")
+        dlg.setWindowTitle("Códigos de Recuperación")
         dlg.setFixedSize(400, 420)
         layout = QVBoxLayout(dlg)
         layout.setContentsMargins(20, 20, 20, 20)

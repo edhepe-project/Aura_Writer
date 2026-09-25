@@ -28,7 +28,7 @@ class NotesControllerMixin:
 
         if self._current_container and hasattr(self._current_container, "author_notes"):
             for note in self._current_container.author_notes:
-                item = QListWidgetItem(f"📝  {note.title}")
+                item = QListWidgetItem(f"{note.title}")
                 item.setData(Qt.ItemDataRole.UserRole, note.id)
                 item.setToolTip("Doble click para ver y editar")
                 self.notes_list.addItem(item)
@@ -130,7 +130,7 @@ class NotesControllerMixin:
         if not item:
             return
         note_id   = item.data(Qt.ItemDataRole.UserRole)
-        note_title = item.text().replace("📝  ", "", 1)
+        note_title = item.text()
 
         reply = QMessageBox.question(
             self, "Eliminar Nota",
@@ -183,7 +183,7 @@ class NotesControllerMixin:
                 places = getattr(self.project_manager.metadata, "places", [])
                 p_names = [p.name for p in places if p.id in chapter.places_present]
                 if p_names:
-                    txt = "📍 " + (p_names[0] if len(p_names) == 1 else f"{p_names[0]} (+{len(p_names)-1})")
+                    txt = (p_names[0] if len(p_names) == 1 else f"{p_names[0]} (+{len(p_names)-1})")
                     self._place_status_indicator.setText(txt)
                 else:
                     self._place_status_indicator.setText("")
@@ -214,7 +214,7 @@ class NotesControllerMixin:
             return
 
         dlg = QDialog(self)
-        dlg.setWindowTitle(f"🖼️  {media.title}")
+        dlg.setWindowTitle(f"{media.title}")
         dlg.setMinimumSize(500, 400)
         dlg.resize(min(pixmap.width() + 80, 900), min(pixmap.height() + 180, 700))
 

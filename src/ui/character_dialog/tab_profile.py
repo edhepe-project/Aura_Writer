@@ -99,9 +99,9 @@ class CharacterProfileTab(QWidget):
         layout.addWidget(self._separator())
 
         # SECCIÓN: 7 CAMPOS ESENCIALES
-        layout.addWidget(self._section_header("✨  Esencia del Personaje"))
+        layout.addWidget(self._section_header("Esencia del Personaje"))
 
-        layout.addWidget(self._section_label("🔥 Deseo motivador — su propósito vital"))
+        layout.addWidget(self._section_label("Deseo motivador — su propósito vital"))
         self._edit_driving_desire = QTextEdit()
         self._edit_driving_desire.setPlaceholderText(
             "¿Qué quiere más que nada en la vida? Define su arco narrativo.\n"
@@ -111,7 +111,7 @@ class CharacterProfileTab(QWidget):
         self._edit_driving_desire.setMaximumHeight(120)
         layout.addWidget(self._edit_driving_desire)
 
-        layout.addWidget(self._section_label("😨 Miedo más profundo — su límite emocional"))
+        layout.addWidget(self._section_label("Miedo más profundo — su límite emocional"))
         self._edit_deepest_fear = QTextEdit()
         self._edit_deepest_fear.setPlaceholderText(
             "Lo que evita o teme convertirse; da vulnerabilidad y conflicto.\n"
@@ -121,7 +121,7 @@ class CharacterProfileTab(QWidget):
         self._edit_deepest_fear.setMaximumHeight(120)
         layout.addWidget(self._edit_deepest_fear)
 
-        layout.addWidget(self._section_label("⚖️ Valores y creencias — su brújula ética"))
+        layout.addWidget(self._section_label("Valores y creencias — su brújula ética"))
         self._edit_core_values = QTextEdit()
         self._edit_core_values.setPlaceholderText(
             "Su visión del mundo y cómo juzga el bien y el mal.\n"
@@ -131,7 +131,7 @@ class CharacterProfileTab(QWidget):
         self._edit_core_values.setMaximumHeight(120)
         layout.addWidget(self._edit_core_values)
 
-        layout.addWidget(self._section_label("🔄 Arco de transformación — inicio → medio → final"))
+        layout.addWidget(self._section_label("Arco de transformación — inicio → medio → final"))
         self._edit_transformation_arc = QTextEdit()
         self._edit_transformation_arc.setPlaceholderText(
             "Su evolución emocional o espiritual dentro de la historia.\n"
@@ -141,7 +141,7 @@ class CharacterProfileTab(QWidget):
         self._edit_transformation_arc.setMaximumHeight(140)
         layout.addWidget(self._edit_transformation_arc)
 
-        layout.addWidget(self._section_label("🗣️ Tono o voz distintiva — cómo se expresa"))
+        layout.addWidget(self._section_label("Tono o voz distintiva — cómo se expresa"))
         self._edit_distinctive_voice = QTextEdit()
         self._edit_distinctive_voice.setPlaceholderText(
             "Forma de hablar, ritmo, actitud ante otros — espejo de su identidad.\n"
@@ -151,7 +151,7 @@ class CharacterProfileTab(QWidget):
         self._edit_distinctive_voice.setMaximumHeight(120)
         layout.addWidget(self._edit_distinctive_voice)
 
-        layout.addWidget(self._section_label("🜁 Símbolo o metáfora que representa"))
+        layout.addWidget(self._section_label("Símbolo o metáfora que representa"))
         self._edit_symbol_metaphor = QTextEdit()
         self._edit_symbol_metaphor.setPlaceholderText(
             "Su función temática: ¿encarna el sacrificio, el caos, la esperanza?\n"
@@ -164,7 +164,7 @@ class CharacterProfileTab(QWidget):
         layout.addWidget(self._separator())
 
         # SECCIÓN: ATRIBUTOS PERSONALIZADOS
-        layout.addWidget(self._section_header("🏷️  Atributos Personalizados"))
+        layout.addWidget(self._section_header("Atributos Personalizados"))
 
         # Contenedor dinámico de filas
         self._attr_container = QWidget()
@@ -183,7 +183,7 @@ class CharacterProfileTab(QWidget):
         self._attr_layout.addWidget(self._lbl_empty_attrs)
 
         attr_btn_layout = QHBoxLayout()
-        btn_add_attr = QPushButton("➕  Añadir Atributo")
+        btn_add_attr = QPushButton("Añadir Atributo")
         btn_add_attr.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_add_attr.clicked.connect(lambda: self.add_custom_attr())
 
@@ -194,7 +194,7 @@ class CharacterProfileTab(QWidget):
         layout.addWidget(self._separator())
 
         # SECCIÓN: NOTAS DEL AUTOR
-        layout.addWidget(self._section_header("📝  Notas privadas del autor"))
+        layout.addWidget(self._section_header("Notas privadas del autor"))
         self._edit_notes = QTextEdit()
         self._edit_notes.setPlaceholderText("Notas del autor (no se exportan)…")
         self._edit_notes.setMinimumHeight(70)

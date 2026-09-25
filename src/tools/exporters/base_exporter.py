@@ -30,3 +30,11 @@ def clean_html(html_content: str) -> BeautifulSoup:
         tag.attrs.pop("style", None)
         tag.attrs.pop("class", None)
     return soup
+
+
+def html_to_text(html_content: str) -> str:
+    """Convierte HTML a texto plano eliminando todas las etiquetas.
+    Utilidad centralizada para búsquedas, análisis y detecciones."""
+    if not html_content:
+        return ""
+    return BeautifulSoup(html_content, "lxml").get_text()

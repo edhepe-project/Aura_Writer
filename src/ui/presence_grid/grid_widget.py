@@ -109,19 +109,19 @@ class _PresenceCell(QFrame):
             if is_dark:
                 bg, bord, text_c = f"{color}22", f"{color}66", color
             else:
-                bg, bord, text_c = f"{color}28", f"{color}99", color
+                bg, bord, text_c = f"{color}18", f"{color}88", color
         else:
-            bg     = "#2a2a2c" if is_dark else "#ffffff"
-            bord   = "#3a3a3c" if is_dark else "#c8d0dc"
-            text_c = "#48484a" if is_dark else "#9ba8b8"
+            bg     = "#242426" if is_dark else "#ffffff"
+            bord   = "#333336" if is_dark else "#e2e8f0"
+            text_c = "#48484a" if is_dark else "#94a3b8"
             color  = "transparent"
 
         self.setStyleSheet(f"background: {bg}; border: 1px solid {bord}; border-radius: 6px;")
         self._pill.setStyleSheet(
-            f"font-size: 12px; font-weight: {'bold' if self._place_id else 'normal'}; "
+            f"font-size: 11px; font-weight: {'bold' if self._place_id else 'normal'}; "
             f"color: {text_c}; background: transparent;"
         )
-        self._type_lbl.setStyleSheet(f"font-size: 9px; color: {color}; background: transparent;")
+        self._type_lbl.setStyleSheet(f"font-size: 9px; color: {color}; background: transparent; font-weight: 600;")
 
     # -- Eventos de raton -----------------------------------------------------
 
@@ -166,8 +166,9 @@ class _PresenceGridWidget(QWidget):
     def _build_layout(self) -> None:
         """Construye la estructura de 4 cuadrantes con scrollbars sincronizados."""
         is_dark = self._is_dark
-        bg_hdr  = "#1c1c1e" if is_dark else "#e8e4dc"
-        bord    = "#3a3a3c" if is_dark else "#d4cfc8"
+        bg_hdr  = "#1a1a1c" if is_dark else "#f1f5f9"
+        bord    = "#2c2c2e" if is_dark else "#cbd5e1"
+        sub     = "#8e8e93" if is_dark else "#64748b"
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -187,7 +188,7 @@ class _PresenceGridWidget(QWidget):
         q1_lay = QHBoxLayout(self._q1_corner)
         q1_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         q1_lbl = QLabel("PERSONAJE")
-        q1_lbl.setStyleSheet("font-size: 9px; font-weight: bold; color: #636366; letter-spacing: 0.8px;")
+        q1_lbl.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {sub}; letter-spacing: 1px;")
         q1_lay.addWidget(q1_lbl)
         top_row.addWidget(self._q1_corner)
 
@@ -268,19 +269,19 @@ class _PresenceGridWidget(QWidget):
                 pres_map[key] = p
 
         is_dark = self._is_dark
-        fg      = "#f2f2f7" if is_dark else "#1a1d23"
-        bg_hdr  = "#1c1c1e" if is_dark else "#edf0f7"
-        bord    = "#3a3a3c" if is_dark else "#c2cbd9"
+        fg      = "#f2f2f7" if is_dark else "#0f172a"
+        bg_hdr  = "#1a1a1c" if is_dark else "#f8fafc"
+        bord    = "#2c2c2e" if is_dark else "#e2e8f0"
 
         if is_dark:
             role_colors = {
                 "Protagonista": "#ffd60a", "Antagonista": "#ff453a",
-                "Secundario":   "#30d158", "Misterioso":  "#bf5af2", "Otro": "#636366",
+                "Secundario":   "#30d158", "Misterioso":  "#bf5af2", "Otro": "#8e8e93",
             }
         else:
             role_colors = {
-                "Protagonista": "#c07800", "Antagonista": "#c41e0e",
-                "Secundario":   "#1a7a38", "Misterioso":  "#7a1fa8", "Otro": "#4a5568",
+                "Protagonista": "#d97706", "Antagonista": "#dc2626",
+                "Secundario":   "#16a34a", "Misterioso":  "#9333ea", "Otro": "#64748b",
             }
 
         # Limpiar contenidos anteriores
@@ -289,7 +290,7 @@ class _PresenceGridWidget(QWidget):
         self._clear_grid(self._q4_lay)
 
         # -- Q2: Headers de capitulos -----------------------------------------
-        accent_hdr = "#2c2c3a" if is_dark else "#3d5a8a"
+        accent_hdr = "#3a3a4c" if is_dark else "#cbd5e1"
         total_w = 0
         for chapter in self._chapters:
             hdr = QFrame()
@@ -303,14 +304,14 @@ class _PresenceGridWidget(QWidget):
             hl.setSpacing(2)
             hl.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-            num_color = "#8e8e93" if is_dark else "#6b7fa8"
+            num_color = "#8e8e93" if is_dark else "#64748b"
             n = QLabel(f"#{chapter.in_world_order}" if chapter.in_world_order > 0 else "")
             n.setStyleSheet(f"font-size: 10px; color: {num_color}; font-weight: bold;")
             n.setAlignment(Qt.AlignmentFlag.AlignCenter)
             hl.addWidget(n)
 
             raw = (chapter.title or "").strip()
-            t = QLabel((raw[:14] + "...") if len(raw) > 14 else raw or "Sin titulo")
+            t = QLabel((raw[:14] + "...") if len(raw) > 14 else raw or "Sin título")
             t.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {fg};")
             t.setAlignment(Qt.AlignmentFlag.AlignCenter)
             t.setToolTip(raw)

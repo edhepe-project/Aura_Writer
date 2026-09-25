@@ -14,7 +14,7 @@ class ChapterBranchDialog(QDialog):
 
     def __init__(self, chapter_title: str, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("📄 ¿Deseas bifurcar este capítulo?")
+        self.setWindowTitle("¿Deseas bifurcar este capítulo?")
         self.setFixedWidth(560)
         self.chosen_action: Literal["branch", "readonly", "cancel"] = "cancel"
 

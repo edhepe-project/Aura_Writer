@@ -28,7 +28,7 @@ class PlaceGraphDialog(QDialog):
     def __init__(self, project_manager, parent=None):
         super().__init__(parent)
         self.pm = project_manager
-        self.setWindowTitle("🗺️ Atlas Literario — Grafo de Lugares & Conexiones")
+        self.setWindowTitle("Atlas Literario — Grafo de Lugares & Conexiones")
         self.resize(1200, 720)
         self.setMinimumSize(900, 520)
         self.setWindowFlags(
@@ -158,7 +158,7 @@ class PlaceGraphDialog(QDialog):
         rtl.addWidget(self._connections_list)
 
         # Botón para eliminar la ruta seleccionada
-        self._btn_delete_link = QPushButton("🗑️ Eliminar Ruta Seleccionada")
+        self._btn_delete_link = QPushButton("Eliminar Ruta Seleccionada")
         self._btn_delete_link.setEnabled(False)
         self._btn_delete_link.setStyleSheet("""
             QPushButton { color: #ff453a; border-color: #5c2020; }
@@ -195,22 +195,22 @@ class PlaceGraphDialog(QDialog):
         self._input_conn_label.setPlaceholderText("Nombre de la ruta/vínculo (opcional)...")
         form_layout.addWidget(self._input_conn_label)
 
-        btn_add_link = QPushButton("➕ Conectar Lugares")
+        btn_add_link = QPushButton("Conectar Lugares")
         btn_add_link.clicked.connect(self._add_connection)
         form_layout.addWidget(btn_add_link)
         rtl.addWidget(form_frame)
-        self._tabs.addTab(routes_tab, "🛣️ Rutas")
+        self._tabs.addTab(routes_tab, "Rutas")
 
         # Pestaña 2: Presencia de Personajes en Escena
         self._presence_panel = PresencePanel(self)
         self._presence_panel.set_project_manager(self.pm)
         self._presence_panel.presence_changed.connect(self._on_presence_changed_in_panel)
-        self._tabs.addTab(self._presence_panel, "👤 En Escena")
+        self._tabs.addTab(self._presence_panel, "En Escena")
 
         # Pestaña 3: Historial de Visitas y Pasaje
         self._history_panel = PlaceHistoryPanel(self)
         self._history_panel.set_project_manager(self.pm)
-        self._tabs.addTab(self._history_panel, "📜 Historial")
+        self._tabs.addTab(self._history_panel, "Historial")
 
         pl.addWidget(self._tabs, stretch=1)
 
@@ -304,7 +304,7 @@ class PlaceGraphDialog(QDialog):
             self._combo_source_place.setCurrentIndex(idx)
         self._combo_source_place.blockSignals(False)
 
-        self._info_name.setText(f"📍 {place.name}")
+        self._info_name.setText(f"{place.name}")
         desc = place.description or place.lore_history or place.climate_atmosphere or "Sin detalles registrados."
         self._info_desc.setText(desc[:180] + ("..." if len(desc) > 180 else ""))
 

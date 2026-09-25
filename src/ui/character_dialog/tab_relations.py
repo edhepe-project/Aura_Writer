@@ -127,8 +127,8 @@ class CharacterRelationsTab(QWidget):
         other_id = item.data(Qt.ItemDataRole.UserRole + 1)
 
         menu = QMenu(self)
-        act_edit = menu.addAction("✏️  Editar relación")
-        act_delete = menu.addAction("🗑️  Eliminar relación")
+        act_edit = menu.addAction("Editar relación")
+        act_delete = menu.addAction("Eliminar relación")
         chosen = menu.exec(self._rel_list.viewport().mapToGlobal(pos))
 
         if chosen == act_edit:

@@ -10,13 +10,20 @@ from PyQt6.QtWidgets import (
     QListWidget, QListWidgetItem, QCheckBox, QLineEdit,
     QMessageBox, QGroupBox, QFrame
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont
 
 from core.usb import USBSync, USBDrive
+from core.theme_manager import ThemeManager
 
 log = logging.getLogger(__name__)
 
+class USBDetectionWorker(QThread):
+    finished = pyqtSignal(list)
+
+    def run(self):
+        drives = USBSync.detect_removable_drives()
+        self.finished.emit(drives)
 
 class USBConfigDialog(QDialog):
     """Diálogo para configurar la sincronización USB."""
@@ -27,9 +34,10 @@ class USBConfigDialog(QDialog):
         self.usb_sync = project_manager.usb_sync
         self._selected_drive: USBDrive | None = None
 
-        self.setWindowTitle("⚙️ Configuración USB — Aura Writer")
+        self.setWindowTitle("Configuración USB — Aura Writer")
         self.setFixedSize(520, 580)
         self._build_ui()
+        self._apply_theme()
         self._refresh_drives()
 
     def _build_ui(self):
@@ -65,10 +73,12 @@ class USBConfigDialog(QDialog):
         self.drives_list.currentItemChanged.connect(self._on_drive_selected)
         drives_layout.addWidget(self.drives_list)
 
-        btn_refresh = QPushButton("🔄 Buscar USBs")
-        btn_refresh.setFixedWidth(140)
-        btn_refresh.clicked.connect(self._refresh_drives)
-        drives_layout.addWidget(btn_refresh, alignment=Qt.AlignmentFlag.AlignRight)
+        import qtawesome as qta
+        self.btn_refresh = QPushButton("Buscar USB")
+        self.btn_refresh.setFixedWidth(130)
+        self.btn_refresh.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_refresh.clicked.connect(self._refresh_drives)
+        drives_layout.addWidget(self.btn_refresh, alignment=Qt.AlignmentFlag.AlignRight)
 
         layout.addWidget(drives_group)
 
@@ -115,7 +125,8 @@ class USBConfigDialog(QDialog):
         # ── Botones ─────────────────────────────────────────────────
         btn_layout = QHBoxLayout()
 
-        self.btn_import = QPushButton("📥 Importar desde USB")
+        self.btn_import = QPushButton("Importar desde USB")
+        self.btn_import.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_import.setToolTip(
             "Reemplaza el archivo local con la versión de la USB.\n"
             "Se creará un backup del archivo local (.aura.bak) antes de importar."
@@ -126,17 +137,48 @@ class USBConfigDialog(QDialog):
         btn_layout.addStretch()
 
         btn_cancel = QPushButton("Cancelar")
+        btn_cancel.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_cancel.clicked.connect(self.reject)
         btn_layout.addWidget(btn_cancel)
 
-        self.btn_save = QPushButton("✅ Guardar Configuración")
+        self.btn_save = QPushButton("Guardar Configuración")
+        self.btn_save.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_save.clicked.connect(self._on_save)
-        self.btn_save.setStyleSheet("background-color: #30d158; color: white; font-weight: bold;")
         btn_layout.addWidget(self.btn_save)
 
         layout.addLayout(btn_layout)
 
         # Actualizar estado del botón de importación
+        self._refresh_import_button()
+
+    def _apply_theme(self, *args):
+        import qtawesome as qta
+        tc = ThemeManager.theme_colors()
+        bg_main = tc["bg_main"]
+        bg_card = tc["bg_card"]
+        fg_title = tc["fg_text"]
+        border_col = tc["border"]
+        accent = tc["accent"]
+
+        self.setStyleSheet(f"""
+            QDialog {{ background-color: {bg_main}; color: {fg_title}; }}
+            QGroupBox {{ color: {fg_title}; font-weight: bold; border: 1px solid {border_col}; border-radius: 6px; margin-top: 10px; padding-top: 15px; }}
+            QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 5px; }}
+            QLabel {{ color: {fg_title}; }}
+            QListWidget {{ background-color: {bg_card}; border: 1px solid {border_col}; color: {fg_title}; }}
+            QPushButton {{ background-color: {bg_card}; color: {fg_title}; border: 1px solid {border_col}; padding: 6px; border-radius: 4px; }}
+            QPushButton:hover {{ background-color: {border_col}; }}
+            QLineEdit {{ background-color: {bg_card}; color: {fg_title}; border: 1px solid {border_col}; padding: 4px; border-radius: 4px; }}
+            QCheckBox {{ color: {fg_title}; }}
+        """)
+
+        self.btn_refresh.setIcon(qta.icon("fa5s.sync-alt", color=fg_title))
+        self.btn_import.setIcon(qta.icon("fa5s.download", color=fg_title))
+        
+        self.btn_save.setIcon(qta.icon("fa5s.check-circle", color="#ffffff"))
+        self.btn_save.setStyleSheet("background-color: #30d158; color: white; font-weight: bold; padding: 6px 14px; border-radius: 6px;")
+        
+        self._update_status_label()
         self._refresh_import_button()
 
 
@@ -145,13 +187,29 @@ class USBConfigDialog(QDialog):
     # ------------------------------------------------------------------
 
     def _refresh_drives(self):
-        """Escanea y lista las unidades USB conectadas."""
+        """Escanea y lista las unidades USB conectadas (asincrónico)."""
+        self.btn_refresh.setEnabled(False)
+        self.btn_refresh.setText("Buscando...")
         self.drives_list.clear()
+        
+        item = QListWidgetItem("  Buscando unidades USB...")
+        item.setFlags(Qt.ItemFlag.NoItemFlags)
+        item.setForeground(Qt.GlobalColor.gray)
+        self.drives_list.addItem(item)
+        
         self._selected_drive = None
-        drives = USBSync.detect_removable_drives()
+        
+        self._usb_worker = USBDetectionWorker(self)
+        self._usb_worker.finished.connect(self._on_drives_detected)
+        self._usb_worker.start()
+
+    def _on_drives_detected(self, drives):
+        self.btn_refresh.setEnabled(True)
+        self.btn_refresh.setText("Buscar USB")
+        self.drives_list.clear()
 
         if not drives:
-            item = QListWidgetItem("  ❌  No se detectaron unidades USB")
+            item = QListWidgetItem("  No se detectaron unidades USB")
             item.setFlags(Qt.ItemFlag.NoItemFlags)
             item.setForeground(Qt.GlobalColor.gray)
             self.drives_list.addItem(item)
@@ -159,7 +217,7 @@ class USBConfigDialog(QDialog):
 
         for drive in drives:
             label = drive.label or "(Sin nombre)"
-            text = f"  💾  {label}  —  {drive.path}  ({drive.free_gb:.1f} GB libre)"
+            text = f"  {label}  —  {drive.path}  ({drive.free_gb:.1f} GB libre)"
             item = QListWidgetItem(text)
             item.setData(Qt.ItemDataRole.UserRole, drive)
             self.drives_list.addItem(item)
@@ -180,7 +238,7 @@ class USBConfigDialog(QDialog):
         """Actualiza la etiqueta de estado con la configuración actual."""
         if not self.usb_sync.is_configured():
             self.status_label.setText(
-                "📌 No hay USB configurada.\n"
+                "No hay USB configurada.\n"
                 "Selecciona una unidad arriba y guarda la configuración."
             )
             self.status_label.setStyleSheet("color: #8e8e93; font-size: 12px;")
@@ -197,7 +255,7 @@ class USBConfigDialog(QDialog):
             self.status_label.setStyleSheet("color: #30d158; font-size: 12px;")
         else:
             self.status_label.setText(
-                f"🔴 USB '{self.usb_sync.volume_label}' no está conectada.\n"
+                f"USB '{self.usb_sync.volume_label}' no está conectada.\n"
                 f"Archivo configurado: {self.usb_sync.usb_filename}\n"
                 f"Conecta la USB para sincronizar."
             )

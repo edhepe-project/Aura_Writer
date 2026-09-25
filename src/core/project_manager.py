@@ -289,19 +289,9 @@ class ProjectManager:
     def trigger_presence_analysis(self, chapter_id: str, html: str) -> None:
         """
         Dispara el análisis de presencia de un capítulo en background.
-
-        Llamar después de un guardado MANUAL (Ctrl+S), nunca en auto-guardado.
-        El análisis corre en AnalyzerThread — no bloquea la UI.
-
-        El resultado se entrega a través del callback registrado con
-        set_presence_analysis_callback().
-
-        Args:
-            chapter_id: ID del capítulo que acaba de guardarse.
-            html: HTML del capítulo (ya guardado en disco).
+        [DESACTIVADO en septiembre 2026 - las presencias son manuales]
         """
-        if not self.metadata:
-            return
+        return
 
         # Buscar el capítulo en todos los libros
         chapter = self.find_chapter(chapter_id)

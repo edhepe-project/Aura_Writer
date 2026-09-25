@@ -43,7 +43,7 @@ class EditorAppearanceDialog(QDialog):
         layout.addLayout(header)
 
         # ── Grupo 1: Zoom y Accesibilidad Visual ────────────────────
-        grp_zoom = QGroupBox("🔍 Zoom de Lectura / Redacción")
+        grp_zoom = QGroupBox("Zoom de Lectura / Redacción")
         zoom_layout = QVBoxLayout(grp_zoom)
 
         slider_row = QHBoxLayout()
@@ -75,7 +75,7 @@ class EditorAppearanceDialog(QDialog):
         layout.addWidget(grp_zoom)
 
         # ── Grupo 2: Tipografía de Trabajo ──────────────────────────
-        grp_font = QGroupBox("✍️ Tipografía de Redacción")
+        grp_font = QGroupBox("Tipografía de Redacción")
         font_layout = QHBoxLayout(grp_font)
 
         self.combo_font = QComboBox()
@@ -103,18 +103,18 @@ class EditorAppearanceDialog(QDialog):
         layout.addWidget(grp_font)
 
         # ── Grupo 3: Estilo de Papel / Lienzo ────────────────────────
-        grp_paper = QGroupBox("📄 Estilo y Tono de Papel")
+        grp_paper = QGroupBox("Estilo y Tono de Papel")
         paper_layout = QGridLayout(grp_paper)
         paper_layout.setSpacing(10)
 
         self.paper_btn_group = QButtonGroup(self)
         self.papers = [
-            ("blanco", "📄 Blanco Clásico", "#ffffff", "#1a1a1a"),
-            ("sepia", "📜 Sepia / Pergamino", "#f4ecd8", "#2d241e"),
-            ("verde", "🌿 Té Verde Lofi", "#e8f0e6", "#1c2e1c"),
-            ("noche", "🌙 Noche Carbón", "#1e1e20", "#e0e0e0"),
-            ("oled", "🖤 OLED Puro", "#000000", "#e6e6e6"),
-            ("auto", "🔄 Según Tema de App", "", ""),
+            ("blanco", "Blanco Clásico", "#ffffff", "#1a1a1a"),
+            ("sepia", "Sepia / Pergamino", "#f4ecd8", "#2d241e"),
+            ("verde", "Té Verde Lofi", "#e8f0e6", "#1c2e1c"),
+            ("noche", "Noche Carbón", "#1e1e20", "#e0e0e0"),
+            ("oled", "OLED Puro", "#000000", "#e6e6e6"),
+            ("auto", "Según Tema de App", "", ""),
         ]
 
         cur_paper = self.editor.get_paper_style()

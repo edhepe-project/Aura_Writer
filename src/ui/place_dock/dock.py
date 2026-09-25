@@ -61,7 +61,7 @@ class PlaceDock(QWidget):
         hl.addStretch()
 
         self._btn_add = QPushButton()
-        self._btn_add.setIcon(qta.icon("fa5s.plus-circle", color="#ffd60a" if ThemeManager.is_dark() else "#d97706"))
+        self._btn_add.setIcon(qta.icon("fa5s.plus-circle", color=ThemeManager.theme_colors()["accent"]))
         self._btn_add.setText(" Nuevo")
         self._btn_add.setToolTip("Crear un nuevo lugar o escenario")
         self._btn_add.clicked.connect(self._on_add_place)
@@ -75,7 +75,7 @@ class PlaceDock(QWidget):
         fbl.setSpacing(6)
 
         self._search_input = QLineEdit()
-        self._search_input.setPlaceholderText("🔍 Buscar escenario...")
+        self._search_input.setPlaceholderText("Buscar escenario...")
         self._search_input.setClearButtonEnabled(True)
         self._search_input.textChanged.connect(self._filter_places)
         fbl.addWidget(self._search_input, 2)
@@ -138,6 +138,7 @@ class PlaceDock(QWidget):
         root.addWidget(splitter)
 
         self.update_theme()
+        ThemeManager.signals.theme_changed.connect(self.update_theme)
 
     def set_project_manager(self, project_manager):
         self.pm = project_manager
@@ -287,7 +288,7 @@ class PlaceDock(QWidget):
             self._detail_info.setText("Selecciona un lugar para inspeccionar su atmósfera, clima y lore.")
             return
 
-        self._detail_title.setText(f"📍 {place.name.upper()} ({place.category})")
+        self._detail_title.setText(f"{place.name.upper()} ({place.category})")
         info_lines = []
         if place.climate_atmosphere:
             info_lines.append(f"<b>Clima/Atmósfera:</b> {place.climate_atmosphere}")
@@ -296,7 +297,7 @@ class PlaceDock(QWidget):
         if place.lore_history:
             info_lines.append(f"<b>Lore & Historia:</b> {place.lore_history[:120]}{'...' if len(place.lore_history) > 120 else ''}")
         if place.image_asset:
-            info_lines.append("<i>🗺️ Contiene mapa/ilustración adjunta</i>")
+            info_lines.append("<i>Contiene mapa/ilustración adjunta</i>")
 
         # Apariciones en capítulos
         chapters_here = [
@@ -307,7 +308,8 @@ class PlaceDock(QWidget):
         if chapters_here:
             info_lines.append(f"<b>📖 Aparece en {len(chapters_here)} capítulo(s):</b>")
             for cap, obra_t, libro_t in chapters_here[:5]:
-                info_lines.append(f"&nbsp;&nbsp;• <a href='chapter:{cap.id}' style='text-decoration:none; color:#0a84ff;'>{cap.title}</a> <span style='color:#8e8e93'>({obra_t})</span>")
+                accent_hex = ThemeManager.theme_colors()["accent"]
+                info_lines.append(f"&nbsp;&nbsp;• <a href='chapter:{cap.id}' style='text-decoration:none; color:{accent_hex};'>{cap.title}</a> <span style='color:#8e8e93'>({obra_t})</span>")
             if len(chapters_here) > 5:
                 info_lines.append(f"&nbsp;&nbsp;<i>… y {len(chapters_here) - 5} más</i>")
         else:
@@ -325,12 +327,12 @@ class PlaceDock(QWidget):
 
 
     def update_theme(self):
-        is_dark = ThemeManager.is_dark()
-        bg = "#1c1c1e" if is_dark else "#f5f0ea"
-        fg = "#f2f2f7" if is_dark else "#1c1c1e"
-        sub_fg = "#8e8e93" if is_dark else "#6e6e73"
-        border = "#3a3a3c" if is_dark else "#d4cfc8"
-        input_bg = "#2c2c2e" if is_dark else "#ffffff"
+        tc = ThemeManager.theme_colors()
+        bg = tc["bg_main"]
+        fg = tc["fg_text"]
+        sub_fg = tc["sub_text"]
+        border = tc["border"]
+        input_bg = tc["bg_input"]
 
         self.setStyleSheet(f"""
             PlaceDock {{
@@ -345,7 +347,7 @@ class PlaceDock(QWidget):
                 font-size: 11px;
             }}
             QPushButton {{
-                background-color: {'#3a3a3c' if is_dark else '#e5e0d8'};
+                background-color: {tc['hover']};
                 color: {fg};
                 border: 1px solid {border};
                 border-radius: 6px;
@@ -354,10 +356,14 @@ class PlaceDock(QWidget):
                 font-weight: bold;
             }}
             QPushButton:hover {{
-                background-color: {'#48484a' if is_dark else '#d8d3cb'};
+                background-color: {tc['border']};
             }}
         """)
         self._detail_title.setStyleSheet(f"color: {sub_fg};")
         self._detail_info.setStyleSheet(f"color: {fg}; font-size: 11px;")
+        
+        self._btn_add.setIcon(qta.icon("fa5s.plus-circle", color=tc["accent"]))
+        
         for card in self._cards.values():
-            card._apply_style()
+            if hasattr(card, '_apply_style'):
+                card._apply_style()

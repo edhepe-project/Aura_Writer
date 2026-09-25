@@ -13,7 +13,7 @@ from core.security import SecurityManager
 class AppKeyDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("🔑 Llave Maestra de Aplicación")
+        self.setWindowTitle("Llave Maestra de Aplicación")
         self.setFixedSize(540, 390)
         self.setup_ui()
 

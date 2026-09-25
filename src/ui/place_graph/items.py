@@ -93,7 +93,7 @@ class PlaceNodeItem(QGraphicsEllipseItem):
         self.setZValue(12 if self.tier <= 1 else (8 if self.tier == 2 else 5))
 
         # Tooltip informativo
-        parts = [f"📍 {place.name}", f"Categoría: {place.category}"]
+        parts = [f"{place.name}", f"Categoría: {place.category}"]
         if place.climate_atmosphere:
             parts.append(f"Clima: {place.climate_atmosphere[:80]}")
         if place.lore_history:
@@ -107,7 +107,7 @@ class PlaceNodeItem(QGraphicsEllipseItem):
         self._font_name = QFont("Segoe UI", 10 if self.tier <= 1 else 9,
                                 QFont.Weight.Bold if self.tier <= 1 else QFont.Weight.Normal)
         self._font_badge = QFont("Segoe UI", 8, QFont.Weight.Bold)
-        self._icon_str = PLACE_ICONS.get(place.category, "📍")
+        self._icon_str = PLACE_ICONS.get(place.category, "●")
 
     def boundingRect(self) -> QRectF:
         r = self.radius

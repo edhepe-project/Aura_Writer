@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QMessageBox, QFileDialog
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QImage
 import qtawesome as qta
 
@@ -24,6 +24,24 @@ if TYPE_CHECKING:
     from ui.main_window import AuraMainWindow
 
 log = logging.getLogger(__name__)
+
+
+class _SaveWorker(QThread):
+    """Hilo de trabajo para el guardado/cifrado asincrónico del proyecto."""
+    finished = pyqtSignal(str)   # mensaje de éxito / error
+    saved_ok = pyqtSignal()      # emitida solo si éxito
+    save_failed = pyqtSignal(str)  # mensaje de error si falló
+
+    def __init__(self, project_manager):
+        super().__init__()
+        self._pm = project_manager
+
+    def run(self):
+        try:
+            self._pm.save_project()
+            self.saved_ok.emit()
+        except Exception as e:
+            self.save_failed.emit(str(e))
 
 
 class AppLifecycleMixin:
@@ -104,37 +122,61 @@ class AppLifecycleMixin:
     # Tema y Modo Zen
     # ------------------------------------------------------------------
 
+    def _switch_to_theme(self: "AuraMainWindow", theme_name: str):
+        from PyQt6.QtWidgets import QApplication
+        ThemeManager.apply(QApplication.instance(), theme_name)
+        self._update_theme_action_label()
+        # Los widgets reactivos se actualizan automáticamente vía ThemeManager.signals.theme_changed
+        # Solo actualizamos lo que no está conectado a la señal aún
+        if hasattr(self, "_refresh_toolbar_icons"):
+            self._refresh_toolbar_icons()
+        if hasattr(self, "_update_segmented_switcher_style"):
+            self._update_segmented_switcher_style()
+        if self._graph_dialog is not None:
+            bg_colors = {'dark': '#1c1c1e', 'light': '#f5f0ea', 'sepia': '#f4ecd8'}
+            bg_col = bg_colors.get(theme_name, '#1c1c1e')
+            self._graph_dialog.setStyleSheet(f"QDialog {{ background-color: {bg_col}; }}")
+        labels = {
+            "dark": "Oscuro (Dark Slate)",
+            "light": "Claro (Lienzo Papel)",
+            "sepia": "Sepia (Pergamino)"
+        }
+        self.statusBar().showMessage(f"Tema activo: {labels.get(theme_name, theme_name)}", 3000)
+
     def _toggle_theme(self: "AuraMainWindow"):
         from PyQt6.QtWidgets import QApplication
         new_theme = ThemeManager.toggle(QApplication.instance())
         self._update_theme_action_label()
+        # Los widgets reactivos se actualizan automáticamente vía ThemeManager.signals.theme_changed
         if hasattr(self, "_refresh_toolbar_icons"):
             self._refresh_toolbar_icons()
-        if hasattr(self, "char_dock") and self.char_dock is not None:
-            self.char_dock.update_theme()
-        if hasattr(self, "place_dock") and self.place_dock is not None:
-            self.place_dock.update_theme()
         if hasattr(self, "_update_segmented_switcher_style"):
             self._update_segmented_switcher_style()
-        if self._graph_widget is not None:
-            self._graph_widget.update_theme(ThemeManager.is_dark())
         if self._graph_dialog is not None:
-            bg_col = '#1c1c1e' if ThemeManager.is_dark() else '#f5f0ea'
+            bg_colors = {'dark': '#1c1c1e', 'light': '#f5f0ea', 'sepia': '#f4ecd8'}
+            bg_col = bg_colors.get(new_theme, '#1c1c1e')
             self._graph_dialog.setStyleSheet(f"QDialog {{ background-color: {bg_col}; }}")
-        label = "Claro" if new_theme == "light" else "Oscuro"
-        self.statusBar().showMessage(f"Tema cambiado a {label}", 3000)
+        labels = {
+            "dark": "Oscuro (Dark Slate)",
+            "light": "Claro (Lienzo Papel)",
+            "sepia": "Sepia (Pergamino)"
+        }
+        self.statusBar().showMessage(f"Tema cambiado a {labels.get(new_theme, new_theme)}", 3000)
 
     def _update_theme_action_label(self: "AuraMainWindow"):
-        if ThemeManager.is_dark():
-            self._theme_act.setText("Cambiar a Tema Claro")
-            if hasattr(self, "_theme_btn_action"):
-                self._theme_btn_action.setText("Claro")
-                self._theme_btn_action.setIcon(qta.icon("fa5s.sun", color="#ffd60a"))
+        cur = ThemeManager.current()
+        
+        # Actualizar checkmarks en el submenú de temas
+        if hasattr(self, "_act_theme_dark"): self._act_theme_dark.setChecked(cur == "dark")
+        if hasattr(self, "_act_theme_light"): self._act_theme_light.setChecked(cur == "light")
+        if hasattr(self, "_act_theme_sepia"): self._act_theme_sepia.setChecked(cur == "sepia")
+
+        if cur == "dark":
+            self._theme_act.setText("Alternar a Tema Claro")
+        elif cur == "light":
+            self._theme_act.setText("Alternar a Tema Sepia")
         else:
-            self._theme_act.setText("Cambiar a Tema Oscuro")
-            if hasattr(self, "_theme_btn_action"):
-                self._theme_btn_action.setText("Oscuro")
-                self._theme_btn_action.setIcon(qta.icon("fa5s.moon", color="#32ade6"))
+            self._theme_act.setText("Alternar a Tema Oscuro")
 
     def toggle_zen_mode(self: "AuraMainWindow"):
         """Alterna el modo concentración (Zen Mode): oculta los paneles laterales para escribir sin distracciones."""
@@ -189,19 +231,6 @@ class AppLifecycleMixin:
     def _on_editor_text_changed(self: "AuraMainWindow"):
         self._dirty = True
         self._stats_timer.start(300)
-        if hasattr(self, "_nlp_presence_timer"):
-            self._nlp_presence_timer.start(3500)
-
-    def _do_trigger_nlp_presence(self: "AuraMainWindow"):
-        """Dispara silenciosamente el análisis de presencia en segundo plano cuando el autor pausa la escritura."""
-        if not self._current_chapter or not self.project_manager.metadata:
-            return
-        if self.project_manager.is_locked:
-            return
-        html = (self.editor.get_content_html()
-                if hasattr(self.editor, "get_content_html")
-                else self.editor.toHtml())
-        self.project_manager.trigger_presence_analysis(self._current_chapter.id, html)
 
     def _do_update_stats(self: "AuraMainWindow"):
         doc = self.editor.document()
@@ -232,6 +261,11 @@ class AppLifecycleMixin:
         if not self.project_manager.metadata:
             self.statusBar().showMessage("No hay proyecto abierto.", 3000)
             return
+        # Evitar guardados paralelos
+        if getattr(self, "_save_worker_active", False):
+            log.debug("Guardado ya en curso, se omite.")
+            return
+        
         self.char_dock._save_current_card()
         self._sync_relations_to_metadata()
         if self._current_chapter:
@@ -246,8 +280,16 @@ class AppLifecycleMixin:
                 )
             except Exception as e:
                 log.warning("No se pudo registrar la revisión del capítulo: %s", e)
-        try:
-            self.project_manager.save_project()
+
+        # Indicador visual de guardado en progreso
+        self._autosave_indicator.setText("⏳ Guardando...")
+        self._autosave_indicator.setStyleSheet("color:#ffd60a;font-size:11px;padding:0 8px;")
+        self._save_worker_active = True
+
+        worker = _SaveWorker(self.project_manager)
+
+        def _on_saved():
+            self._save_worker_active = False
             self._dirty = False
             now = datetime.now().strftime("%H:%M:%S")
             self._autosave_indicator.setText(f"Guardado: {now}")
@@ -260,9 +302,18 @@ class AppLifecycleMixin:
                 self.statusBar().showMessage("Proyecto guardado", 3000)
             self._update_usb_indicator()
 
-        except Exception as e:
-            log.exception("Error al guardar")
-            QMessageBox.critical(self, "Error al Guardar", str(e))
+        def _on_failed(err: str):
+            self._save_worker_active = False
+            self._autosave_indicator.setText("⚠ Error al guardar")
+            self._autosave_indicator.setStyleSheet("color:#ff453a;font-size:11px;padding:0 8px;")
+            log.error("Error al guardar: %s", err)
+            QMessageBox.critical(self, "Error al Guardar", err)
+
+        worker.saved_ok.connect(_on_saved)
+        worker.save_failed.connect(_on_failed)
+        # Mantener referencia al worker para evitar que sea recolectado por GC
+        self._active_save_worker = worker
+        worker.start()
 
     def _flush_content_to_metadata(self: "AuraMainWindow"):
         """Persiste el contenido del editor y la nota activa al metadata."""
@@ -483,4 +534,4 @@ class AppLifecycleMixin:
     def _update_zoom_indicator(self: "AuraMainWindow"):
         if hasattr(self, "_zoom_indicator"):
             pct = self.editor.get_zoom_percentage()
-            self._zoom_indicator.setText(f"🔍 {pct}%")
+            self._zoom_indicator.setText(f"{pct}%")

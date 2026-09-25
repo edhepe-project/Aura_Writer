@@ -88,13 +88,13 @@ class GenealogyWidget(QWidget):
 
         header.addStretch(1)
 
-        btn_fit = QPushButton("🔍 Centrar")
+        btn_fit = QPushButton("Centrar")
         btn_fit.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_fit.setToolTip("Ajustar y centrar el diagrama en pantalla")
         btn_fit.clicked.connect(self._fit_tree_view)
         header.addWidget(btn_fit)
 
-        btn_refresh = QPushButton("🔄 Recargar")
+        btn_refresh = QPushButton("Recargar")
         btn_refresh.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_refresh.setToolTip("Recalcular y redibujar el árbol")
         btn_refresh.clicked.connect(self.refresh)
@@ -118,12 +118,12 @@ class GenealogyWidget(QWidget):
         # Leyenda de flujo familiar
         legend = QHBoxLayout()
         legend_items = [
-            ("🟩 Progenitores / Ancestros", "#22c55e"),
-            ("🟪 Personaje Principal", "#6366f1"),
-            ("💖 Pareja / Cónyuge", "#ec4899"),
-            ("🟦 Hermanos", "#3b82f6"),
-            ("🟨 Descendientes / Hijos", "#14b8a6"),
-            ("✨ Linaje Iluminado", "#fbbf24")
+            ("Progenitores / Ancestros", "#22c55e"),
+            ("Personaje Principal", "#6366f1"),
+            ("Pareja / Cónyuge", "#ec4899"),
+            ("Hermanos", "#3b82f6"),
+            ("Descendientes / Hijos", "#14b8a6"),
+            ("Linaje Iluminado", "#fbbf24")
         ]
         for name, col in legend_items:
             lbl = QLabel(name)

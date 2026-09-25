@@ -55,8 +55,11 @@ class PresencePanel(QWidget):
     # -- Construccion de la UI -----------------------------------------------
 
     def _setup_ui(self) -> None:
-        fg_accent = "#ffd60a"
-        fg_sec    = "#8e8e93"
+        is_dark = ThemeManager.is_dark()
+        fg_accent = "#ffd60a" if is_dark else "#d97706"
+        fg_sec    = "#8e8e93" if is_dark else "#64748b"
+        ctx_bg    = "rgba(255, 214, 10, 0.08)" if is_dark else "rgba(217, 119, 6, 0.08)"
+        ctx_bord  = "rgba(255, 214, 10, 0.3)" if is_dark else "rgba(217, 119, 6, 0.3)"
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 6, 0, 4)
@@ -64,12 +67,12 @@ class PresencePanel(QWidget):
 
         # -- Bloque de contexto: lugar + capitulo activo ---------------------
         ctx_frame = QFrame()
-        ctx_frame.setStyleSheet("""
-            QFrame {
-                background: rgba(255, 214, 10, 0.06);
-                border: 1px solid rgba(255, 214, 10, 0.25);
+        ctx_frame.setStyleSheet(f"""
+            QFrame {{
+                background: {ctx_bg};
+                border: 1px solid {ctx_bord};
                 border-radius: 8px;
-            }
+            }}
         """)
         ctx_lay = QVBoxLayout(ctx_frame)
         ctx_lay.setContentsMargins(12, 8, 12, 8)
@@ -81,32 +84,37 @@ class PresencePanel(QWidget):
         )
         ctx_lay.addWidget(self.lbl_place_ctx)
 
-        self.lbl_chapter_ctx = QLabel("Todos los capitulos")
+        self.lbl_chapter_ctx = QLabel("Todos los capítulos")
         self.lbl_chapter_ctx.setStyleSheet(f"font-size: 10px; color: {fg_sec};")
         ctx_lay.addWidget(self.lbl_chapter_ctx)
         root.addWidget(ctx_frame)
 
         # -- Hint: seleccionar capitulo primero ------------------------------
+        hint_bg   = "rgba(10, 132, 255, 0.08)" if is_dark else "rgba(37, 99, 235, 0.08)"
+        hint_bord = "rgba(10, 132, 255, 0.3)" if is_dark else "rgba(37, 99, 235, 0.3)"
+        hint_fg   = "#0a84ff" if is_dark else "#2563eb"
+        hint_sub  = "#8e8e93" if is_dark else "#64748b"
+
         self._chapter_hint = QFrame()
-        self._chapter_hint.setStyleSheet("""
-            QFrame {
-                background: rgba(10, 132, 255, 0.07);
-                border: 1px solid rgba(10, 132, 255, 0.25);
+        self._chapter_hint.setStyleSheet(f"""
+            QFrame {{
+                background: {hint_bg};
+                border: 1px solid {hint_bord};
                 border-radius: 8px;
-            }
+            }}
         """)
         hint_lay = QVBoxLayout(self._chapter_hint)
         hint_lay.setContentsMargins(12, 10, 12, 10)
         hint_lay.setSpacing(4)
-        hint_icon = QLabel("Selecciona un capitulo para editar")
-        hint_icon.setStyleSheet("font-weight: bold; font-size: 11px; color: #0a84ff;")
+        hint_icon = QLabel("Selecciona un capítulo para editar")
+        hint_icon.setStyleSheet(f"font-weight: bold; font-size: 11px; color: {hint_fg};")
         hint_lay.addWidget(hint_icon)
         hint_desc = QLabel(
-            "La vista Todos los capitulos es solo de lectura.\n"
-            "Elige un capitulo especifico en la toolbar para\n"
+            "La vista Todos los capítulos es solo de lectura.\n"
+            "Elige un capítulo específico en la toolbar para\n"
             "colocar o mover personajes en este escenario."
         )
-        hint_desc.setStyleSheet("font-size: 10px; color: #636366;")
+        hint_desc.setStyleSheet(f"font-size: 10px; color: {hint_sub};")
         hint_desc.setWordWrap(True)
         hint_lay.addWidget(hint_desc)
         root.addWidget(self._chapter_hint)
@@ -132,32 +140,41 @@ class PresencePanel(QWidget):
             self.combo_status.addItem(label, data)
         form_lay.addWidget(self.combo_status)
 
-        self.btn_add = QPushButton("  Colocar personaje aqui")
+        btn_bg     = "#ffd60a" if is_dark else "#d97706"
+        btn_fg     = "#000000" if is_dark else "#ffffff"
+        btn_hover  = "#ffe033" if is_dark else "#b45309"
+        btn_press  = "#e6c009" if is_dark else "#92400e"
+        btn_dis_bg = "#2c2c2e" if is_dark else "#e5e7eb"
+        btn_dis_fg = "#636366" if is_dark else "#9ca3af"
+
+        self.btn_add = QPushButton("  Colocar personaje aquí")
         self.btn_add.setFixedHeight(34)
-        self.btn_add.setToolTip("Registrar la ubicacion del personaje en el capitulo seleccionado")
+        self.btn_add.setToolTip("Registrar la ubicación del personaje en el capítulo seleccionado")
         self.btn_add.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_add.setStyleSheet("""
-            QPushButton {
-                background: #ffd60a; color: #000; font-weight: bold;
+        self.btn_add.setStyleSheet(f"""
+            QPushButton {{
+                background: {btn_bg}; color: {btn_fg}; font-weight: bold;
                 font-size: 12px; border: none; border-radius: 8px;
-            }
-            QPushButton:hover   { background: #ffe033; }
-            QPushButton:pressed { background: #e6c009; }
-            QPushButton:disabled { background: #3a3a3c; color: #636366; }
+            }}
+            QPushButton:hover   {{ background: {btn_hover}; }}
+            QPushButton:pressed {{ background: {btn_press}; }}
+            QPushButton:disabled {{ background: {btn_dis_bg}; color: {btn_dis_fg}; }}
         """)
         self.btn_add.clicked.connect(self._on_add_character_manual)
         form_lay.addWidget(self.btn_add)
         root.addWidget(self._form_frame)
 
         # -- Separador y titulo de lista ------------------------------------
+        sep_col = "#3a3a3c" if is_dark else "#e2e8f0"
+        title_col = "#636366" if is_dark else "#64748b"
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet("color: #3a3a3c; margin: 2px 0;")
+        sep.setStyleSheet(f"color: {sep_col}; margin: 2px 0;")
         root.addWidget(sep)
 
-        self.lbl_list_title = QLabel("PERSONAJES AQUI AHORA")
+        self.lbl_list_title = QLabel("PERSONAJES AQUÍ AHORA")
         self.lbl_list_title.setStyleSheet(
-            "font-size: 9px; font-weight: bold; color: #636366; letter-spacing: 0.8px;"
+            f"font-size: 9px; font-weight: bold; color: {title_col}; letter-spacing: 0.8px;"
         )
         root.addWidget(self.lbl_list_title)
 

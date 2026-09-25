@@ -28,6 +28,11 @@ class StorySidePanel(QWidget):
         self._available_chapters = []  # Lista plana de (label, chapter_id)
 
         self._setup_ui()
+        self._apply_theme()
+        
+        from core.theme_manager import ThemeManager
+        ThemeManager.signals.theme_changed.connect(self._apply_theme)
+        
         self.hide()
 
     def _setup_ui(self):
@@ -35,31 +40,10 @@ class StorySidePanel(QWidget):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(10)
 
-        # Dejamos que el tema global (ThemeManager) decida los colores base.
-        # Solo definimos un borde separador para el panel.
-        from core.theme_manager import ThemeManager
-        is_dark = ThemeManager.is_dark()
-        border_col = "#3a3a3c" if is_dark else "#d4cfc8"
-        bg_col = "#252528" if is_dark else "#faf7f3"
-        
-        self.setStyleSheet(f"""
-            QWidget#StorySidePanel {{
-                background-color: {bg_col};
-                border-left: 1px solid {border_col};
-            }}
-            QPushButton#SaveBtn {{
-                background-color: {"#30d158" if is_dark else "#16a34a"};
-                color: {"#000000" if is_dark else "#ffffff"};
-            }}
-            QPushButton#DeleteBtn {{
-                background-color: {"#ff453a" if is_dark else "#dc2626"};
-                color: #ffffff;
-            }}
-        """)
         self.setObjectName("StorySidePanel")
 
         # Titulo seccion
-        hdr = QLabel("📄 DETALLE DEL BLOQUE")
+        hdr = QLabel("DETALLE DEL BLOQUE")
         hdr.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         layout.addWidget(hdr)
 
@@ -92,8 +76,7 @@ class StorySidePanel(QWidget):
 
         # 3b. Capítulo vinculado (solo visible cuando status == "escrito")
         self.chapter_row_label = QLabel("📖 CAPÍTULO VINCULADO")
-        _ch_color = "#ffd60a" if is_dark else "#b45309"
-        self.chapter_row_label.setStyleSheet(f"color: {_ch_color}; font-size: 11px; font-weight: bold;")
+        self.chapter_row_label.setStyleSheet("font-size: 11px; font-weight: bold;")
         self.chapter_combo = QComboBox()
         self.chapter_combo.addItem("— Sin capítulo asignado —", None)
         form.addWidget(self.chapter_row_label)
@@ -138,6 +121,42 @@ class StorySidePanel(QWidget):
         btn_layout.addWidget(self.save_btn)
         btn_layout.addWidget(self.del_btn)
         layout.addLayout(btn_layout)
+
+    def _apply_theme(self):
+        from core.theme_manager import ThemeManager
+        tc = ThemeManager.theme_colors()
+        border_col = tc["border"]
+        bg_col = tc["bg_card"]
+        accent = tc["accent"]
+        fg_text = tc["fg_text"]
+        
+        self.setStyleSheet(f"""
+            QWidget#StorySidePanel {{
+                background-color: {bg_col};
+                border-left: 1px solid {border_col};
+            }}
+            QPushButton#SaveBtn {{
+                background-color: #30d158;
+                color: #ffffff;
+                border: none;
+                padding: 6px;
+                border-radius: 4px;
+                font-weight: bold;
+            }}
+            QPushButton#SaveBtn:hover {{ background-color: #28a745; }}
+            QPushButton#DeleteBtn {{
+                background-color: #ff453a;
+                color: #ffffff;
+                border: none;
+                padding: 6px;
+                border-radius: 4px;
+                font-weight: bold;
+            }}
+            QPushButton#DeleteBtn:hover {{ background-color: #dc3545; }}
+            QLabel {{ color: {fg_text}; }}
+        """)
+        
+        self.chapter_row_label.setStyleSheet(f"color: {accent}; font-size: 11px; font-weight: bold;")
 
     def _on_status_changed(self, index: int):
         is_written = self.status_combo.currentData() == "escrito"

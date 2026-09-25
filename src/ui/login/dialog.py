@@ -1,4 +1,4 @@
-﻿"""
+"""
 login/dialog.py
 ---------------
 LoginDialog: dialogo de inicio de Aura Writer.

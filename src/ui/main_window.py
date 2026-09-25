@@ -78,11 +78,6 @@ class AuraMainWindow(
         self._stats_timer.setSingleShot(True)
         self._stats_timer.timeout.connect(self._do_update_stats)
 
-        # Temporizador de análisis de presencia NLP en background (debounced 3.5s)
-        self._nlp_presence_timer = QTimer(self)
-        self._nlp_presence_timer.setSingleShot(True)
-        self._nlp_presence_timer.timeout.connect(self._do_trigger_nlp_presence)
-
         self.editor.textChanged.connect(self._on_editor_text_changed)
         self.editor.currentCharFormatChanged.connect(self._update_format_actions)
         self.editor.cursorPositionChanged.connect(self._update_format_actions)
@@ -205,12 +200,12 @@ class AuraMainWindow(
         switcher_layout.setContentsMargins(0, 0, 0, 4)
         switcher_layout.setSpacing(4)
 
-        self._btn_tab_chars = QPushButton("👤 Personajes")
+        self._btn_tab_chars = QPushButton("Personajes")
         self._btn_tab_chars.setCheckable(True)
         self._btn_tab_chars.setChecked(True)
         self._btn_tab_chars.clicked.connect(lambda: self._switch_inspector_tab("characters"))
 
-        self._btn_tab_places = QPushButton("🏰 Lugares")
+        self._btn_tab_places = QPushButton("Lugares")
         self._btn_tab_places.setCheckable(True)
         self._btn_tab_places.setChecked(False)
         self._btn_tab_places.clicked.connect(lambda: self._switch_inspector_tab("places"))
@@ -246,7 +241,7 @@ class AuraMainWindow(
         self._usb_indicator.setStyleSheet("color:#636366;font-size:11px;padding:0 8px;")
 
         # Indicador de Zoom interactivo en la barra de estado
-        self._zoom_indicator = QPushButton(f"🔍 {self.editor.get_zoom_percentage()}%")
+        self._zoom_indicator = QPushButton(f"{self.editor.get_zoom_percentage()}%")
         self._zoom_indicator.setToolTip("Ajustar Zoom, Tipografía y Estilo de Papel (Ctrl+,)")
         self._zoom_indicator.setStyleSheet("border: none; color:#8e8e93; font-size:11px; padding: 2px 6px;")
         self._zoom_indicator.setCursor(Qt.CursorShape.PointingHandCursor)

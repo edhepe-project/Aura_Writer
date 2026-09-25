@@ -82,7 +82,7 @@ class TimelineEventCard(QFrame):
             places_txt = " • ".join(self.places_names[:3])
             if len(self.places_names) > 3:
                 places_txt += f" (+{len(self.places_names)-3})"
-            self._places_label = QLabel(f"🏰 {places_txt}")
+            self._places_label = QLabel(f"{places_txt}")
             self._places_label.setStyleSheet("font-size: 10px; color: #30d158;")
             self._places_label.setWordWrap(True)
             layout.addWidget(self._places_label)
@@ -104,10 +104,10 @@ class TimelineEventCard(QFrame):
         self._apply_theme()
 
     def _apply_theme(self):
-        is_dark = ThemeManager.is_dark()
-        bg = "#2c2c2e" if is_dark else "#ffffff"
-        fg = "#f2f2f7" if is_dark else "#1c1c1e"
-        border_color = self.obra_color if self._selected else ("#3a3a3c" if is_dark else "#d1d1d6")
+        tc = ThemeManager.theme_colors()
+        bg = tc["bg_card"]
+        fg = tc["fg_text"]
+        border_color = self.obra_color if self._selected else tc["border"]
         border_width = "2px" if self._selected else "1px"
 
         self.setStyleSheet(f"""

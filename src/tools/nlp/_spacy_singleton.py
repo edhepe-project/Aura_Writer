@@ -66,8 +66,12 @@ def get_nlp():
             raise RuntimeError(_load_error)
 
         _load_attempted = True
-        _nlp_instance = _load_model()
-        return _nlp_instance
+        try:
+            _nlp_instance = _load_model()
+            return _nlp_instance
+        except Exception as err:
+            _load_error = str(err)
+            raise
 
 
 def _load_model():

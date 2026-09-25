@@ -23,7 +23,7 @@ class ChapterComparatorDialog(QDialog):
         self.initial_chapter = initial_chapter
         self._syncing_scroll = False
 
-        self.setWindowTitle("⚖️ Mesa de Cotejo Literaria — Comparar Capítulos")
+        self.setWindowTitle("Mesa de Cotejo Literaria — Comparar Capítulos")
         self.resize(1180, 780)
         self.setMinimumSize(850, 550)
 
@@ -105,13 +105,13 @@ class ChapterComparatorDialog(QDialog):
         bottom_bar = QHBoxLayout()
         bottom_bar.setSpacing(10)
 
-        status_tip = QLabel("💡 Tip: Los cambios realizados aquí se guardan directamente en el proyecto.")
+        status_tip = QLabel("Tip: Los cambios realizados aquí se guardan directamente en el proyecto.")
         status_tip.setStyleSheet(f"color: {tip_color}; font-size: 11px;")
         bottom_bar.addWidget(status_tip)
 
         bottom_bar.addStretch()
 
-        btn_save = QPushButton("💾 Guardar Cambios")
+        btn_save = QPushButton("Guardar Cambios")
         btn_save.setStyleSheet("""
             QPushButton {
                 background-color: #30d158;
@@ -291,7 +291,7 @@ class ChapterComparatorDialog(QDialog):
                 panel.editor.blockSignals(False)
                 panel._dirty = False
                 panel._on_text_changed()
-                panel.stats_lbl.setText(panel.stats_lbl.text() + "  [🔒 Solo Lectura]")
+                panel.stats_lbl.setText(panel.stats_lbl.text() + "  [Solo Lectura]")
                 return
 
             else:

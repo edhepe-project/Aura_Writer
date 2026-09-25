@@ -131,7 +131,7 @@ class CharacterContextPanel(QWidget):
         self._list_appear.clear()
         self._context_label.setText("RESUMEN DEL UNIVERSO")
         self._context_sublabel.setText(
-            f"🌐 {title}\n"
+            f"{title}\n"
             f"{len(all_characters)} personaje(s) · {total_obras} obra(s) · {total_chapters} capítulo(s)"
         )
         self._context_sublabel.show()
@@ -140,8 +140,8 @@ class CharacterContextPanel(QWidget):
     def _populate_character_list_items(self, char_list: list[Character]):
         is_dark = ThemeManager.is_dark()
         role_icons = {
-            "Protagonista": "⭐", "Antagonista": "🔴",
-            "Secundario": "🔵", "Misterioso": "🟣", "Otro": "⚪"
+            "Protagonista": "★", "Antagonista": "▲",
+            "Secundario": "●", "Misterioso": "◆", "Otro": "○"
         }
         if is_dark:
             role_colors = {
@@ -158,7 +158,7 @@ class CharacterContextPanel(QWidget):
         default_color = "#f2f2f7" if is_dark else "#111827"
 
         for char in char_list:
-            icon = role_icons.get(char.role, "⚪")
+            icon = role_icons.get(char.role, "○")
             item = QListWidgetItem(f"{icon} {char.name}  ·  {char.role}")
             item.setData(Qt.ItemDataRole.UserRole, char.id)
             item.setData(Qt.ItemDataRole.UserRole + 1, "character")

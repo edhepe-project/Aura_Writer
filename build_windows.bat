@@ -21,13 +21,13 @@ set /p APP_VERSION=<ver.tmp
 if exist ver.tmp del ver.tmp
 if "%APP_VERSION%"=="" (
     echo ERROR: No se pudo leer la version desde src/version.py
-    pause & exit /b 1
+    exit /b 1
 )
 echo       Version detectada: %APP_VERSION%
 
 :: ── 3. Verificar entorno ────────────────────────────────────────────────
 echo [2/5] Verificando entorno Python...
-%PYTHON% --version || (echo ERROR: Python no encontrado & pause & exit /b 1)
+%PYTHON% --version || (echo ERROR: Python no encontrado & exit /b 1)
 
 echo       Instalando/actualizando dependencias...
 %PYTHON% -m pip install -r requirements.txt --quiet
@@ -40,7 +40,7 @@ echo [3/5] Compilando ejecutable con PyInstaller...
 if errorlevel 1 (
     echo.
     echo ERROR: La compilacion PyInstaller fallo.
-    pause & exit /b 1
+    exit /b 1
 )
 echo       OK! Ejecutable: dist\AuraWriter.exe
 
@@ -69,7 +69,7 @@ echo [5/5] Generando instalador con Inno Setup...
 if errorlevel 1 (
     echo.
     echo ERROR: La compilacion del instalador fallo.
-    pause & exit /b 1
+    exit /b 1
 )
 echo       OK! Instalador: installer_output\AuraWriter_Setup_v%APP_VERSION%.exe
 
@@ -83,4 +83,4 @@ if defined ISCC (
 echo  Instalador:  installer_output\AuraWriter_Setup_v%APP_VERSION%.exe
 )
 echo.
-pause
+

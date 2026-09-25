@@ -30,31 +30,69 @@ class ChapterHistoryDiffDialog(QDialog):
         self.chapter = chapter
         self._selected_revision: ChapterRevision | None = None
 
-        self.setWindowTitle(f"📜 Historial de Versiones & Diff — {chapter.title}")
+        self.setWindowTitle(f"Historial de Versiones & Diff — {chapter.title}")
         self.resize(1080, 680)
         self.setMinimumSize(800, 500)
 
         self._setup_ui()
+        self._apply_theme()
+        ThemeManager.signals.theme_changed.connect(self._apply_theme)
         self._load_revisions()
 
-    def _setup_ui(self):
-        is_dark = ThemeManager.is_dark()
-
-        bg_main = "#1c1c1e" if is_dark else "#f2f2f7"
-        bg_card = "#2c2c2e" if is_dark else "#ffffff"
-        fg_title = "#f2f2f7" if is_dark else "#1a1a2e"
-        fg_muted = "#8e8e93" if is_dark else "#7a7a8a"
-        b_border = "#3a3a3c" if is_dark else "#d1d1d6"
+    def _apply_theme(self):
+        tc = ThemeManager.theme_colors()
+        bg_main = tc["bg_main"]
+        bg_card = tc["bg_card"]
+        fg_title = tc["fg_text"]
+        fg_muted = tc["sub_text"]
+        b_border = tc["border"]
+        accent = tc["accent"]
+        hover = tc["hover"]
 
         self.setStyleSheet(f"""
             QDialog {{ background-color: {bg_main}; }}
             QFrame#card {{ background-color: {bg_card}; border: 1px solid {b_border}; border-radius: 8px; }}
             QListWidget {{ background-color: {bg_card}; border: 1px solid {b_border}; border-radius: 6px; color: {fg_title}; }}
             QListWidget::item {{ padding: 8px; border-bottom: 1px solid {b_border}; }}
-            QListWidget::item:selected {{ background-color: #007aff; color: #ffffff; border-radius: 4px; }}
+            QListWidget::item:selected {{ background-color: {accent}; color: {bg_card}; border-radius: 4px; }}
             QTextBrowser {{ background-color: {bg_card}; border: 1px solid {b_border}; border-radius: 6px; }}
         """)
+        
+        if hasattr(self, 'title_lbl'):
+            self.title_lbl.setStyleSheet(f"font-size: 15px; color: {fg_title};")
+        if hasattr(self, 'lbl_revs'):
+            self.lbl_revs.setStyleSheet(f"color: {fg_muted}; font-size: 11px; font-weight: 800; letter-spacing: 0.5px;")
+        if hasattr(self, 'lbl_diff_info'):
+            self.lbl_diff_info.setStyleSheet(f"font-size: 12px; color: {fg_title};")
+            
+        if hasattr(self, 'btn_snapshot'):
+            self.btn_snapshot.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: transparent;
+                    color: {accent};
+                    border: 1px solid {accent};
+                    font-weight: bold;
+                    padding: 6px 14px;
+                    border-radius: 6px;
+                }}
+                QPushButton:hover {{ background-color: {hover}; }}
+            """)
+            
+        if hasattr(self, 'btn_restore'):
+            self.btn_restore.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: transparent;
+                    color: {accent};
+                    border: 1px solid {accent};
+                    font-weight: bold;
+                    padding: 8px 18px;
+                    border-radius: 6px;
+                }}
+                QPushButton:hover {{ background-color: {hover}; }}
+                QPushButton:disabled {{ background-color: {bg_main}; color: {fg_muted}; border: 1px solid {b_border}; }}
+            """)
 
+    def _setup_ui(self):
         root = QVBoxLayout(self)
         root.setContentsMargins(16, 16, 16, 16)
         root.setSpacing(12)
@@ -65,24 +103,12 @@ class ChapterHistoryDiffDialog(QDialog):
         icon_lbl.setPixmap(qta.icon("fa5s.history", color="#007aff").pixmap(22, 22))
         top_bar.addWidget(icon_lbl)
 
-        title_lbl = QLabel(f"<b>Historial de Revisiones:</b> {self.chapter.title}")
-        title_lbl.setStyleSheet(f"font-size: 15px; color: {fg_title};")
-        top_bar.addWidget(title_lbl)
+        self.title_lbl = QLabel(f"<b>Historial de Revisiones:</b> {self.chapter.title}")
+        top_bar.addWidget(self.title_lbl)
         top_bar.addStretch()
 
-        self.btn_snapshot = QPushButton(" 📷 Crear Instantánea Manual")
+        self.btn_snapshot = QPushButton("Crear Instantánea Manual")
         self.btn_snapshot.setIcon(qta.icon("fa5s.camera", color="#ffffff"))
-        self.btn_snapshot.setStyleSheet("""
-            QPushButton {
-                background-color: #34c759;
-                color: #ffffff;
-                font-weight: bold;
-                padding: 6px 14px;
-                border-radius: 6px;
-                border: none;
-            }
-            QPushButton:hover { background-color: #30d158; }
-        """)
         self.btn_snapshot.clicked.connect(self._create_manual_snapshot)
         top_bar.addWidget(self.btn_snapshot)
 
@@ -98,9 +124,8 @@ class ChapterHistoryDiffDialog(QDialog):
         left_layout.setContentsMargins(10, 10, 10, 10)
         left_layout.setSpacing(8)
 
-        lbl_revs = QLabel("VERSIONES GUARDADAS")
-        lbl_revs.setStyleSheet(f"color: {fg_muted}; font-size: 11px; font-weight: 800; letter-spacing: 0.5px;")
-        left_layout.addWidget(lbl_revs)
+        self.lbl_revs = QLabel("VERSIONES GUARDADAS")
+        left_layout.addWidget(self.lbl_revs)
 
         self.list_revisions = QListWidget()
         self.list_revisions.currentRowChanged.connect(self._on_revision_selected)
@@ -117,7 +142,6 @@ class ChapterHistoryDiffDialog(QDialog):
 
         diff_header = QHBoxLayout()
         self.lbl_diff_info = QLabel("Selecciona una revisión para comparar con la versión actual.")
-        self.lbl_diff_info.setStyleSheet(f"font-size: 12px; color: {fg_title};")
         diff_header.addWidget(self.lbl_diff_info)
         diff_header.addStretch()
 
@@ -135,20 +159,8 @@ class ChapterHistoryDiffDialog(QDialog):
         bottom_right = QHBoxLayout()
         bottom_right.addStretch()
 
-        self.btn_restore = QPushButton(" ↺ Restaurar esta Versión")
+        self.btn_restore = QPushButton("Restaurar esta Versión")
         self.btn_restore.setIcon(qta.icon("fa5s.undo-alt", color="#ffffff"))
-        self.btn_restore.setStyleSheet("""
-            QPushButton {
-                background-color: #007aff;
-                color: #ffffff;
-                font-weight: bold;
-                padding: 8px 18px;
-                border-radius: 6px;
-                border: none;
-            }
-            QPushButton:hover { background-color: #0062cc; }
-            QPushButton:disabled { background-color: #555555; color: #888888; }
-        """)
         self.btn_restore.setEnabled(False)
         self.btn_restore.clicked.connect(self._restore_selected_revision)
         bottom_right.addWidget(self.btn_restore)
@@ -180,7 +192,7 @@ class ChapterHistoryDiffDialog(QDialog):
             except Exception:
                 date_str = str(rev.created_at)
 
-            item = QListWidgetItem(f"🕒 {date_str}\n   {rev.description}")
+            item = QListWidgetItem(f"{date_str}\n   {rev.description}")
             item.setData(Qt.ItemDataRole.UserRole, rev)
             self.list_revisions.addItem(item)
 
@@ -201,8 +213,8 @@ class ChapterHistoryDiffDialog(QDialog):
         rev_html = self.pm.read_chapter_revision_content(rev)
         current_html = self.pm.read_chapter_content(self.chapter.content_file)
 
-        is_dark = ThemeManager.is_dark()
-        diff_html, stats = DiffEngine.compute_inline_diff_html(rev_html, current_html, is_dark=is_dark)
+        theme_name = ThemeManager.current()
+        diff_html, stats = DiffEngine.compute_inline_diff_html(rev_html, current_html, theme_name=theme_name)
 
         self.diff_browser.setHtml(diff_html)
         self.lbl_diff_info.setText(f"Comparando <b>Revisión ({rev.description})</b> ➔ <b>Versión Actual</b>")

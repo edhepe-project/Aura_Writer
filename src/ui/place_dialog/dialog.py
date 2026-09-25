@@ -83,7 +83,7 @@ class PlaceEditDialog(QDialog):
 
         # Header
         top_bar = QHBoxLayout()
-        header_lbl = QLabel(f"🏰  {'NUEVO ESCENARIO' if self._is_new else 'FICHA DE LUGAR'}")
+        header_lbl = QLabel(f"{'NUEVO ESCENARIO' if self._is_new else 'FICHA DE LUGAR'}")
         header_lbl.setStyleSheet(f"font-size: 14px; font-weight: 800; color: {fg_title};")
         top_bar.addWidget(header_lbl)
         top_bar.addStretch()
@@ -103,7 +103,7 @@ class PlaceEditDialog(QDialog):
         c1 = QVBoxLayout()
         c1.addWidget(QLabel("Nombre del Lugar:"))
         self.edit_name = QLineEdit()
-        self.edit_name.setPlaceholderText("ej. Minas Tirith, Bosque de los Susurros...")
+        self.edit_name.setPlaceholderText("ej. Ciudadela del Sol, Bosque de los Susurros...")
         c1.addWidget(self.edit_name)
         r1.addLayout(c1, 3)
 
@@ -120,7 +120,7 @@ class PlaceEditDialog(QDialog):
         self.combo_parent = QComboBox()
         self.combo_parent.addItem("— Sin lugar superior (Independiente / Raíz) —", "")
         for p in self._all_places:
-            icon = PLACE_ICONS.get(p.category, "📍")
+            icon = PLACE_ICONS.get(p.category, "●")
             self.combo_parent.addItem(f"{icon} {p.name}", p.id)
         l_geo.addWidget(self.combo_parent)
 
@@ -136,7 +136,7 @@ class PlaceEditDialog(QDialog):
         self.lbl_img_status.setStyleSheet(f"color: {'#8e8e93' if is_dark else '#7a7a8a'}; font-size: 11px;")
         img_box.addWidget(self.lbl_img_status, 1)
 
-        self.btn_attach_img = QPushButton(" 🗺️ Adjuntar Imagen / Mapa")
+        self.btn_attach_img = QPushButton("Adjuntar Imagen / Mapa")
         self.btn_attach_img.clicked.connect(self._attach_image)
         img_box.addWidget(self.btn_attach_img)
 
@@ -146,7 +146,7 @@ class PlaceEditDialog(QDialog):
         img_box.addWidget(self.btn_remove_img)
 
         l_geo.addLayout(img_box)
-        self.tabs.addTab(tab_geo, "🗺️ Geografía & Plano")
+        self.tabs.addTab(tab_geo, "Geografía & Plano")
 
         # ── PESTAÑA 2: Atmósfera & Inmersión Sensorial ────────────────
         tab_sens = QWidget()
@@ -164,7 +164,7 @@ class PlaceEditDialog(QDialog):
         self.edit_sensory.setPlaceholderText("ej. Olor a madera húmeda y azufre; eco continuo de gotas de agua al fondo...")
         l_sens.addWidget(self.edit_sensory, 1)
 
-        self.tabs.addTab(tab_sens, "✨ Atmósfera Sensorial")
+        self.tabs.addTab(tab_sens, "Atmósfera Sensorial")
 
         # ── PESTAÑA 3: Lore, Historia & Notas ────────────────────────
         tab_lore = QWidget()
@@ -174,7 +174,7 @@ class PlaceEditDialog(QDialog):
 
         l_lore.addWidget(QLabel("Historia, Mitos, Facciones y Reglas del Lugar:"))
         self.edit_lore = QTextEdit()
-        self.edit_lore.setPlaceholderText("ej. Fundada en la Tercera Era por los Reyes del Mar. Prohibido el uso de magia de fuego...")
+        self.edit_lore.setPlaceholderText("ej. Fundada en la Era Antigua por los Reyes del Norte. Prohibido el uso de magia de fuego...")
         l_lore.addWidget(self.edit_lore, 1)
 
         l_lore.addWidget(QLabel("Notas Privadas del Autor (No se exportan):"))
@@ -182,7 +182,7 @@ class PlaceEditDialog(QDialog):
         self.edit_notes.setPlaceholderText("Secretos no revelados a los personajes, ideas futuras para giros de trama...")
         l_lore.addWidget(self.edit_notes, 1)
 
-        self.tabs.addTab(tab_lore, "📜 Lore & Notas")
+        self.tabs.addTab(tab_lore, "Lore & Notas")
 
         root.addWidget(self.tabs, 1)
 

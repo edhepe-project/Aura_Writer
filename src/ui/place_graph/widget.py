@@ -39,6 +39,8 @@ class PlaceGraphWidget(QWidget):
         self._project_manager = None
         self._layout_worker: "_LayoutWorker | None" = None  # hilo de fisica activo
         self._setup_ui()
+        self._apply_theme()
+        ThemeManager.signals.theme_changed.connect(self._apply_theme)
 
     @property
     def _link_items(self) -> list[PlaceLinkItem]:
@@ -48,96 +50,42 @@ class PlaceGraphWidget(QWidget):
     # ── UI ──────────────────────────────────────────────────────────────────
 
     def _setup_ui(self):
-        is_dark = ThemeManager.is_dark()
-        bg_bar = "#161618" if is_dark else "#e8e4dc"
-        border_col = "#2c2c2e" if is_dark else "#d4cfc8"
-        fg_col = "#f2f2f7" if is_dark else "#1c1c1e"
-        btn_bg = "#2c2c2e" if is_dark else "#ded8ce"
-        btn_hover = "#3a3a3c" if is_dark else "#d0c9bd"
-        input_bg = "#2c2c2e" if is_dark else "#ffffff"
-
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # Toolbar superior
-        tb = QFrame()
-        tb.setFixedHeight(46)
-        tb.setStyleSheet(f"""
-            QFrame {{ background-color: {bg_bar}; border-bottom: 1px solid {border_col}; }}
-            QLabel {{ color: {fg_col}; font-weight: bold; font-size: 11px; }}
-            QLineEdit {{
-                background: {input_bg}; color: {fg_col};
-                border: 1px solid {border_col}; border-radius: 6px;
-                padding: 4px 8px; font-size: 11px;
-            }}
-            QLineEdit:focus {{
-                border: 1px solid #ffd60a;
-            }}
-            QComboBox {{
-                background: {input_bg}; color: {fg_col};
-                border: 1px solid {border_col}; border-radius: 6px;
-                padding: 3px 8px; font-size: 11px;
-            }}
-            QPushButton {{
-                background: {btn_bg}; color: {fg_col};
-                border: 1px solid {border_col}; border-radius: 6px;
-                padding: 4px 8px; font-size: 11px; font-weight: bold;
-            }}
-            QPushButton:hover {{ background: {btn_hover}; border-color: #ffd60a; }}
-        """)
-        tbl = QHBoxLayout(tb)
-        tbl.setContentsMargins(10, 0, 10, 0)
-        tbl.setSpacing(8)
+        # Toolbar superior (estilo estándar como en el story_graph)
+        from PyQt6.QtWidgets import QToolBar, QWidget, QSizePolicy
+        tb = QToolBar()
+        tb.setMovable(False)
+        tb.setFloatable(False)
 
         # Título compacto
-        ico_lbl = QLabel("🗺️ ATLAS")
-        ico_lbl.setStyleSheet("color: #ffd60a; font-weight: bold; font-size: 12px; letter-spacing: 0.5px;")
-        tbl.addWidget(ico_lbl)
+        ico_lbl = QLabel(" ATLAS GEOGRÁFICO ")
+        ico_lbl.setStyleSheet("font-weight: bold; font-size: 11px; letter-spacing: 0.5px;")
+        tb.addWidget(ico_lbl)
+        
+        tb.addSeparator()
 
         # Buscador
         self._search_input = QLineEdit()
-        self._search_input.setPlaceholderText("🔍 Buscar escenario...")
+        self._search_input.setPlaceholderText("Buscar escenario...")
         self._search_input.setClearButtonEnabled(True)
         self._search_input.setFixedWidth(160)
         self._search_input.textChanged.connect(self._on_search)
-        tbl.addWidget(self._search_input)
-
-        tbl.addStretch()
+        tb.addWidget(self._search_input)
 
         # Checkbox: Órbitas activas (mostrar/ocultar aristas)
         from PyQt6.QtWidgets import QCheckBox
         self._edges_visible = True
-        self._chk_edges = QCheckBox("Órbitas")
+        self._chk_edges = QCheckBox(" Órbitas ")
         self._chk_edges.setChecked(True)
         self._chk_edges.setToolTip("Mostrar / Ocultar las líneas de conexión entre lugares")
         self._chk_edges.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._chk_edges.setStyleSheet("""
-            QCheckBox {
-                color: #ffd60a;
-                font-size: 11px;
-                font-weight: 600;
-                spacing: 5px;
-            }
-            QCheckBox::indicator {
-                width: 14px;
-                height: 14px;
-                border: 1px solid #ffd60a;
-                border-radius: 3px;
-                background: transparent;
-            }
-            QCheckBox::indicator:checked {
-                background: #ffd60a;
-                image: none;
-            }
-            QCheckBox::indicator:unchecked {
-                background: transparent;
-            }
-        """)
         self._chk_edges.stateChanged.connect(self._toggle_edges)
-        tbl.addWidget(self._chk_edges)
-
-
+        tb.addWidget(self._chk_edges)
+        
+        tb.addSeparator()
 
         # Selector de capítulo
         self._chapter_combo = QComboBox()
@@ -145,7 +93,7 @@ class PlaceGraphWidget(QWidget):
         self._chapter_combo.setToolTip("Filtrar presencias por capítulo")
         self._chapter_combo.addItem("📖 Todos los cap.", None)
         self._chapter_combo.currentIndexChanged.connect(self._on_chapter_filter_changed)
-        tbl.addWidget(self._chapter_combo)
+        tb.addWidget(self._chapter_combo)
 
         # Filtro por personaje
         self._char_filter_combo = QComboBox()
@@ -153,86 +101,54 @@ class PlaceGraphWidget(QWidget):
         self._char_filter_combo.setToolTip("Resaltar trayectoria de un personaje")
         self._char_filter_combo.addItem("👤 Todos", None)
         self._char_filter_combo.currentIndexChanged.connect(self._on_char_filter_changed)
-        tbl.addWidget(self._char_filter_combo)
+        tb.addWidget(self._char_filter_combo)
 
-        # Separador visual
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.VLine)
-        sep.setFrameShadow(QFrame.Shadow.Sunken)
-        sep.setStyleSheet(f"color: {border_col};")
-        tbl.addWidget(sep)
+        # Espaciador para empujar los controles a los lados
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        tb.addWidget(spacer)
 
-        # Controles de Zoom (íconos vectoriales)
+        # Controles de Zoom y Ajuste
+        from PyQt6.QtGui import QAction
         import qtawesome as qta
-        icon_color = "#f2f2f7" if is_dark else "#1c1c1e"
+        
+        self.act_zoom_in = QAction(qta.icon("fa5s.search-plus"), "Zoom +", self)
+        self.act_zoom_in.setToolTip("Acercar zoom")
+        self.act_zoom_in.triggered.connect(lambda: self._view.scale(1.2, 1.2))
+        tb.addAction(self.act_zoom_in)
 
-        btn_zoom_in = QPushButton()
-        btn_zoom_in.setIcon(qta.icon("fa5s.search-plus", color=icon_color))
-        btn_zoom_in.setFixedSize(28, 28)
-        btn_zoom_in.setToolTip("Acercar zoom")
-        btn_zoom_in.clicked.connect(lambda: self._view.scale(1.2, 1.2))
-        tbl.addWidget(btn_zoom_in)
+        self.act_zoom_out = QAction(qta.icon("fa5s.search-minus"), "Zoom -", self)
+        self.act_zoom_out.setToolTip("Alejar zoom")
+        self.act_zoom_out.triggered.connect(lambda: self._view.scale(1 / 1.2, 1 / 1.2))
+        tb.addAction(self.act_zoom_out)
 
-        btn_zoom_out = QPushButton()
-        btn_zoom_out.setIcon(qta.icon("fa5s.search-minus", color=icon_color))
-        btn_zoom_out.setFixedSize(28, 28)
-        btn_zoom_out.setToolTip("Alejar zoom")
-        btn_zoom_out.clicked.connect(lambda: self._view.scale(1 / 1.2, 1 / 1.2))
-        tbl.addWidget(btn_zoom_out)
+        self.act_fit = QAction(qta.icon("fa5s.compress-arrows-alt"), "Ajustar", self)
+        self.act_fit.setToolTip("Ajustar al centro / Encuadrar todo")
+        self.act_fit.triggered.connect(self._fit_to_view)
+        tb.addAction(self.act_fit)
 
-        btn_fit = QPushButton()
-        btn_fit.setIcon(qta.icon("fa5s.compress-arrows-alt", color=icon_color))
-        btn_fit.setFixedSize(28, 28)
-        btn_fit.setToolTip("Ajustar al centro / Encuadrar todo")
-        btn_fit.clicked.connect(self._fit_to_view)
-        tbl.addWidget(btn_fit)
+        tb.addSeparator()
 
-        # Separador
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.VLine)
-        sep.setFixedWidth(1)
-        sep.setStyleSheet("background: #3a3a3c;")
-        tbl.addWidget(sep)
-
-        # Boton Cuadricula de Presencias
-        btn_grid = QPushButton("  Cuadricula")
-        btn_grid.setFixedHeight(28)
-        btn_grid.setToolTip("Abrir la Cuadricula de Presencias (personajes x capitulos)")
-        btn_grid.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_grid.setStyleSheet("""
-            QPushButton {
-                background: #ffd60a18;
-                color: #ffd60a;
-                border: 1px solid #ffd60a44;
-                border-radius: 6px;
-                font-size: 11px;
-                font-weight: bold;
-                padding: 0 10px;
-            }
-            QPushButton:hover { background: #ffd60a30; border-color: #ffd60a; }
-        """)
-        btn_grid.clicked.connect(self._open_presence_grid)
-        tbl.addWidget(btn_grid)
+        # Boton Cuadricula de Presencias (como acción)
+        self.act_grid = QAction(qta.icon("fa5s.th"), "Cuadrícula", self)
+        self.act_grid.setToolTip("Abrir la Cuadrícula de Presencias (personajes x capítulos)")
+        self.act_grid.triggered.connect(self._open_presence_grid)
+        tb.addAction(self.act_grid)
 
         root.addWidget(tb)
+        self.tb = tb
 
 
         # -- Contenedor con QStackedWidget: Overlay de carga + Vista --------
         self._stack = QStackedWidget()
 
         # Capa 0: Overlay de carga (se muestra mientras calcula el layout)
-        is_dark_now = ThemeManager.is_dark()
-        overlay_bg = "#1c1c1e" if is_dark_now else "#f0ece3"
-        overlay = QFrame()
-        overlay.setStyleSheet(f"background: {overlay_bg};")
-        overlay_lay = QVBoxLayout(overlay)
+        self._overlay = QFrame()
+        overlay_lay = QVBoxLayout(self._overlay)
         overlay_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._loading_lbl = QLabel("Calculando mapa orbital...")
-        self._loading_lbl.setStyleSheet(
-            "color: #ffd60a; font-size: 14px; font-weight: bold;"
-        )
         overlay_lay.addWidget(self._loading_lbl)
-        self._stack.addWidget(overlay)        # index 0
+        self._stack.addWidget(self._overlay)        # index 0
 
         # Capa 1: Escena + Vista real
         graph_container = QWidget()
@@ -259,18 +175,9 @@ class PlaceGraphWidget(QWidget):
 
 
     def _build_legend(self) -> QFrame:
-        is_dark = ThemeManager.is_dark()
-        bg_bar = "#161618" if is_dark else "#e8e4dc"
-        border_col = "#2c2c2e" if is_dark else "#d4cfc8"
-        lbl_col = "#8e8e93" if is_dark else "#5c5c60"
-
-        bar = QFrame()
-        bar.setFixedHeight(34)
-        bar.setStyleSheet(f"""
-            QFrame {{ background: {bg_bar}; border-top: 1px solid {border_col}; }}
-            QLabel {{ color: {lbl_col}; font-size: 10px; padding: 0 6px; }}
-        """)
-        bl = QHBoxLayout(bar)
+        self.bar = QFrame()
+        self.bar.setFixedHeight(34)
+        bl = QHBoxLayout(self.bar)
         bl.setContentsMargins(14, 0, 14, 0)
         bl.setSpacing(0)
 
@@ -287,7 +194,9 @@ class PlaceGraphWidget(QWidget):
             dot = QLabel("━")
             dot.setStyleSheet(f"color: {color}; font-size: 14px; padding: 0 2px;")
             lbl = QLabel(display)
-            lbl.setStyleSheet(f"color: {lbl_col}; font-size: 10px; padding-right: 10px;")
+            if not hasattr(self, "_legend_labels"):
+                self._legend_labels = []
+            self._legend_labels.append(lbl)
             bl.addWidget(dot)
             bl.addWidget(lbl)
 
@@ -295,12 +204,84 @@ class PlaceGraphWidget(QWidget):
 
         hier_dot = QLabel("╌╌")
         hier_dot.setStyleSheet("color: #bf5af2; font-size: 12px; padding: 0 2px;")
-        hier_lbl = QLabel("Órbita (Estancia/Interior)")
-        hier_lbl.setStyleSheet(f"color: {lbl_col}; font-size: 10px;")
+        self.hier_lbl = QLabel("Órbita (Estancia/Interior)")
+        
         bl.addWidget(hier_dot)
-        bl.addWidget(hier_lbl)
+        bl.addWidget(self.hier_lbl)
 
-        return bar
+        return self.bar
+
+    def _apply_theme(self):
+        import qtawesome as qta
+        tc = ThemeManager.theme_colors()
+        bg_bar = tc["bg_card"]
+        border_col = tc["border"]
+        fg_col = tc["fg_text"]
+        input_bg = tc["bg_input"]
+        accent = tc["accent"]
+        lbl_col = tc["sub_text"]
+
+        # 1) Toolbar general
+        self.setStyleSheet(f"""
+            QToolBar {{
+                background-color: {bg_bar};
+                border-bottom: 1px solid {border_col};
+                padding: 4px;
+            }}
+            QLineEdit {{
+                background-color: {input_bg};
+                color: {fg_col};
+                border: 1px solid {border_col};
+                border-radius: 4px;
+                padding: 3px 6px;
+            }}
+            QComboBox {{
+                background-color: {input_bg};
+                color: {fg_col};
+                border: 1px solid {border_col};
+                border-radius: 4px;
+                padding: 3px 6px;
+            }}
+            QCheckBox {{
+                color: {fg_col};
+                font-weight: bold;
+            }}
+            QLabel {{
+                color: {fg_col};
+            }}
+            QPushButton {{
+                background-color: {tc["bg_card"]};
+                color: {fg_col};
+                border: 1px solid {border_col};
+                border-radius: 4px;
+                padding: 4px 8px;
+            }}
+            QPushButton:hover {{
+                background-color: {tc["border"]};
+            }}
+        """)
+        
+        self._overlay.setStyleSheet(f"background-color: {tc['bg_main']};")
+        self._loading_lbl.setStyleSheet(f"color: {accent}; font-weight: bold; font-size: 14px;")
+        
+        if hasattr(self, "act_zoom_in"):
+            self.act_zoom_in.setIcon(qta.icon("fa5s.search-plus", color=fg_col))
+            self.act_zoom_out.setIcon(qta.icon("fa5s.search-minus", color=fg_col))
+            self.act_fit.setIcon(qta.icon("fa5s.compress-arrows-alt", color=fg_col))
+            self.act_grid.setIcon(qta.icon("fa5s.th", color=accent))
+        
+        if hasattr(self, "bar"):
+            self.bar.setStyleSheet(f"""
+                QFrame {{ background: {bg_bar}; border-top: 1px solid {border_col}; }}
+                QLabel {{ color: {lbl_col}; font-size: 10px; padding: 0 6px; }}
+            """)
+            self.hier_lbl.setStyleSheet(f"color: {lbl_col}; font-size: 10px;")
+            
+        for lbl in getattr(self, "_legend_labels", []):
+            lbl.setStyleSheet(f"color: {lbl_col}; font-size: 10px; padding-right: 10px;")
+
+        if hasattr(self._scene, "update_theme"):
+            self._scene.update_theme()
 
     # ── Datos ───────────────────────────────────────────────────────────────
 
@@ -494,7 +475,14 @@ class PlaceGraphWidget(QWidget):
             self._stack.setCurrentIndex(1)  # mostrar grafo vacio
             return
 
-        # Mostrar overlay mientras calcula
+        # Para un rendimiento instantáneo (0ms de retardo), si hay un número estándar de lugares
+        # calculamos las posiciones directamente en el hilo principal sin pasar por el overlay ni el QThread.
+        if len(self._places) <= 120:
+            positions = compute_places_layout(self._places, self._links)
+            self._on_layout_ready(positions)
+            return
+
+        # Mostrar overlay únicamente para grafos gigantescos (>120 lugares)
         self._stack.setCurrentIndex(0)
 
         # Cancelar hilo previo si sigue vivo

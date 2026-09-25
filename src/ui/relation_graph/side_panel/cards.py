@@ -144,8 +144,8 @@ class _PanelHeader(QFrame):
         self._name_lbl.setText(char.name)
         parts = []
         race = get_race(char)
-        if race:       parts.append(f"🧬 {race}")
-        if char.role:  parts.append(f"🎭 {char.role}")
+        if race:       parts.append(f"{race}")
+        if char.role:  parts.append(f"{char.role}")
         self._sub_lbl.setText("   ·   ".join(parts))
 
         if metrics:

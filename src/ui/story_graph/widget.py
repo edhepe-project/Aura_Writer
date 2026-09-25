@@ -11,6 +11,7 @@ from PyQt6.QtGui import QPainter, QIcon, QFont, QAction, QColor
 from PyQt6.QtCore import Qt, pyqtSignal as Signal, QTimer
 
 from core.models import UniverseMetadata, StoryBlock, StoryArc
+from core.theme_manager import ThemeManager
 from ui.story_graph.scene import StoryGraphScene
 from ui.story_graph.side_panel import StorySidePanel
 from ui.story_graph.layout_worker import StoryLayoutWorker
@@ -23,10 +24,12 @@ class ConnectionDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Nueva Conexión Narrativa")
         self.resize(320, 180)
-        self.setStyleSheet("""
-            QDialog { background-color: #2c2c2e; color: #ffffff; }
-            QLabel { color: #ffffff; font-weight: bold; }
-            QComboBox, QLineEdit { background-color: #1c1c1e; color: #ffffff; border: 1px solid #3a3a3c; border-radius: 4px; padding: 6px; }
+        from core.theme_manager import ThemeManager
+        tc = ThemeManager.theme_colors()
+        self.setStyleSheet(f"""
+            QDialog {{ background-color: {tc['bg_main']}; color: {tc['fg_text']}; }}
+            QLabel {{ color: {tc['fg_text']}; font-weight: bold; }}
+            QComboBox, QLineEdit {{ background-color: {tc['bg_input']}; color: {tc['fg_text']}; border: 1px solid {tc['border']}; border-radius: 4px; padding: 6px; }}
         """)
 
         layout = QFormLayout(self)
@@ -95,25 +98,29 @@ class StoryGraphWidget(QWidget):
         toolbar = QToolBar()
         # Se remueve setStyleSheet para heredar los estilos del ThemeManager globales
 
-        act_add_node = QAction("✨ Nuevo Bloque", self)
+        import qtawesome as qta
+        is_dark = ThemeManager.is_dark()
+        ic_col = "#f2f2f7" if is_dark else "#1c1c1e"
+
+        act_add_node = QAction(qta.icon("fa5s.plus-circle", color="#30d158" if is_dark else "#16a34a"), "Nuevo Bloque", self)
         act_add_node.triggered.connect(self._on_add_block_clicked)
         toolbar.addAction(act_add_node)
 
-        act_relayout = QAction("🔄 Organizar Grafo", self)
+        act_relayout = QAction(qta.icon("fa5s.sync-alt", color=ic_col), "Organizar Grafo", self)
         act_relayout.triggered.connect(self._on_relayout_clicked)
         toolbar.addAction(act_relayout)
 
         toolbar.addSeparator()
 
-        act_zoom_in = QAction("🔍+", self)
+        act_zoom_in = QAction(qta.icon("fa5s.search-plus", color=ic_col), "Zoom +", self)
         act_zoom_in.triggered.connect(lambda: self.view.scale(1.2, 1.2))
         toolbar.addAction(act_zoom_in)
 
-        act_zoom_out = QAction("🔍-", self)
+        act_zoom_out = QAction(qta.icon("fa5s.search-minus", color=ic_col), "Zoom -", self)
         act_zoom_out.triggered.connect(lambda: self.view.scale(0.8, 0.8))
         toolbar.addAction(act_zoom_out)
 
-        act_reset_zoom = QAction("🎯 Ajustar Vista", self)
+        act_reset_zoom = QAction(qta.icon("fa5s.compress-arrows-alt", color=ic_col), "Ajustar Vista", self)
         act_reset_zoom.triggered.connect(self._fit_in_view)
         toolbar.addAction(act_reset_zoom)
 
@@ -156,11 +163,11 @@ class StoryGraphWidget(QWidget):
         main_layout.addWidget(center_widget)
 
     def _apply_theme(self):
-        """Aplica colores de fondo según el tema activo (claro u oscuro)."""
+        """Aplica colores de fondo según el tema activo."""
         from core.theme_manager import ThemeManager
         from PyQt6.QtGui import QBrush
-        is_dark = ThemeManager.is_dark()
-        bg_color = "#121214" if is_dark else "#f5f5f7"
+        tc = ThemeManager.theme_colors()
+        bg_color = tc["bg_main"]
         self.view.setStyleSheet(f"QGraphicsView {{ border: none; background-color: {bg_color}; }}")
         self.scene.setBackgroundBrush(QBrush(QColor(bg_color)))
 

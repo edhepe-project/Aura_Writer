@@ -24,7 +24,7 @@ class MainMenuBuilderMixin:
         save_act.triggered.connect(self.save_project)
         file_menu.addAction(save_act)
 
-        search_act = QAction("🔍 Buscador Global…", self)
+        search_act = QAction("Buscador Global…", self)
         search_act.setShortcut("Ctrl+F")
         search_act.triggered.connect(self.open_search)
         file_menu.addAction(search_act)
@@ -35,7 +35,7 @@ class MainMenuBuilderMixin:
         file_menu.addAction(export_act)
 
         file_menu.addSeparator()
-        trash_act = QAction("🗑️ Papelera de Reciclaje…", self)
+        trash_act = QAction("Papelera de Reciclaje…", self)
         trash_act.setShortcut("Ctrl+Shift+R")
         trash_act.triggered.connect(self.open_trash_dialog)
         file_menu.addAction(trash_act)
@@ -67,7 +67,7 @@ class MainMenuBuilderMixin:
         self._strike_act.triggered.connect(self.editor.set_strikethrough)
         edit_menu.addAction(self._strike_act)
 
-        self._clean_act = QAction("🧹 Limpiar Formato", self)
+        self._clean_act = QAction("Limpiar Formato", self)
         self._clean_act.setShortcut("Ctrl+\\")
         self._clean_act.triggered.connect(self.editor.clear_formatting)
         edit_menu.addAction(self._clean_act)
@@ -95,36 +95,36 @@ class MainMenuBuilderMixin:
         # ── Vista ────────────────────────────────────────────────────
         view_menu = mb.addMenu("&Vista")
 
-        map_act = QAction("🗺️ Mapa Mental del Universo", self)
+        map_act = QAction("Mapa Mental del Universo", self)
         map_act.triggered.connect(self.open_universe_map)
         view_menu.addAction(map_act)
 
-        graph_act = QAction("🔗 Relaciones de Personajes", self)
+        graph_act = QAction("Relaciones de Personajes", self)
         graph_act.triggered.connect(self.open_relation_graph)
         view_menu.addAction(graph_act)
 
-        places_graph_act = QAction("🗺️ Atlas de Lugares y Conexiones", self)
+        places_graph_act = QAction("Atlas de Lugares y Conexiones", self)
         places_graph_act.setShortcut("Ctrl+Alt+G")
         places_graph_act.triggered.connect(self.open_place_graph_dialog)
         view_menu.addAction(places_graph_act)
 
-        grid_act = QAction("📊 Cuadrícula de Presencias", self)
+        grid_act = QAction("Cuadrícula de Presencias", self)
         grid_act.setShortcut("Ctrl+Alt+P")
         grid_act.setToolTip("Ver y editar qué personajes aparecen en cada capítulo")
         grid_act.triggered.connect(self.open_presence_grid_dialog)
         view_menu.addAction(grid_act)
 
-        places_act = QAction("🏰 Lugares && Escenarios", self)
+        places_act = QAction("Lugares && Escenarios", self)
         places_act.setShortcut("Ctrl+Alt+L")
         places_act.triggered.connect(lambda: self.open_place_edit_dialog(None))
         view_menu.addAction(places_act)
 
-        timeline_act = QAction("⏳ Cronología del Universo", self)
+        timeline_act = QAction("Cronología del Universo", self)
         timeline_act.setShortcut("Ctrl+Alt+T")
         timeline_act.triggered.connect(self.open_timeline_dialog)
         view_menu.addAction(timeline_act)
 
-        story_graph_act = QAction("🕸️ Cronograma Narrativo (Grafo)", self)
+        story_graph_act = QAction("Cronograma Narrativo (Grafo)", self)
         story_graph_act.setShortcut("Ctrl+Alt+C")
         story_graph_act.setToolTip("Grafo causal de la historia con ramificaciones y eventos")
         story_graph_act.triggered.connect(self.open_story_graph_dialog)
@@ -132,40 +132,64 @@ class MainMenuBuilderMixin:
 
 
         view_menu.addSeparator()
-        self._appearance_act = QAction("🎨 Apariencia…", self)
+        self._appearance_act = QAction("Apariencia…", self)
         self._appearance_act.setShortcut("Ctrl+,")
         self._appearance_act.triggered.connect(self.open_editor_appearance_dialog)
         view_menu.addAction(self._appearance_act)
 
         # Submenú de Zoom
-        zoom_menu = view_menu.addMenu("🔍 Zoom de Lectura")
-        zoom_in_act = QAction("➕ Aumentar Zoom", self)
+        zoom_menu = view_menu.addMenu("Zoom de Lectura")
+        zoom_in_act = QAction("Aumentar Zoom", self)
         zoom_in_act.setShortcut("Ctrl++")
         zoom_in_act.triggered.connect(self._on_zoom_in)
         zoom_menu.addAction(zoom_in_act)
 
-        zoom_out_act = QAction("➖ Reducir Zoom", self)
+        zoom_out_act = QAction("Reducir Zoom", self)
         zoom_out_act.setShortcut("Ctrl+-")
         zoom_out_act.triggered.connect(self._on_zoom_out)
         zoom_menu.addAction(zoom_out_act)
 
-        zoom_reset_act = QAction("↺ Restablecer Zoom (100%)", self)
+        zoom_reset_act = QAction("Restablecer Zoom (100%)", self)
         zoom_reset_act.setShortcut("Ctrl+0")
         zoom_reset_act.triggered.connect(self._on_zoom_reset)
         zoom_menu.addAction(zoom_reset_act)
 
         view_menu.addSeparator()
-        self._zen_act = QAction("🧘 Modo Zen (Sin Distracciones)", self)
+        self._zen_act = QAction("Modo Zen (Sin Distracciones)", self)
         self._zen_act.setShortcut("F11")
         self._zen_act.setCheckable(True)
         self._zen_act.triggered.connect(self.toggle_zen_mode)
         view_menu.addAction(self._zen_act)
 
         view_menu.addSeparator()
-        self._theme_act = QAction("\U0001f319 Cambiar a Tema Claro", self)
+        theme_menu = view_menu.addMenu("Tema Visual del Sistema")
+        from PyQt6.QtGui import QActionGroup
+        theme_action_group = QActionGroup(self)
+        theme_action_group.setExclusive(True)
+
+        self._act_theme_dark = QAction("Oscuro (Dark Slate #121214)", self)
+        self._act_theme_dark.setCheckable(True)
+        self._act_theme_dark.triggered.connect(lambda: self._switch_to_theme("dark"))
+        theme_action_group.addAction(self._act_theme_dark)
+        theme_menu.addAction(self._act_theme_dark)
+
+        self._act_theme_light = QAction("Claro (Lienzo Papel #faf8f5)", self)
+        self._act_theme_light.setCheckable(True)
+        self._act_theme_light.triggered.connect(lambda: self._switch_to_theme("light"))
+        theme_action_group.addAction(self._act_theme_light)
+        theme_menu.addAction(self._act_theme_light)
+
+        self._act_theme_sepia = QAction("Sepia (Pergamino Vintage #f4ecd8)", self)
+        self._act_theme_sepia.setCheckable(True)
+        self._act_theme_sepia.triggered.connect(lambda: self._switch_to_theme("sepia"))
+        theme_action_group.addAction(self._act_theme_sepia)
+        theme_menu.addAction(self._act_theme_sepia)
+
+        theme_menu.addSeparator()
+        self._theme_act = QAction("Alternar Tema (Siguiente)", self)
         self._theme_act.setShortcut("Ctrl+Shift+T")
         self._theme_act.triggered.connect(self._toggle_theme)
-        view_menu.addAction(self._theme_act)
+        theme_menu.addAction(self._theme_act)
         self._update_theme_action_label()
 
         # ── Sonido Aura ──────────────────────────────────────────────
@@ -173,7 +197,7 @@ class MainMenuBuilderMixin:
         from core.sound_manager import AuraSoundEngine
         engine = AuraSoundEngine.instance()
 
-        self._sound_toggle_act = QAction("🔊 Activar Sonido de Teclado", self)
+        self._sound_toggle_act = QAction("Activar Sonido de Teclado", self)
         self._sound_toggle_act.setShortcut("Ctrl+M")
         self._sound_toggle_act.setCheckable(True)
         self._sound_toggle_act.setChecked(engine.enabled)
@@ -186,28 +210,28 @@ class MainMenuBuilderMixin:
         theme_grp = QActionGroup(self)
         theme_grp.setExclusive(True)
 
-        self._snd_yt_act = QAction("🎵 Sonido 1 (Martilleo Mecánico)", self)
+        self._snd_yt_act = QAction("Sonido 1 (Martilleo Mecánico)", self)
         self._snd_yt_act.setCheckable(True)
         self._snd_yt_act.setChecked(engine.get_theme() == "youtube")
         self._snd_yt_act.triggered.connect(lambda: self._set_sound_theme("youtube"))
         theme_grp.addAction(self._snd_yt_act)
         sound_menu.addAction(self._snd_yt_act)
 
-        self._snd_electric_act = QAction("🎵 Sonido 2 (Electro-Táctil)", self)
+        self._snd_electric_act = QAction("Sonido 2 (Electro-Táctil)", self)
         self._snd_electric_act.setCheckable(True)
         self._snd_electric_act.setChecked(engine.get_theme() == "electric")
         self._snd_electric_act.triggered.connect(lambda: self._set_sound_theme("electric"))
         theme_grp.addAction(self._snd_electric_act)
         sound_menu.addAction(self._snd_electric_act)
 
-        self._snd_vintage_act = QAction("🎵 Sonido 3 (Vintage Clásico)", self)
+        self._snd_vintage_act = QAction("Sonido 3 (Vintage Clásico)", self)
         self._snd_vintage_act.setCheckable(True)
         self._snd_vintage_act.setChecked(engine.get_theme() == "vintage")
         self._snd_vintage_act.triggered.connect(lambda: self._set_sound_theme("vintage"))
         theme_grp.addAction(self._snd_vintage_act)
         sound_menu.addAction(self._snd_vintage_act)
 
-        self._snd_thock_act = QAction("🎵 Sonido 4 (Thock ASMR / Punto Dulce)", self)
+        self._snd_thock_act = QAction("Sonido 4 (Thock ASMR / Punto Dulce)", self)
         self._snd_thock_act.setCheckable(True)
         self._snd_thock_act.setChecked(engine.get_theme() == "thock")
         self._snd_thock_act.triggered.connect(lambda: self._set_sound_theme("thock"))
@@ -216,7 +240,7 @@ class MainMenuBuilderMixin:
 
         sound_menu.addSeparator()
 
-        bell_act = QAction("🔔 Campanilla al pulsar Punto + Enter", self)
+        bell_act = QAction("Campanilla al pulsar Punto + Enter", self)
         bell_act.setCheckable(True)
         bell_act.setChecked(engine.bell_enabled)
         def _toggle_bell(checked):
@@ -227,19 +251,19 @@ class MainMenuBuilderMixin:
         # ── Herramientas ─────────────────────────────────────────────
         tools_menu = mb.addMenu("&Herramientas")
 
-        compare_act = QAction("⚖️ Mesa de Cotejo (Comparar Capítulos)…", self)
+        compare_act = QAction("Mesa de Cotejo (Comparar Capítulos)…", self)
         compare_act.setShortcut("Ctrl+Shift+C")
         compare_act.triggered.connect(self.open_chapter_comparator)
         tools_menu.addAction(compare_act)
 
-        history_act = QAction("📜 Historial de Versiones y Diff…", self)
+        history_act = QAction("Historial de Versiones y Diff…", self)
         history_act.setShortcut("Ctrl+H")
         history_act.triggered.connect(self.open_chapter_history)
         tools_menu.addAction(history_act)
 
         tools_menu.addSeparator()
 
-        vocab_act = QAction("📖 Vocabulario y Conlang…", self)
+        vocab_act = QAction("Vocabulario y Conlang…", self)
         vocab_act.setShortcut("Ctrl+Shift+V")
         vocab_act.triggered.connect(self.open_vocabulary_dialog)
         tools_menu.addAction(vocab_act)
@@ -247,52 +271,52 @@ class MainMenuBuilderMixin:
         # ── Seguridad ────────────────────────────────────────────────
         sec_menu = mb.addMenu("&Seguridad")
 
-        lock_act = QAction("🔒 Bloqueo Rápido", self)
+        lock_act = QAction("Bloqueo Rápido", self)
         lock_act.setShortcut("Ctrl+L")
         lock_act.triggered.connect(self.quick_lock)
         sec_menu.addAction(lock_act)
 
         sec_menu.addSeparator()
 
-        totp_act = QAction("🛡️ Configurar / Administrar 2FA…", self)
+        totp_act = QAction("Configurar / Administrar 2FA…", self)
         totp_act.triggered.connect(self.configure_totp)
         sec_menu.addAction(totp_act)
 
-        pwd_act = QAction("🔑 Cambiar Contraseña del Proyecto…", self)
+        pwd_act = QAction("Cambiar Contraseña del Proyecto…", self)
         pwd_act.triggered.connect(self.change_password_dialog)
         sec_menu.addAction(pwd_act)
 
         # ── USB & Sincronización ─────────────────────────────────────
         usb_menu = mb.addMenu("&USB")
 
-        usb_config_act = QAction("⚙️ Configurar USB…", self)
+        usb_config_act = QAction("Configurar USB…", self)
         usb_config_act.triggered.connect(self.open_usb_config)
         usb_menu.addAction(usb_config_act)
 
-        usb_sync_act = QAction("🔄 Sincronizar Ahora", self)
+        usb_sync_act = QAction("Sincronizar Ahora", self)
         usb_sync_act.setShortcut("Ctrl+Shift+S")
         usb_sync_act.triggered.connect(self.sync_usb_now)
         usb_menu.addAction(usb_sync_act)
 
         usb_menu.addSeparator()
-        usb_status_act = QAction("📊 Estado de USB", self)
+        usb_status_act = QAction("Estado de USB", self)
         usb_status_act.triggered.connect(self.show_usb_status)
         usb_menu.addAction(usb_status_act)
 
         # ── Ayuda ────────────────────────────────────────────────────
         help_menu = mb.addMenu("A&yuda")
 
-        update_act = QAction("🔄 Buscar Actualizaciones…", self)
+        update_act = QAction("Buscar Actualizaciones…", self)
         update_act.triggered.connect(self.check_for_updates_manual)
         help_menu.addAction(update_act)
 
         help_menu.addSeparator()
 
-        web_act = QAction("🌐 Sitio Web del Proyecto…", self)
+        web_act = QAction("Sitio Web del Proyecto…", self)
         web_act.triggered.connect(self.open_project_website)
         help_menu.addAction(web_act)
 
-        about_act = QAction("ℹ️ Acerca de Aura Writer…", self)
+        about_act = QAction("Acerca de Aura Writer…", self)
         about_act.triggered.connect(self.show_about_dialog)
         help_menu.addAction(about_act)
 
@@ -358,14 +382,10 @@ class MainMenuBuilderMixin:
             self._act_export = self._main_toolbar.addAction(qta.icon("fa5s.file-export", color="#30d158" if is_dark else "#16a34a"), "Exportar", self.open_exporter)
             self._act_trash = self._main_toolbar.addAction(qta.icon("fa5s.trash-alt", color="#ff453a" if is_dark else "#dc2626"), "Papelera", self.open_trash_dialog)
 
-            self._main_toolbar.addSeparator()
-            self._theme_btn_action = self._main_toolbar.addAction(
-                qta.icon("fa5s.sun" if is_dark else "fa5s.moon", color="#ffd60a" if is_dark else "#2563eb"),
-                "Cambiar Tema", self._toggle_theme
+            self._appearance_tb_act = self._main_toolbar.addAction(
+                qta.icon("fa5s.paint-brush", color="#bf5af2" if is_dark else "#9333ea"),
+                "Apariencia", self.open_editor_appearance_dialog
             )
-            self._appearance_act.setIcon(qta.icon("fa5s.paint-brush", color="#bf5af2" if is_dark else "#9333ea"))
-            self._main_toolbar.addAction(self._appearance_act)
-            self._update_theme_action_label()
 
             # ── Evitar que los botones de la toolbar roben el foco del editor ──
             # Sin esto, al actualizar setChecked() en las acciones de formato el
@@ -431,8 +451,12 @@ class MainMenuBuilderMixin:
             if hasattr(self, "_act_lock"): self._act_lock.setIcon(qta.icon("fa5s.lock", color="#ff9f0a" if is_dark else "#ea580c"))
             if hasattr(self, "_act_map"): self._act_map.setIcon(qta.icon("fa5s.globe", color="#bf5af2" if is_dark else "#9333ea"))
             if hasattr(self, "_act_graph"): self._act_graph.setIcon(qta.icon("fa5s.project-diagram", color="#5e5ce6" if is_dark else "#4f46e5"))
+            if hasattr(self, "_act_place_graph"): self._act_place_graph.setIcon(qta.icon("fa5s.map-marked-alt", color="#ffd60a" if is_dark else "#d97706"))
+            if hasattr(self, "_act_story_graph"): self._act_story_graph.setIcon(qta.icon("fa5s.stream", color="#ff9f0a" if is_dark else "#ea580c"))
             if hasattr(self, "_act_export"): self._act_export.setIcon(qta.icon("fa5s.file-export", color="#30d158" if is_dark else "#16a34a"))
             if hasattr(self, "_act_save"): self._act_save.setIcon(qta.icon("fa5s.save", color="#30d158" if is_dark else "#16a34a"))
+            if hasattr(self, "_act_trash"): self._act_trash.setIcon(qta.icon("fa5s.trash-alt", color="#ff453a" if is_dark else "#dc2626"))
+            if hasattr(self, "_appearance_tb_act"): self._appearance_tb_act.setIcon(qta.icon("fa5s.paint-brush", color="#bf5af2" if is_dark else "#9333ea"))
         except Exception:
             pass
 

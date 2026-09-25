@@ -168,8 +168,8 @@ class RelationGraphWidget(QWidget):
         geom_title.setToolTip(
             "Escala Geométrica por Conexiones:\n"
             "▲ 3L (1-2) | ⯁ 4L (3-5) | ⬟ 5L (6-9)\n"
-            "⬢ 6L (10-14) | ⬡ 7L (15-22) | 🛑 8L (23-35)\n"
-            "💎 10L (36-55) | 🔷 12L (56-79) | 🔮 20L (80-99)\n"
+            "⬢ 6L (10-14) | ⬡ 7L (15-22) | ⯌ 8L (23-35)\n"
+            "◆ 10L (36-55) | ◈ 12L (56-79) | ❖ 20L (80-99)\n"
             "● Círculo Radiante (100+ conexiones / Núcleo Mítico)"
         )
         layout.addWidget(geom_title)
@@ -178,8 +178,8 @@ class RelationGraphWidget(QWidget):
             ("▲", "3L"),
             ("⯁", "4L"),
             ("⬢", "6L"),
-            ("🛑", "8L"),
-            ("💎", "10L"),
+            ("❖", "8L"),
+            ("◆", "10L"),
             ("●", "100+"),
         ]
         for symbol, g_label in geom_chips:

@@ -162,12 +162,12 @@ def build_full_sheet_view(
         f_lay.addWidget(lbl_v)
         lay_ess.addWidget(f_frame)
 
-    _add_field("Deseo Motivador (Propósito)", char.driving_desire, "🎯")
-    _add_field("Miedo más Profundo", char.deepest_fear, "⚡")
-    _add_field("Valores y Creencias", char.core_values, "⚖️")
-    _add_field("Arco de Transformación", char.transformation_arc, "🔄")
-    _add_field("Voz y Tono", char.distinctive_voice, "🗣️")
-    _add_field("Símbolo o Metáfora", char.symbol_metaphor, "✨")
+    _add_field("Deseo Motivador (Propósito)", char.driving_desire, "")
+    _add_field("Miedo más Profundo", char.deepest_fear, "")
+    _add_field("Valores y Creencias", char.core_values, "")
+    _add_field("Arco de Transformación", char.transformation_arc, "")
+    _add_field("Voz y Tono", char.distinctive_voice, "")
+    _add_field("Símbolo o Metáfora", char.symbol_metaphor, "")
 
     # Datos biográficos en grid
     bio_parts = []
@@ -176,7 +176,7 @@ def build_full_sheet_view(
     if char.birthplace: bio_parts.append(f"Origen: {char.birthplace}")
     if char.aliases: bio_parts.append(f"Aliases: {', '.join(char.aliases)}")
     if bio_parts:
-        _add_field("Biografía", "  |  ".join(bio_parts), "📌")
+        _add_field("Biografía", "  |  ".join(bio_parts), "")
 
     lay_ess.addStretch()
     ess_scroll.setWidget(tab_essence)

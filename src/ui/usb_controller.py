@@ -122,17 +122,17 @@ class UsbControllerMixin:
         local_time = datetime.fromtimestamp(version_info["local_mtime"]).strftime("%d/%m/%Y %H:%M")
 
         msg = QMessageBox(self)
-        msg.setWindowTitle("🔌 USB — Versión más nueva detectada")
+        msg.setWindowTitle("USB — Versión más nueva detectada")
         msg.setIcon(QMessageBox.Icon.Question)
         msg.setText(
             "La USB contiene una versión <b>más reciente</b> del proyecto.\n\n"
-            f"📁 Local:   {local_time}\n"
-            f"💾 USB:     {usb_time}\n\n"
+            f"Local:   {local_time}\n"
+            f"USB:     {usb_time}\n\n"
             "¿Deseas importar la versión de la USB?\n"
             "<small>(El archivo local actual se guardará como copia de respaldo .bak)</small>"
         )
-        btn_import = msg.addButton("📥 Importar desde USB", QMessageBox.ButtonRole.AcceptRole)
-        msg.addButton("📁 Mantener versión local", QMessageBox.ButtonRole.RejectRole)
+        btn_import = msg.addButton("Importar desde USB", QMessageBox.ButtonRole.AcceptRole)
+        msg.addButton("Mantener versión local", QMessageBox.ButtonRole.RejectRole)
         msg.setDefaultButton(btn_import)
         msg.exec()
 
@@ -145,19 +145,19 @@ class UsbControllerMixin:
         local_time = datetime.fromtimestamp(version_info["local_mtime"]).strftime("%d/%m/%Y %H:%M")
 
         msg = QMessageBox(self)
-        msg.setWindowTitle("⚠️ USB — Conflicto de versiones")
+        msg.setWindowTitle("USB — Conflicto de versiones")
         msg.setIcon(QMessageBox.Icon.Warning)
         msg.setText(
             "<b>¡Conflicto detectado!</b>\n\n"
             "El proyecto local y el de la USB tienen contenidos distintos "
             "con timestamps similares. Probablemente se editaron de forma independiente.\n\n"
-            f"📁 Local:   {local_time}\n"
-            f"💾 USB:     {usb_time}\n\n"
+            f"Local:   {local_time}\n"
+            f"USB:     {usb_time}\n\n"
             "¿Qué versión deseas conservar?"
         )
-        btn_usb   = msg.addButton("💾 Importar desde USB (y hacer backup del local)",
+        btn_usb   = msg.addButton("Importar desde USB (y hacer backup del local)",
                                   QMessageBox.ButtonRole.AcceptRole)
-        btn_local = msg.addButton("📁 Mantener local (y sobrescribir USB al guardar)",
+        btn_local = msg.addButton("Mantener local (y sobrescribir USB al guardar)",
                                   QMessageBox.ButtonRole.RejectRole)
         msg.setDefaultButton(btn_local)
         msg.exec()

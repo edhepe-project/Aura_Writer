@@ -67,7 +67,7 @@ class SearchDialog(QDialog):
         self._results_area.setWidgetResizable(True)
         self._results_area.setFrameShape(QFrame.Shape.NoFrame)
 
-        _bg = "#1c1c1e" if ThemeManager.is_dark() else "#f5f0ea"
+        _bg = ThemeManager.get_color("#1c1c1e", "#faf8f5", "#f4ecd8")
         _area_style = f"background:{_bg}; border:none;"
         self._results_area.setStyleSheet(_area_style)
         self._results_area.viewport().setStyleSheet(_area_style)

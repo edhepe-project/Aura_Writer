@@ -46,7 +46,7 @@ class DiffEngine:
         cls,
         old_text: str,
         new_text: str,
-        is_dark: bool = True
+        theme_name: str = "dark"
     ) -> tuple[str, DiffStats]:
         """
         Genera un documento HTML con diferencias semánticas resaltadas:
@@ -66,11 +66,25 @@ class DiffEngine:
 
         out_fragments: list[str] = []
 
-        # Paleta de colores elegante
-        ins_bg = "#1a3d24" if is_dark else "#d4edda"
-        ins_fg = "#4cd964" if is_dark else "#155724"
-        del_bg = "#4d1919" if is_dark else "#f8d7da"
-        del_fg = "#ff453a" if is_dark else "#721c24"
+        # Paleta de colores elegante adaptada al tema
+        is_sepia = theme_name == "sepia"
+        is_light = theme_name == "light"
+        
+        if is_sepia:
+            ins_bg = "#ebdcb9"
+            ins_fg = "#5c4d41"
+            del_bg = "#d9b3a8"
+            del_fg = "#8c3123"
+        elif is_light:
+            ins_bg = "#d4edda"
+            ins_fg = "#155724"
+            del_bg = "#f8d7da"
+            del_fg = "#721c24"
+        else:
+            ins_bg = "#1a3d24"
+            ins_fg = "#4cd964"
+            del_bg = "#4d1919"
+            del_fg = "#ff453a"
 
         ins_style = f"background-color: {ins_bg}; color: {ins_fg}; text-decoration: none; border-radius: 3px; padding: 1px 3px; font-weight: bold;"
         del_style = f"background-color: {del_bg}; color: {del_fg}; text-decoration: line-through; border-radius: 3px; padding: 1px 3px;"
@@ -112,8 +126,15 @@ class DiffEngine:
                 stats.characters_deleted += len(text_del)
                 stats.characters_added += len(text_ins)
 
-        font_color = "#e5e5ea" if is_dark else "#1c1c1e"
-        bg_color = "#18181b" if is_dark else "#fafafa"
+        if is_sepia:
+            font_color = "#2d241e"
+            bg_color = "#f4ecd8"
+        elif is_light:
+            font_color = "#1c1c1e"
+            bg_color = "#fafafa"
+        else:
+            font_color = "#e5e5ea"
+            bg_color = "#18181b"
 
         body_html = "".join(out_fragments)
         full_html = f"""<!DOCTYPE html>

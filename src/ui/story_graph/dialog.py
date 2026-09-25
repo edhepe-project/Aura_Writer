@@ -15,7 +15,7 @@ class StoryGraphDialog(QDialog):
     def __init__(self, metadata: UniverseMetadata, parent=None):
         super().__init__(parent)
         self.metadata = metadata
-        self.setWindowTitle("🕸️ Cronograma Narrativo — Grafo Causal de la Historia")
+        self.setWindowTitle("Cronograma Narrativo — Grafo Causal de la Historia")
         self.resize(1150, 750)
         self.setMinimumSize(800, 500)
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMaximizeButtonHint)

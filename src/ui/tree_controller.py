@@ -226,7 +226,7 @@ class TreeControllerMixin:
 
         self._mark_dirty()  # NEW-02: eliminar nodo debe marcar el proyecto como modificado
         self._refresh_tree()
-        self.statusBar().showMessage(f"🗑️ '{title}' movido a la papelera (puedes restaurarlo) ✓", 4000)
+        self.statusBar().showMessage(f"'{title}' movido a la papelera (puedes restaurarlo)", 4000)
 
     # ------------------------------------------------------------------
     # Extracción de nodos
