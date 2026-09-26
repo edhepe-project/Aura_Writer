@@ -56,10 +56,23 @@ class TreeControllerMixin:
                 return
             libro = self._resolve_libro(parent_id, parent_type)
             chapter = self.project_manager.create_chapter(title.strip())
+            # Escribir contenido inicial con el título como h1 y párrafo vacío de escritura
+            self.project_manager.write_chapter_content(
+                chapter.content_file,
+                f"<h1>{title.strip()}</h1><p></p>"
+            )
             libro.capitulos.append(chapter)
             if libro.content_order:
                 libro.content_order.append({"type": "chapter", "id": chapter.id})
             self._refresh_tree()
+            # Navegar al capítulo recién creado para que el editor lo cargue
+            self.outline_tree.select_node_by_id(chapter.id)
+            # Posicionar el cursor al final (en el párrafo vacío) con la fuente correcta
+            from PyQt6.QtGui import QTextCursor
+            cursor = self.editor.textCursor()
+            cursor.movePosition(QTextCursor.MoveOperation.End)
+            self.editor.setTextCursor(cursor)
+            self.editor.setFocus()
             self.statusBar().showMessage(f"Capítulo '{title}' añadido ✓", 3000)
 
         elif new_type == "media":

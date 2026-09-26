@@ -8,6 +8,7 @@ from PyQt6.QtGui import QColor, QPainter, QPen, QBrush, QPainterPath
 from PyQt6.QtCore import Qt, pyqtSignal as Signal, QPointF, QRectF
 
 from core.models import StoryBlock, StoryArc
+from core.theme_manager import ThemeManager
 from ui.story_graph.items import StoryNodeItem, StoryArcItem
 
 
@@ -38,17 +39,19 @@ class StoryGraphScene(QGraphicsScene):
         if painter is None: return
         super().drawBackground(painter, rect)
 
-        from core.theme_manager import ThemeManager
-        # Rejilla suave de fondo (grid dots)
+        # Rejilla suave de fondo (grid dots optimizada por lotes)
         grid_color = "#2a2a2c" if ThemeManager.is_dark() else "#d1d5db"
-        painter.setPen(QPen(QColor(grid_color), 1.0))
+        painter.setPen(QPen(QColor(grid_color), 1.2))
         grid_size = 30
         left = int(rect.left()) - (int(rect.left()) % grid_size)
         top = int(rect.top()) - (int(rect.top()) % grid_size)
 
+        points = []
         for x in range(left, int(rect.right()), grid_size):
             for y in range(top, int(rect.bottom()), grid_size):
-                painter.drawPoint(x, y)
+                points.append(QPointF(float(x), float(y)))
+        if points:
+            painter.drawPoints(points)
 
     def load_graph(self, blocks: list[StoryBlock], arcs: list[StoryArc], chapter_lookup: dict | None = None):
         """Carga el grafo. chapter_lookup: {chapter_id: chapter_title}"""

@@ -195,33 +195,37 @@ class OutlineTree(QTreeView):
 
         menu = QMenu(self)
 
+        import qtawesome as qta
+        is_dark = ThemeManager.is_dark()
+        ic_col = "#f2f2f7" if is_dark else "#1c1c1e"
+
         # ── Sección: Añadir (opciones contextuales según el tipo de nodo) ───────
-        add_menu = menu.addMenu("Añadir…")
+        add_menu = menu.addMenu(qta.icon("fa5s.plus", color="#30d158" if is_dark else "#16a34a"), "Añadir…")
 
         if item_type == "universe":
-            add_menu.addAction("Nueva Obra / Saga", lambda: self.node_add_requested.emit(
+            add_menu.addAction(qta.icon("fa5s.book", color=ic_col), "Nueva Obra / Saga", lambda: self.node_add_requested.emit(
                 item_id, item_type, "obra"))
 
         if item_type in ("universe", "obra"):
-            add_menu.addAction("Nuevo Libro", lambda: self.node_add_requested.emit(
+            add_menu.addAction(qta.icon("fa5s.bookmark", color=ic_col), "Nuevo Libro", lambda: self.node_add_requested.emit(
                 item_id, item_type, "libro"))
 
         if item_type in ("universe", "obra", "libro", "chapter"):
-            add_menu.addAction("Nuevo Capítulo", lambda: self.node_add_requested.emit(
+            add_menu.addAction(qta.icon("fa5s.file-alt", color=ic_col), "Nuevo Capítulo", lambda: self.node_add_requested.emit(
                 item_id, item_type, "chapter"))
 
         add_menu.addSeparator()
-        add_menu.addAction("Media (Imagen / Mapa)", lambda: self.node_add_requested.emit(
+        add_menu.addAction(qta.icon("fa5s.image", color=ic_col), "Media (Imagen / Mapa)", lambda: self.node_add_requested.emit(
             item_id, item_type, "media"))
 
         menu.addSeparator()
 
         # ── Renombrar ────────────────────────────────────
-        menu.addAction("Renombrar", lambda: self._start_rename(index))
+        menu.addAction(qta.icon("fa5s.edit", color=ic_col), "Renombrar\tF2", lambda: self._start_rename(index))
 
         # ── Eliminar (no se puede eliminar el nodo universo raíz) ──────────
         if item_type != "universe":
-            menu.addAction("Eliminar", lambda: self._request_delete(item_id, item_type, item.text()))
+            menu.addAction(qta.icon("fa5s.trash-alt", color="#ff453a" if is_dark else "#dc2626"), "Eliminar\tSupr", lambda: self._request_delete(item_id, item_type, item.text()))
 
         menu.exec(self.viewport().mapToGlobal(position))
 

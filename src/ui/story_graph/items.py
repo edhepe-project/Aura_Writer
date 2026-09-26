@@ -68,8 +68,8 @@ class StoryNodeItem(QGraphicsRectItem):
         self.update()
 
     def boundingRect(self) -> QRectF:
-        # Añadir margen para el borde de selección y sombra
-        return self.rect().adjusted(-5.0, -5.0, 5.0, 5.0)
+        # Añadir margen suficiente para el borde de selección y la sombra (blur 20, yOffset 8)
+        return self.rect().adjusted(-25.0, -25.0, 25.0, 35.0)
 
     def hoverEnterEvent(self, event):
         self._hovered = True
@@ -296,7 +296,13 @@ class StoryArcItem(QGraphicsPathItem):
         self._hovered = False
         self.update_path()
 
+    def boundingRect(self) -> QRectF:
+        if hasattr(self, 'curve_path') and not self.curve_path.isEmpty():
+            return self.curve_path.boundingRect().adjusted(-35.0, -35.0, 35.0, 35.0)
+        return super().boundingRect().adjusted(-35.0, -35.0, 35.0, 35.0)
+
     def update_path(self):
+        self.prepareGeometryChange()
         p1 = self.source_item.get_output_port_pos()
         p2 = self.target_item.get_input_port_pos()
 

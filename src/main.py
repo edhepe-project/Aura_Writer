@@ -3,6 +3,7 @@ import os
 import logging
 import ctypes
 from PyQt6.QtWidgets import QApplication, QMessageBox
+from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QIcon
 
 # Suprimir mensaje de bienvenida de pygame
@@ -302,6 +303,8 @@ def main():
 
                 main_win.showMaximized()  # Siempre abrir maximizado
                 main_win.editor.setFocus()
+                # Precargar módulos pesados (Atlas/Cronograma) en segundo plano tras 1 seg
+                QTimer.singleShot(1000, main_win._warmup_background_modules)
                 # Verificar versiones USB después de mostrar la ventana
                 # (requiere que la UI esté visible para mostrar diálogos)
                 main_win._check_usb_version_on_open()

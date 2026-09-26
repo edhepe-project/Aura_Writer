@@ -302,6 +302,7 @@ class PlaceLinkItem(QGraphicsPathItem):
         node_b.edges.append(self)
 
     def _update_path(self):
+        self.prepareGeometryChange()
         p1 = self.node_a.pos()
         p2 = self.node_b.pos()
         path = bezier_path(p1, p2, self._curvature,

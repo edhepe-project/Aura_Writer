@@ -238,8 +238,8 @@ class FlowchartConnectorItem(QGraphicsItem):
     def boundingRect(self) -> QRectF:
         min_x = min(self.start_pt.x(), self.end_pt.x()) - 15
         max_x = max(self.start_pt.x(), self.end_pt.x()) + 15
-        min_y = min(self.start_pt.y(), self.end_pt.y()) - 15
-        max_y = max(self.start_pt.y(), self.end_pt.y()) + 15
+        min_y = min(self.start_pt.y(), self.end_pt.y(), self.mid_y) - 15
+        max_y = max(self.start_pt.y(), self.end_pt.y(), self.mid_y) + 15
         return QRectF(min_x, min_y, max_x - min_x, max_y - min_y)
 
     def paint(self, painter: QPainter | None, option, widget=None):

@@ -171,8 +171,16 @@ class AuraEditor(QTextEdit):
             text = block.text()
             if "— Salto de Página —" not in text and "[ Página en Blanco ]" not in text:
                 bfmt = block.blockFormat()
+                # Normalizar topMargin a 0 y asegurar el bottomMargin deseado
+                # para evitar espaciados excesivos causados por estilos por defecto de h1 / párrafos HTML
+                modified = False
+                if bfmt.topMargin() != 0:
+                    bfmt.setTopMargin(0)
+                    modified = True
                 if bfmt.bottomMargin() != self._paragraph_spacing:
                     bfmt.setBottomMargin(self._paragraph_spacing)
+                    modified = True
+                if modified:
                     cursor = QTextCursor(block)
                     cursor.setBlockFormat(bfmt)
             block = block.next()

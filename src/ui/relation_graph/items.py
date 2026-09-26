@@ -366,6 +366,7 @@ class RelationEdge(QGraphicsPathItem):
         return br
 
     def update_position(self):
+        self.prepareGeometryChange()
         p1 = self.source.scenePos()
         p2 = self.target.scenePos()
         r1 = getattr(self.source, "_radius", 0.0)

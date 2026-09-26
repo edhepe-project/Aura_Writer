@@ -56,6 +56,24 @@ class AppLifecycleMixin:
     - Cambio de tema y Modo Zen
     """
 
+    def _warmup_background_modules(self: "AuraMainWindow"):
+        """
+        Precarga silenciosa en segundo plano de módulos pesados (Atlas Literario,
+        Cronograma Narrativo, etc.) para que cuando el usuario haga clic en ellos
+        por primera vez abran de forma 100% instantánea.
+        """
+        try:
+            import ui.place_graph
+            import ui.story_graph
+            import qtawesome as qta
+            qta.icon("fa5s.search-plus")
+            qta.icon("fa5s.map-marked-alt")
+            qta.icon("fa5s.compress-arrows-alt")
+            qta.icon("fa5s.th")
+            log.debug("Precarga silenciosa de módulos finalizada con éxito.")
+        except Exception as e:
+            log.debug("Warmup silencioso en segundo plano omitido: %s", e)
+
     def open_relation_graph(self: "AuraMainWindow"):
         """Abre el Grafo de Relaciones al instante sin parpadeos."""
         if not self.project_manager.metadata:

@@ -161,16 +161,30 @@ class NotesControllerMixin:
     def _load_chapter(self, chapter: Chapter):
         self._current_chapter = chapter
         html = self.project_manager.read_chapter_content(chapter.content_file)
-        self.editor.setHtml(html)
-        # Reaplicar estilo visual (papel, fuente base, zoom) al HTML cargado
-        if hasattr(self.editor, "_apply_appearance"):
-            self.editor._apply_appearance()
-        # Propagar la familia de tipografía activa al texto del HTML cargado
-        if hasattr(self.editor, "_update_document_font"):
-            self.editor._update_document_font(self.editor._work_font_family)
-        # Aplicar espaciado armónico de párrafo a los párrafos cargados
-        if hasattr(self.editor, "_apply_paragraph_spacing"):
-            self.editor._apply_paragraph_spacing()
+
+        # Bloquear actualizaciones visuales para evitar el salto de línea
+        # que produce Qt al recorrer y modificar formatos de párrafo tras setHtml()
+        self.editor.setUpdatesEnabled(False)
+        try:
+            self.editor.setHtml(html)
+            # Colocar cursor al inicio en silencio (sin scroll)
+            cursor = self.editor.textCursor()
+            cursor.movePosition(cursor.MoveOperation.Start)
+            self.editor.setTextCursor(cursor)
+            # Reaplicar estilo visual (papel, fuente base, zoom) al HTML cargado
+            if hasattr(self.editor, "_apply_appearance"):
+                self.editor._apply_appearance()
+            # Propagar la familia de tipografía activa al texto del HTML cargado
+            if hasattr(self.editor, "_update_document_font"):
+                self.editor._update_document_font(self.editor._work_font_family)
+            # Aplicar espaciado armónico de párrafo a los párrafos cargados
+            if hasattr(self.editor, "_apply_paragraph_spacing"):
+                self.editor._apply_paragraph_spacing()
+            # Forzar scroll al inicio de forma silenciosa antes de mostrar
+            self.editor.verticalScrollBar().setValue(0)
+        finally:
+            self.editor.setUpdatesEnabled(True)
+
         self.statusBar().showMessage(f"Editando: {chapter.title}")
         self._detect_character_mentions(chapter)
         self._detect_place_mentions(chapter)
@@ -191,6 +205,7 @@ class NotesControllerMixin:
                 self._place_status_indicator.setText("")
 
         self.editor.setFocus()
+
 
 
     # ------------------------------------------------------------------
