@@ -5,6 +5,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 import qtawesome as qta
 
 from core.models import UniverseMetadata
+from core.theme_manager import ThemeManager
 
 
 class OutlineTree(QTreeView):
