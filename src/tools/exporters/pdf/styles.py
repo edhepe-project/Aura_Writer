@@ -10,16 +10,17 @@ from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
 from tools.exporters.base_exporter import _COLORS
 
 
-def get_pdf_styles(avail_width: float) -> dict[str, ParagraphStyle]:
-    """Genera los estilos tipográficos para la novela en PDF A5."""
+def get_pdf_styles(avail_width: float, page_size: str = "a5") -> dict[str, ParagraphStyle]:
+    """Genera los estilos tipográficos para la novela en PDF (A5 o 6x9 pulgadas)."""
     s = {}
+    is_6x9 = page_size == "6x9"
     s["body"] = ParagraphStyle(
         "AuraBody",
         fontName="Times-Roman",
-        fontSize=10.5,
-        leading=15,
+        fontSize=9.5 if is_6x9 else 10.5,
+        leading=13.5 if is_6x9 else 15,
         alignment=TA_JUSTIFY,
-        firstLineIndent=4 * mm,
+        firstLineIndent=4.5 * mm if is_6x9 else 5 * mm,
         textColor=HexColor(_COLORS["text_primary"]),
         spaceBefore=0,
         spaceAfter=1,

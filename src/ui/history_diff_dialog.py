@@ -177,6 +177,15 @@ class ChapterHistoryDiffDialog(QDialog):
         self.list_revisions.clear()
         revisions = self.chapter.revisions or []
 
+        # Filtrar revisiones cuyos archivos hayan sido borrados/limpiados
+        valid_revisions = [
+            rev for rev in revisions
+            if self.pm.read_chapter_revision_content(rev)
+        ]
+        if len(valid_revisions) != len(revisions):
+            self.chapter.revisions = valid_revisions
+            revisions = valid_revisions
+
         if not revisions:
             item = QListWidgetItem("Sin revisiones previas.")
             item.setFlags(Qt.ItemFlag.NoItemFlags)

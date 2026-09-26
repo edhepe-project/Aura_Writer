@@ -145,8 +145,6 @@ class OutlineTree(QTreeView):
                         self.setCurrentIndex(idx)
                         self.selectionModel().select(idx, self.selectionModel().SelectionFlag.ClearAndSelect)
                         node_type = child.data(Qt.ItemDataRole.UserRole + 1)
-                        # Los nodos 'media' no emiten señal en restauración de sesión:
-                        # el preview solo se abre con doble clic deliberado del usuario.
                         if emit_signal and node_type != "media":
                             self.item_selected.emit(target_id, node_type)
                         return True

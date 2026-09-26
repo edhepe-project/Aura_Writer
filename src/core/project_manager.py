@@ -12,6 +12,20 @@ from core.models import UniverseMetadata, Obra, Book, Chapter, ChapterRevision
 log = logging.getLogger(__name__)
 
 
+def _make_session_dir() -> str:
+    """
+    Crea el directorio temporal de trabajo en AppData\\Local\\AuraWriter\\sessions
+    en lugar de %TEMP%, evitando que Windows Search / Defender bloqueen los archivos
+    .html durante la indexacion y causen [Errno 13] Permission denied.
+    """
+    base = os.path.join(
+        os.environ.get("LOCALAPPDATA", tempfile.gettempdir()),
+        "AuraWriter", "sessions"
+    )
+    os.makedirs(base, exist_ok=True)
+    return tempfile.mkdtemp(prefix="aura_", dir=base)
+
+
 class ProjectManager:
     def __init__(self):
         self.current_project_path: str | None = None
@@ -34,7 +48,7 @@ class ProjectManager:
 
     def create_new_project(self, name: str, author: str, password: str, export_path: str):
         """Crea un nuevo universo con una Obra, un Libro y un Capítulo de ejemplo."""
-        self.temp_dir = tempfile.mkdtemp(prefix="aura_")
+        self.temp_dir = _make_session_dir()
         self.password = password
         self.current_project_path = export_path
 
@@ -62,7 +76,7 @@ class ProjectManager:
             totp_code:  Código TOTP de 6 dígitos o código de recuperación.
                         Requerido para proyectos V3 (3FA). Ignorado para V1/V2.
         """
-        self.temp_dir = tempfile.mkdtemp(prefix="aura_")
+        self.temp_dir = _make_session_dir()
         try:
             # Detectar si es formato V1 y migrar a V2 automáticamente
             with open(file_path, 'rb') as f:
@@ -235,18 +249,22 @@ class ProjectManager:
     def cleanup_orphaned_temp_dirs():
         """Busca y elimina carpetas temporales aura_* huérfanas de sesiones previas (>2h de antigüedad)."""
         import time
-        system_temp = tempfile.gettempdir()
-        pattern = os.path.join(system_temp, "aura_*")
+        # Buscar en ambas ubicaciones: %TEMP% (legacy) y AppData\Local\AuraWriter\sessions
+        search_roots = [
+            tempfile.gettempdir(),
+            os.path.join(os.environ.get("LOCALAPPDATA", ""), "AuraWriter", "sessions"),
+        ]
         now = time.time()
-        for folder in glob.glob(pattern):
-            if os.path.isdir(folder):
-                try:
-                    mtime = os.path.getmtime(folder)
-                    # Solo eliminar si fue creada/modificada hace más de 2 horas
-                    if now - mtime > 7200:
-                        shutil.rmtree(folder, ignore_errors=True)
-                except Exception as e:
-                    log.debug("No se pudo eliminar carpeta temporal %s: %s", folder, e)
+        for root in search_roots:
+            pattern = os.path.join(root, "aura_*")
+            for folder in glob.glob(pattern):
+                if os.path.isdir(folder):
+                    try:
+                        mtime = os.path.getmtime(folder)
+                        if now - mtime > 7200:
+                            shutil.rmtree(folder, ignore_errors=True)
+                    except Exception as e:
+                        log.debug("No se pudo eliminar carpeta temporal %s: %s", folder, e)
 
     # ------------------------------------------------------------------
     # Metadatos
@@ -267,10 +285,50 @@ class ProjectManager:
     # Contenido de capítulos
     # ------------------------------------------------------------------
 
-    def _write_content(self, filename: str, html: str):
-        path = os.path.join(self.temp_dir, "content", filename)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(html)
+    def _write_content(self, filename: str, html: str, _retries: int = 5):
+        """
+        Escribe el HTML de un capítulo de forma atómica.
+        Estrategia: escribe en .tmp y luego renombra para evitar corrupción.
+        Usa retroceso exponencial para sobrevivir bloqueos transitorios de
+        antivirus / Windows Search Indexer.
+        """
+        import time as _time
+        content_dir = os.path.join(self.temp_dir, "content")
+        os.makedirs(content_dir, exist_ok=True)
+        target = os.path.join(content_dir, filename)
+        tmp = target + ".tmp"
+
+        last_err = None
+        for attempt in range(1, _retries + 1):
+            try:
+                with open(tmp, "w", encoding="utf-8") as f:
+                    f.write(html)
+                os.replace(tmp, target)
+                return
+            except PermissionError as e:
+                last_err = e
+                wait = 0.1 * (2 ** (attempt - 1))  # 100ms, 200ms, 400ms, 800ms, 1600ms
+                log.warning(
+                    "write_content: permiso denegado en intento %d/%d para '%s' — reintentando en %.0fms",
+                    attempt, _retries, filename, wait * 1000,
+                )
+                _time.sleep(wait)
+            except Exception as e:
+                try:
+                    if os.path.exists(tmp):
+                        os.remove(tmp)
+                except OSError:
+                    pass
+                raise
+
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except OSError:
+            pass
+        raise PermissionError(
+            f"No se pudo escribir '{filename}' después de {_retries} intentos: {last_err}"
+        )
 
     def read_chapter_content(self, content_file: str) -> str:
         """Lee el HTML de un capítulo. Retorna '' si no existe."""
@@ -403,12 +461,21 @@ class ProjectManager:
 
         import uuid as _uuid
         rev_dir = os.path.join(self.temp_dir, "content", "revisions")
-        os.makedirs(rev_dir, exist_ok=True)
+        try:
+            os.makedirs(rev_dir, exist_ok=True)
+        except OSError as e:
+            log.warning("No se pudo crear directorio de revisiones: %s", e)
+            return None
+
         rev_filename = f"rev_{_uuid.uuid4().hex[:10]}.html"
         rev_path = os.path.join(rev_dir, rev_filename)
 
-        with open(rev_path, "w", encoding="utf-8") as f:
-            f.write(current_html)
+        try:
+            with open(rev_path, "w", encoding="utf-8") as f:
+                f.write(current_html)
+        except OSError as e:
+            log.warning("No se pudo guardar revisión '%s': %s", rev_filename, e)
+            return None
 
         revision = ChapterRevision(
             content_file=rev_filename,
@@ -437,8 +504,12 @@ class ProjectManager:
         path = os.path.join(self.temp_dir, "content", "revisions", revision.content_file)
         if not os.path.exists(path):
             return ""
-        with open(path, "r", encoding="utf-8") as f:
-            return f.read()
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
+        except OSError as e:
+            log.warning("No se pudo leer archivo de revisión '%s': %s", path, e)
+            return ""
 
     def restore_chapter_revision(self, chapter_id: str, revision_id: str) -> bool:
         """
@@ -475,8 +546,11 @@ class ProjectManager:
         assets_dir = os.path.join(self.temp_dir, "assets")
         os.makedirs(assets_dir, exist_ok=True)
         path = os.path.join(assets_dir, filename)
-        with open(path, "wb") as f:
-            f.write(image_bytes)
+        try:
+            with open(path, "wb") as f:
+                f.write(image_bytes)
+        except OSError as e:
+            log.warning("No se pudo guardar asset '%s': %s", filename, e)
         return filename
 
     def read_media_asset(self, asset_name: str) -> bytes:

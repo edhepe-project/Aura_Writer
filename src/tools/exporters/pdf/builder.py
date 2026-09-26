@@ -14,7 +14,8 @@ from reportlab.platypus import (
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_LEFT
 
-from tools.exporters.base_exporter import _COLORS, clean_html
+from tools.exporters.base_exporter import _COLORS, clean_html, format_date_es
+from tools.protection.aura_protect import strip_zero_width_chars
 from tools.exporters.pdf.flowables import (
     OrnamentalRule, DecorativeLine, ChapterMarker
 )
@@ -30,28 +31,43 @@ class PDFExporter:
         self.temp_dir = temp_dir
 
     def export(self, project_data: dict, output_path: str) -> tuple[bool, str]:
-        """Genera el documento PDF A5 profesional con ReportLab."""
-        doc = BaseDocTemplate(
-            output_path,
-            pagesize=A5,
-            rightMargin=18 * mm,
-            leftMargin=22 * mm,
-            topMargin=22 * mm,
-            bottomMargin=20 * mm,
-        )
+        """Genera el documento PDF profesional (A5 o 6x9) con ReportLab."""
+        page_size_key = self.meta.get("page_size", "a5")
+        if page_size_key == "6x9":
+            page_tuple = (152.4 * mm, 228.6 * mm)
+            left_margin = 25 * mm
+        else:
+            page_tuple = A5
+            left_margin = 22 * mm
 
         book_title = self.meta.get("title", "Obra")
         book_author = self.meta.get("author", "")
+        sig = project_data.get("protection_signature", "")
 
-        templates, text_width = create_page_templates(book_title)
+        doc = BaseDocTemplate(
+            output_path,
+            pagesize=page_tuple,
+            rightMargin=18 * mm,
+            leftMargin=left_margin,
+            topMargin=22 * mm,
+            bottomMargin=22 * mm,
+            title=book_title,
+            author=book_author,
+            subject=sig,
+        )
+
+        templates, text_width = create_page_templates(book_title, page_size=page_size_key)
         doc.addPageTemplates(templates)
 
-        st = get_pdf_styles(text_width)
+        st = get_pdf_styles(text_width, page_size=page_size_key)
         story = []
+
+        page_height = page_tuple[1]
+        page_width = page_tuple[0]
 
         # Front Matter
         story.append(NextPageTemplate("BlankPage"))
-        story.append(Spacer(1, A5[1] * 0.28))
+        story.append(Spacer(1, page_height * 0.28))
         story.append(DecorativeLine(text_width, color=_COLORS["accent_light"], thickness=0.6, width_ratio=0.4))
         story.append(Spacer(1, 8))
         story.append(Paragraph(book_title.upper(), st["cover_title"]))
@@ -64,14 +80,14 @@ class PDFExporter:
 
         # Copyright / Legal
         story.append(PageBreak())
-        story.append(Spacer(1, A5[1] * 0.65))
+        story.append(Spacer(1, page_height * 0.65))
         year = datetime.now().year
         legal_lines = [
             f"© {year} {book_author}" if book_author else f"© {year}",
             "Todos los derechos reservados.",
             "",
             "Generado con Aura Writer",
-            f"{datetime.now().strftime('%d de %B de %Y')}",
+            format_date_es(),
         ]
         for line in legal_lines:
             if line:
@@ -81,7 +97,7 @@ class PDFExporter:
 
         # Half-Title
         story.append(PageBreak())
-        story.append(Spacer(1, A5[1] * 0.35))
+        story.append(Spacer(1, page_height * 0.35))
         story.append(Paragraph(book_title, st["half_title"]))
         story.append(Spacer(1, 10))
         story.append(DecorativeLine(text_width, color=_COLORS["accent_light"], thickness=0.4, width_ratio=0.25))
@@ -89,12 +105,17 @@ class PDFExporter:
         # Body items
         img_margin = 10 * mm
         img_bottom = 18 * mm
-        avail_img_width = A5[0] - 2 * img_margin
-        avail_img_height = A5[1] - img_margin - img_bottom - 20
+        avail_img_width = page_width - 2 * img_margin
+        avail_img_height = page_height - img_margin - img_bottom - 20
         avail_width = text_width
 
         items = project_data.get("items", project_data.get("chapters", []))
-        chapter_number = 0
+        numbered_chapter_count = 0
+
+        special_sections = [
+            "prólogo", "prologo", "epílogo", "epilogo", "introducción", "introduccion",
+            "prefacio", "nota del autor", "agradecimientos", "dedicatoria", "apéndice", "apendice"
+        ]
 
         for item in items:
             item_type = item.get("type", "chapter")
@@ -124,22 +145,31 @@ class PDFExporter:
                 story.append(NextPageTemplate("ChapterStart"))
 
             else:
-                chapter_number += 1
                 content_soup_title = clean_html(item.get("content", ""))
                 html_heading = content_soup_title.find(["h1", "h2", "h3"])
-                chapter_title = html_heading.get_text(strip=True) if html_heading else item.get("title", f"Capítulo {chapter_number}")
+                chapter_title = html_heading.get_text(strip=True) if html_heading else item.get("title", "")
+                chapter_title = chapter_title.strip()
                 libro_label = item.get("libro_title", "").strip()
 
-                story.append(ChapterMarker(chapter_title))
+                title_lower = chapter_title.lower()
+                is_special = any(spec in title_lower for spec in special_sections)
+
+                if not is_special and not title_lower.startswith("capítulo") and not title_lower.startswith("capitulo"):
+                    numbered_chapter_count += 1
+
+                story.append(ChapterMarker(chapter_title if chapter_title else f"Capítulo {numbered_chapter_count}"))
                 story.append(NextPageTemplate("ChapterStart"))
                 story.append(PageBreak())
                 story.append(NextPageTemplate("ContentPage"))
-                story.append(Spacer(1, 28))
+                story.append(Spacer(1, page_height * 0.30))  # P4: Caída de 1/3 de página según estándar editorial
 
                 if libro_label:
                     story.append(Paragraph(libro_label.upper(), st["chapter_label"]))
 
-                story.append(Paragraph(chapter_title, st["chapter_title"]))
+                if not is_special and not (title_lower.startswith("capítulo") or title_lower.startswith("capitulo")):
+                    story.append(Paragraph(f"Capítulo {numbered_chapter_count}", st["chapter_label"]))
+
+                story.append(Paragraph(chapter_title if chapter_title else f"Capítulo {numbered_chapter_count}", st["chapter_title"]))
                 story.append(OrnamentalRule(
                     avail_width,
                     ornament="❧",
@@ -160,7 +190,7 @@ class PDFExporter:
                 is_first_para = True
                 first_heading_skipped = False
                 for p in paragraphs:
-                    text = p.get_text(strip=True)
+                    text = strip_zero_width_chars(p.get_text(strip=True))
                     if not text:
                         continue
 
@@ -187,7 +217,7 @@ class PDFExporter:
                         story.append(Spacer(1, 8))
                         story.append(OrnamentalRule(
                             avail_width,
-                            ornament="✦",
+                            ornament="❧",
                             color=_COLORS["accent_light"],
                             thickness=0.3,
                             rule_width_ratio=0.2,
@@ -232,21 +262,21 @@ class PDFExporter:
             return False, f"Error en PDF: {e}"
 
     def _media_block(self, m, avail_width, st_caption):
-        elements = []
+        path = m.get("path", "")
+        if not os.path.exists(path):
+            return []
         try:
-            img = RLImage(m["path"])
+            img = RLImage(path)
             iw, ih = img.drawWidth, img.drawHeight
-            max_w = avail_width * 0.85
-            if iw > max_w:
-                ratio = max_w / iw
-                img.drawWidth = max_w
+            if iw > avail_width:
+                ratio = avail_width / iw
+                img.drawWidth = avail_width
                 img.drawHeight = ih * ratio
             img.hAlign = "CENTER"
-            elements.append(Spacer(1, 10))
-            elements.append(img)
+            res = [Spacer(1, 8), img]
             if m.get("caption"):
-                elements.append(Paragraph(f"<i>{m['caption']}</i>", st_caption))
-            elements.append(Spacer(1, 10))
+                res.append(Paragraph(m["caption"], st_caption))
+            res.append(Spacer(1, 8))
+            return res
         except Exception:
-            pass
-        return elements
+            return []

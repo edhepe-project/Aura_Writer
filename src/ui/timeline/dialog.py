@@ -35,6 +35,7 @@ class TimelineDialog(QDialog):
         self._load_data()
 
     def _setup_ui(self):
+        is_dark = ThemeManager.is_dark()
         tc = ThemeManager.theme_colors()
         bg_main = tc["bg_main"]
         bg_header = tc["bg_card"]

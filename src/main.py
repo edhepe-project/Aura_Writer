@@ -49,6 +49,34 @@ from ui.login import LoginDialog
 from core.theme_manager import ThemeManager
 
 
+def _register_bundled_fonts(bundle_dir: str):
+    """
+    Registra en QFontDatabase las fuentes empaquetadas con la aplicación.
+    Esto hace que Inter, Courier Prime, Atkinson Hyperlegible y OpenDyslexic
+    estén disponibles en el selector de tipografía aunque no estén instaladas
+    en el sistema operativo.
+    """
+    from PyQt6.QtGui import QFontDatabase
+    fonts_dir = os.path.join(bundle_dir, "assets", "fonts")
+    if not os.path.isdir(fonts_dir):
+        log.warning("Directorio de fuentes no encontrado: %s", fonts_dir)
+        return
+    loaded = []
+    for fname in os.listdir(fonts_dir):
+        if fname.lower().endswith((".ttf", ".otf")):
+            path = os.path.join(fonts_dir, fname)
+            fid = QFontDatabase.addApplicationFont(path)
+            if fid == -1:
+                log.warning("No se pudo registrar la fuente: %s", path)
+            else:
+                families = QFontDatabase.applicationFontFamilies(fid)
+                loaded.extend(families)
+    if loaded:
+        log.info("Fuentes empaquetadas registradas: %s", loaded)
+    else:
+        log.warning("No se registró ninguna fuente desde %s", fonts_dir)
+
+
 def main():
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         bundle_dir = getattr(sys, "_MEIPASS")
@@ -65,7 +93,10 @@ def main():
             log.warning("Could not set AppUserModelID: %s", e)
 
     app = QApplication(sys.argv)
-    
+
+    # Registrar fuentes empaquetadas ANTES de construir cualquier widget
+    _register_bundled_fonts(bundle_dir)
+
     icon_path = os.path.join(bundle_dir, "aura_writer.ico")
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
@@ -291,13 +322,12 @@ def main():
                     ]
                     main_win.place_dock.update_chapters_data(chapters_data)
 
-                # Reabrir exactamente en el último capítulo/nodo donde nos quedamos
+                # Reabrir exactamente donde nos quedamos (último capítulo/nodo) o primer capítulo por defecto
                 last_node = getattr(meta, "last_selected_node_id", "")
                 restored = False
                 if last_node:
                     restored = main_win.outline_tree.select_node_by_id(last_node)
                 
-                # Si no había sesión previa o no se encontró, seleccionar el primer capítulo
                 if not restored:
                     main_win.outline_tree.select_first_chapter()
 

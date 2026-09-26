@@ -8,6 +8,9 @@ import uuid
 from bs4 import BeautifulSoup
 from ebooklib import epub
 
+from tools.exporters.base_exporter import clean_html
+from tools.protection.aura_protect import strip_zero_width_chars
+
 
 class EPUBExporter:
     """Motor de exportación de libros digitales EPUB3."""
@@ -24,12 +27,14 @@ class EPUBExporter:
         book.set_language(self.meta.get("language", "es"))
         book.add_author(self.meta.get("author", "Autor"))
 
-        css_content = """
-            @import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap');
+        sig = project_data.get("protection_signature", "")
+        if sig:
+            book.add_metadata("DC", "rights", f"Aura Protect: {sig}")
 
+        css_content = """
             body {
-                font-family: 'Libre Baskerville', 'Georgia', serif;
-                line-height: 1.7;
+                font-family: 'Georgia', 'Times New Roman', 'Palatino Linotype', serif;
+                line-height: 1.5;
                 color: #2c2416;
                 margin: 1.5em 1em;
                 background: #fefcf8;
@@ -58,73 +63,35 @@ class EPUBExporter:
             .chapter-ornament {
                 text-align: center;
                 color: #c0b8a8;
-                font-size: 1.1em;
+                font-size: 0.9em;
                 margin-bottom: 2em;
-                letter-spacing: 0.5em;
             }
 
             p {
                 text-indent: 1.5em;
-                margin: 0;
-                padding: 0;
+                margin-top: 0;
+                margin-bottom: 0;
                 text-align: justify;
-                hyphens: auto;
-                -webkit-hyphens: auto;
             }
 
-            p.first-paragraph {
+            p.first-p {
                 text-indent: 0;
             }
 
-            p.first-paragraph::first-letter {
-                font-size: 3.2em;
-                float: left;
-                line-height: 0.85;
-                padding-right: 0.08em;
-                padding-top: 0.05em;
-                font-weight: 700;
-                color: #6b5d4f;
-            }
-
-            .scene-break {
+            p.blank-line {
+                text-indent: 0;
                 text-align: center;
+                margin: 1.2em 0;
                 color: #c0b8a8;
+            }
+
+            .author-note {
+                font-style: italic;
+                color: #8c7b6b;
                 font-size: 0.9em;
-                margin: 1.8em 0;
-                letter-spacing: 0.4em;
-            }
-
-            figure {
-                text-align: center;
-                margin: 2em auto;
-                page-break-inside: avoid;
-            }
-
-            figure img {
-                max-width: 90%;
-                border-radius: 2px;
-            }
-
-            figcaption {
-                font-style: italic;
-                color: #7a6e60;
-                font-size: 0.85em;
-                margin-top: 0.6em;
-                letter-spacing: 0.02em;
-            }
-
-            aside.author-note {
-                background: #f8f5f0;
-                border-left: 3px solid #b8a88a;
-                padding: 1em 1.2em;
-                margin: 2em 0;
-                font-style: italic;
-                font-size: 0.88em;
-                color: #6b5d4f;
-                border-radius: 0 4px 4px 0;
-            }
-
-            aside.author-note p {
+                margin-top: 1.5em;
+                border-top: 1px solid #e8e2d8;
+                padding-top: 0.5em;
                 text-indent: 0;
                 text-align: left;
             }
@@ -150,25 +117,37 @@ class EPUBExporter:
 
         chapters = []
         media_counter = 0
-        chapter_num = 0
+        numbered_chapter_count = 0
+
+        special_sections = [
+            "prólogo", "prologo", "epílogo", "epilogo", "introducción", "introduccion",
+            "prefacio", "nota del autor", "agradecimientos", "dedicatoria", "apéndice", "apendice"
+        ]
 
         for i, item in enumerate(project_data.get("chapters", [])):
-            chapter_num += 1
-
             content_soup_e = BeautifulSoup(item.get("content", ""), "lxml")
             html_heading_e = content_soup_e.find(["h1", "h2", "h3"])
-            chapter_title_e = html_heading_e.get_text(strip=True) if html_heading_e else item.get("title", f"Capítulo {chapter_num}")
+            chapter_title_e = html_heading_e.get_text(strip=True) if html_heading_e else item.get("title", "")
+            chapter_title_e = chapter_title_e.strip()
             libro_label_e = item.get("libro_title", "").strip()
 
-            chapter = epub.EpubHtml(title=chapter_title_e, file_name=f"chap_{i}.xhtml", lang="es")
+            title_lower = chapter_title_e.lower()
+            is_special = any(spec in title_lower for spec in special_sections)
+
+            if not is_special and not title_lower.startswith("capítulo") and not title_lower.startswith("capitulo"):
+                numbered_chapter_count += 1
+
+            display_title = chapter_title_e if chapter_title_e else f"Capítulo {numbered_chapter_count}"
+
+            chapter = epub.EpubHtml(title=display_title, file_name=f"chap_{i}.xhtml", lang="es")
             chapter.add_item(nav_css)
 
             html_parts = []
-            html_parts.append(f'<p class="running-header">&mdash; {chapter_title_e} &mdash;</p>\n')
+            html_parts.append(f'<p class="running-header">&mdash; {display_title} &mdash;</p>\n')
 
             if libro_label_e:
                 html_parts.append(f'<p class="chapter-label">{libro_label_e}</p>\n')
-            html_parts.append(f'<h1>{chapter_title_e}</h1>\n')
+            html_parts.append(f'<h1>{display_title}</h1>\n')
             html_parts.append('<p class="chapter-ornament">— ❧ —</p>\n')
 
             for m in item.get("medias", []):
@@ -183,7 +162,7 @@ class EPUBExporter:
             is_first = True
             first_heading_skipped_e = False
             for p in content_paragraphs:
-                text = p.get_text(strip=True)
+                text = strip_zero_width_chars(p.get_text(strip=True))
                 if not text:
                     continue
 
@@ -202,20 +181,13 @@ class EPUBExporter:
                     continue
 
                 if text.strip() in ("***", "* * *", "---", "———", "• • •", "⁂"):
-                    html_parts.append('<p class="scene-break">✦ &nbsp; ✦ &nbsp; ✦</p>\n')
+                    html_parts.append('<p class="chapter-ornament">— ❧ —</p>\n')
                     is_first = True
                     continue
 
-                if p.name in ("h2", "h3"):
-                    html_parts.append(f'<h2>{text}</h2>\n')
-                    is_first = True
-                    continue
-
-                if is_first:
-                    html_parts.append(f'<p class="first-paragraph">{text}</p>\n')
-                    is_first = False
-                else:
-                    html_parts.append(f'<p>{text}</p>\n')
+                cls = ' class="first-p"' if is_first else ''
+                html_parts.append(f'<p{cls}>{text}</p>\n')
+                is_first = False
 
             for m in item.get("medias", []):
                 if m.get("position") in ("after", "inline"):
@@ -224,12 +196,9 @@ class EPUBExporter:
 
             for note_text in item.get("author_notes", []):
                 if note_text:
-                    html_parts.append(
-                        f'<aside class="author-note"><p>Nota del autor — {note_text}</p></aside>'
-                    )
+                    html_parts.append(f'<p class="author-note">📌 Nota del autor: {note_text}</p>\n')
 
-            chapter.content = "\n".join(html_parts)
-            chapter.add_item(nav_css)
+            chapter.content = "".join(html_parts)
             book.add_item(chapter)
             chapters.append(chapter)
 
@@ -239,34 +208,26 @@ class EPUBExporter:
         book.spine = ["nav"] + chapters
 
         epub.write_epub(output_path, book, {})
-        return True, f"EPUB generado en: {output_path}"
+        return True, f"Libro electrónico EPUB3 generado en: {output_path}"
 
-    def _media_html(self, book, m, counter):
+    def _media_html(self, book, m, index: int) -> str:
         path = m.get("path", "")
         if not os.path.exists(path):
             return ""
         try:
             ext = os.path.splitext(path)[1].lower()
-            media_types = {
-                ".png": "image/png", ".jpg": "image/jpeg",
-                ".jpeg": "image/jpeg", ".gif": "image/gif",
-                ".webp": "image/webp"
-            }
-            mt = media_types.get(ext, "image/png")
-            fname = f"images/media_{counter}{ext}"
-
-            with open(path, "rb") as f:
-                img_data = f.read()
-
-            img_item = epub.EpubItem(
-                uid=f"media_{counter}",
-                file_name=fname,
-                media_type=mt,
+            media_type = "image/jpeg" if ext in (".jpg", ".jpeg") else "image/png"
+            with open(path, "rb") as fp:
+                img_data = fp.read()
+            filename = f"images/img_{index}{ext}"
+            image_item = epub.EpubItem(
+                uid=f"img_{index}",
+                file_name=filename,
+                media_type=media_type,
                 content=img_data
             )
-            book.add_item(img_item)
-
-            caption_html = f"<figcaption>{m['caption']}</figcaption>" if m.get("caption") else ""
-            return f'<figure><img src="{fname}" alt="{m.get("caption", "")}" />{caption_html}</figure>'
+            book.add_item(image_item)
+            caption_html = f'<p class="chapter-label" style="margin-top:0.5em;">{m["caption"]}</p>' if m.get("caption") else ""
+            return f'<div style="text-align:center; margin:1em 0;"><img src="{filename}" style="max-width:100%; height:auto;" />{caption_html}</div>\n'
         except Exception:
             return ""

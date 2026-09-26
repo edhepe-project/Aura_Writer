@@ -246,14 +246,21 @@ class StoryGraphWidget(QWidget):
                 self.metadata_changed.emit()
                 self._reload_graph()
 
-    def _get_all_chapters(self) -> list:
-        """Retorna lista plana de (label, chapter_id) desde toda la jerarquía Obra>Libro>Capítulo."""
+    def _get_available_chapters(self, current_block_id: str | None = None) -> list:
+        """Retorna lista plana de (label, chapter_id) excluyendo los capítulos asignados a otros StoryBlocks."""
+        # Obtener los IDs de capítulos ya asignados a OTROS bloques
+        used_chapter_ids = {
+            b.chapter_id for b in self.metadata.story_blocks
+            if b.chapter_id and b.id != current_block_id
+        }
+
         result = []
         for obra in self.metadata.obras:
             for libro in obra.libros:
                 for cap in libro.capitulos:
-                    label = f"{obra.title} › {libro.title} › {cap.title}"
-                    result.append((label, cap.id))
+                    if cap.id not in used_chapter_ids:
+                        label = f"{obra.title} › {libro.title} › {cap.title}"
+                        result.append((label, cap.id))
         return result
 
     def _on_node_selected(self, block_id: str):
@@ -263,7 +270,7 @@ class StoryGraphWidget(QWidget):
                 block,
                 characters=self.metadata.characters,
                 places=self.metadata.places,
-                chapters=self._get_all_chapters()
+                chapters=self._get_available_chapters(current_block_id=block.id)
             )
 
     def _on_node_moved(self, block_id: str, x: float, y: float):

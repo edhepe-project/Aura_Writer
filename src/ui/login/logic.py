@@ -1,4 +1,4 @@
-﻿"""
+"""
 login/logic.py
 --------------
 Logica de interaccion de LoginDialog:
@@ -10,7 +10,30 @@ Logica de interaccion de LoginDialog:
 """
 
 import os
+import re
 from PyQt6.QtWidgets import QFileDialog
+
+# ── Validacion centralizada de contrasena ────────────────────────────────────
+MIN_PASSWORD_LEN = 8
+_SPECIAL_CHARS = r"""!@#$%^&*()-_=+[]{}|;:',.<>?/~`\\"""
+
+
+def password_error(password: str) -> str:
+    """
+    Valida la contrasena y devuelve un mensaje de error si no cumple los requisitos,
+    o una cadena vacia si es valida.
+    Requisitos actuales:
+      - Al menos 8 caracteres
+      - Al menos 1 letra mayuscula
+      - Al menos 1 caracter especial
+    """
+    if len(password) < MIN_PASSWORD_LEN:
+        return f"La contraseña debe tener al menos {MIN_PASSWORD_LEN} caracteres."
+    if not re.search(r"[A-Z]", password):
+        return "La contraseña debe incluir al menos una letra mayúscula (A-Z)."
+    if not re.search(r"[" + re.escape(_SPECIAL_CHARS) + r"]", password):
+        return "La contraseña debe incluir al menos un carácter especial (!@#$%^&*...)"
+    return ""
 
 
 def switch_mode(dialog, mode: str) -> None:
@@ -44,11 +67,12 @@ def validate(dialog) -> None:
         p1 = dialog.new_pass_input.text()
         p2 = dialog.new_pass2_input.text()
 
-        if p1 and len(p1) < 8:
-            dialog.pass_mismatch_label.setText("La contrasena debe tener al menos 8 caracteres.")
+        err = password_error(p1) if p1 else ""
+        if err:
+            dialog.pass_mismatch_label.setText(err)
             dialog.new_pass2_input.setStyleSheet("")
         elif p2 and p1 != p2:
-            dialog.pass_mismatch_label.setText("Las contrasenas no coinciden.")
+            dialog.pass_mismatch_label.setText("Las contraseñas no coinciden.")
             dialog.new_pass2_input.setStyleSheet("border: 1px solid #ff453a;")
         else:
             dialog.pass_mismatch_label.setText("")
@@ -57,7 +81,7 @@ def validate(dialog) -> None:
         ok = (
             bool(dialog.new_title_input.text().strip())
             and bool(dialog.new_author_input.text().strip())
-            and len(p1) >= 8
+            and not password_error(p1)
             and p1 == p2
         )
 

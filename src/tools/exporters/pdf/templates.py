@@ -10,14 +10,20 @@ from reportlab.platypus import Frame, PageTemplate
 from tools.exporters.base_exporter import _COLORS
 
 
-def create_page_templates(book_title: str) -> tuple[list[PageTemplate], float]:
-    """Crea y registra las plantillas de página para el documento BaseDocTemplate en A5."""
-    text_left = 22 * mm
+def create_page_templates(book_title: str, page_size: str = "a5") -> tuple[list[PageTemplate], float]:
+    """Crea y registra las plantillas de página para el documento (A5 o 6x9 pulgadas)."""
+    if page_size == "6x9":
+        page_w, page_h = 152.4 * mm, 228.6 * mm
+        text_left = 25 * mm   # Margen de lomo/gutter amplio para sagas gruesas
+    else:
+        page_w, page_h = A5[0], A5[1]
+        text_left = 22 * mm
+
     text_right = 18 * mm
     text_top = 22 * mm
-    text_bottom = 20 * mm
-    text_width = A5[0] - text_left - text_right
-    text_height = A5[1] - text_top - text_bottom
+    text_bottom = 22 * mm
+    text_width = page_w - text_left - text_right
+    text_height = page_h - text_top - text_bottom
 
     frame_text = Frame(text_left, text_bottom, text_width, text_height, id="text")
     frame_text2 = Frame(text_left, text_bottom, text_width, text_height, id="text2")
@@ -27,8 +33,8 @@ def create_page_templates(book_title: str) -> tuple[list[PageTemplate], float]:
     img_bottom = 18 * mm
     frame_img = Frame(
         img_margin, img_bottom,
-        A5[0] - 2 * img_margin,
-        A5[1] - img_margin - img_bottom,
+        page_w - 2 * img_margin,
+        page_h - img_margin - img_bottom,
         id="fullpage_img"
     )
 
@@ -39,32 +45,32 @@ def create_page_templates(book_title: str) -> tuple[list[PageTemplate], float]:
         canvas.saveState()
         canvas.setFont("Times-Roman", 8)
         canvas.setFillColor(HexColor(_COLORS["page_number"]))
-        canvas.drawCentredString(A5[0] / 2, 10 * mm, str(doc.page))
+        canvas.drawCentredString(page_w / 2, 15 * mm, str(doc.page))
         canvas.restoreState()
 
     def on_content_page(canvas, doc):
         canvas.saveState()
         canvas.setFont("Times-Roman", 8)
         canvas.setFillColor(HexColor(_COLORS["page_number"]))
-        canvas.drawCentredString(A5[0] / 2, 10 * mm, str(doc.page))
+        canvas.drawCentredString(page_w / 2, 15 * mm, str(doc.page))
 
         header_text = getattr(canvas, '_current_chapter_title', '') or book_title
         canvas.setFont("Times-Italic", 7.5)
         canvas.setFillColor(HexColor(_COLORS["header"]))
-        canvas.drawCentredString(A5[0] / 2, A5[1] - 14 * mm, f"— {header_text} —")
+        canvas.drawCentredString(page_w / 2, page_h - 14 * mm, f"— {header_text} —")
 
         canvas.setStrokeColor(HexColor(_COLORS["rule"]))
         canvas.setLineWidth(0.3)
         line_w = text_width * 0.7
-        x_start = (A5[0] - line_w) / 2
-        canvas.line(x_start, A5[1] - 16 * mm, x_start + line_w, A5[1] - 16 * mm)
+        x_start = (page_w - line_w) / 2
+        canvas.line(x_start, page_h - 16 * mm, x_start + line_w, page_h - 16 * mm)
         canvas.restoreState()
 
     def on_image_page(canvas, doc):
         canvas.saveState()
         canvas.setFont("Times-Roman", 8)
         canvas.setFillColor(HexColor(_COLORS["page_number"]))
-        canvas.drawCentredString(A5[0] / 2, 10 * mm, str(doc.page))
+        canvas.drawCentredString(page_w / 2, 15 * mm, str(doc.page))
         canvas.restoreState()
 
     templates = [

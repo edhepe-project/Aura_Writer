@@ -353,6 +353,9 @@ class AuraMainWindow(
             chapter = self.project_manager.find_chapter(item_id)
             if chapter:
                 self._load_chapter(chapter)
+        elif item_type in ("universe", "obra", "libro"):
+            container_obj = self._current_container
+            self._load_container_synopsis(item_type, container_obj)
 
     def _on_tree_item_double_clicked(self, item_id: str, item_type: str):
         """Responde al doble clic en un nodo del árbol. Los nodos 'media' abren

@@ -103,6 +103,7 @@ class Chapter(BaseModel):
 class Book(BaseModel):
     id: str = Field(default_factory=_new_id)
     title: str = "Nuevo Libro"
+    synopsis: str = ""
     capitulos: List[Chapter] = Field(default_factory=list)
     medias: List[MediaNode] = Field(default_factory=list)       # imágenes a nivel libro (hermanas de capítulos)
     author_notes: List[AuthorNote] = Field(default_factory=list)
@@ -114,6 +115,7 @@ class Book(BaseModel):
 class Obra(BaseModel):
     id: str = Field(default_factory=_new_id)
     title: str = "Nueva Obra"
+    synopsis: str = ""
     color: str = "#e67e22"          # color para el grafo de relaciones
     medias: List[MediaNode] = Field(default_factory=list)  # mapas a nivel obra
     libros: List[Book] = Field(default_factory=list)
@@ -371,6 +373,7 @@ class UniverseMetadata(BaseModel):
     """Datos raíz del archivo .aura — representa un universo literario completo."""
     title: str = "Nuevo Universo"
     author: str = ""
+    synopsis: str = ""
     version: str = "2.0"
     characters: List[Character] = Field(default_factory=list)
     places: List[Place] = Field(default_factory=list)

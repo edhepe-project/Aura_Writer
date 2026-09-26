@@ -3,7 +3,7 @@ Tests unitarios para ThemeManager.
 Valida la paleta de colores, el toggle de temas y que los stylesheets no estén vacíos.
 """
 import pytest
-from core.theme_manager import ThemeManager, DARK, LIGHT
+from core.theme_manager import ThemeManager, DARK, LIGHT, SEPIA
 
 
 def setup_function():
@@ -53,6 +53,10 @@ def test_toggle_switches_theme(qtbot):
     result = ThemeManager.toggle(app)
     assert result == LIGHT
     assert ThemeManager.current() == LIGHT
+
+    result = ThemeManager.toggle(app)
+    assert result == SEPIA
+    assert ThemeManager.current() == SEPIA
 
     result = ThemeManager.toggle(app)
     assert result == DARK

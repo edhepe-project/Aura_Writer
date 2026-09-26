@@ -181,6 +181,10 @@ class UsbControllerMixin:
             meta = pm.metadata
             self.setWindowTitle(f"Aura Writer - {meta.title}")
             self.outline_tree.populate_from_metadata(meta)
+            last_node = getattr(meta, "last_selected_node_id", "")
+            if not last_node or not self.outline_tree.select_node_by_id(last_node):
+                self.outline_tree.select_first_chapter()
+
             self.char_dock.populate(meta.characters, meta.relations, meta.obras)
             if hasattr(self, "_refresh_place_dock"):
                 self._refresh_place_dock()

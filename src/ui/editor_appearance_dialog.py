@@ -76,28 +76,43 @@ class EditorAppearanceDialog(QDialog):
 
         # ── Grupo 2: Tipografía de Trabajo ──────────────────────────
         grp_font = QGroupBox("Tipografía de Redacción")
-        font_layout = QHBoxLayout(grp_font)
+        font_layout = QVBoxLayout(grp_font)
+
+        from PyQt6.QtGui import QFontDatabase, QFont
+        available_families = QFontDatabase.families()
+
+        # (familia_real, etiqueta_display)
+        FONT_OPTIONS = [
+            ("Georgia",               "Georgia — Serif Editorial Clásica"),
+            ("Garamond",              "Garamond — Serif Literaria"),
+            ("Segoe UI",              "Segoe UI — Sans-serif Moderna y Nítida"),
+            ("Montserrat",            "Montserrat — Geométrica Editorial y Web"),
+            ("Inter",                 "Inter — Sans-serif de Alta Legibilidad"),
+            ("Courier Prime",         "Courier Prime — Máquina de escribir / Guion"),
+            ("Consolas",              "Consolas — Monospace"),
+            ("Atkinson Hyperlegible", "Atkinson Hyperlegible — Máxima Accesibilidad Visual"),
+            ("OpenDyslexic",          "OpenDyslexic — Diseñada para Dislexia"),
+        ]
 
         self.combo_font = QComboBox()
-        self.combo_font.addItems([
-            "Georgia (Serif Editorial Clásica)",
-            "Garamond (Serif Literaria)",
-            "Segoe UI (Sans-serif Moderna y Nítida)",
-            "Inter (Sans-serif de Alta Legibilidad)",
-            "Courier Prime (Máquina de escribir / Guion)",
-            "Consolas (Monospace)",
-            "Atkinson Hyperlegible (Máxima Accesibilidad Visual)",
-            "OpenDyslexic (Diseñada para Dislexia)",
-        ])
+        self._font_families = []  # lista paralela con el nombre real de la familia
 
-        # Seleccionar la actual
         cur_font = self.editor.get_work_font_family()
-        for i in range(self.combo_font.count()):
-            item_text = self.combo_font.itemText(i)
-            if cur_font.lower() in item_text.lower():
-                self.combo_font.setCurrentIndex(i)
-                break
+        selected_index = 0
 
+        for family, label in FONT_OPTIONS:
+            if family not in available_families:
+                label += "  ⚠ (no instalada)"
+            self.combo_font.addItem(label)
+            idx = self.combo_font.count() - 1
+            # Renderizar el ítem en su propia tipografía para previsualización
+            item_font = QFont(family, 11) if family in available_families else QFont()
+            self.combo_font.setItemData(idx, item_font, 6)  # Qt.ItemDataRole.FontRole = 6
+            self._font_families.append(family)
+            if family.lower() == cur_font.lower():
+                selected_index = idx
+
+        self.combo_font.setCurrentIndex(selected_index)
         self.combo_font.currentIndexChanged.connect(self._on_font_changed)
         font_layout.addWidget(self.combo_font)
         layout.addWidget(grp_font)
@@ -156,10 +171,10 @@ class EditorAppearanceDialog(QDialog):
         self.appearance_changed.emit()
 
     def _on_font_changed(self, index):
-        full_text = self.combo_font.currentText()
-        family = full_text.split(" (")[0].strip()
-        self.editor.set_work_font_family(family)
-        self.appearance_changed.emit()
+        if 0 <= index < len(self._font_families):
+            family = self._font_families[index]
+            self.editor.set_work_font_family(family)
+            self.appearance_changed.emit()
 
     def _on_paper_changed(self, button):
         paper_id = button.property("paper_id")

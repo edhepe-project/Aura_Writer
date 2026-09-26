@@ -24,6 +24,16 @@ class SecurityControllerMixin:
             return  # error ya reportado por save_project(); abortar bloqueo
         self.statusBar().showMessage("Proyecto guardado. Privatizando sesion...", 2000)
         self.hide()
+
+        # ── Auto-guardado de emergencia mientras la sesion esta bloqueada ──
+        # Si el equipo se apaga estando bloqueado, este timer garantiza que
+        # el ultimo estado escrito al disco sea reciente (max 60 s de perdida).
+        from PyQt6.QtCore import QTimer
+        _autosave_timer = QTimer(self)
+        _autosave_timer.setInterval(60_000)  # cada 60 segundos
+        _autosave_timer.timeout.connect(self._autosave_while_locked)
+        _autosave_timer.start()
+
         meta = self.project_manager.metadata
         dialog = LockDialog(
             correct_password=self.project_manager.password,
@@ -32,13 +42,23 @@ class SecurityControllerMixin:
             recovery_codes=list(meta.totp_recovery_codes),
         )
         if dialog.exec():
+            _autosave_timer.stop()
             if dialog.recovery_codes != meta.totp_recovery_codes:
                 meta.totp_recovery_codes = dialog.recovery_codes
                 self.save_project()
             self.show()
             self.statusBar().showMessage("Sesion restaurada", 3000)
         else:
+            _autosave_timer.stop()
             sys.exit(0)
+
+    def _autosave_while_locked(self):
+        """Guardado silencioso que se ejecuta periodicamente mientras la sesion esta bloqueada."""
+        try:
+            self.project_manager.save_project()
+        except Exception:
+            pass  # silencioso — no molestar al usuario con errores en pantalla de bloqueo
+
 
     def configure_totp(self):
         """Permite activar o desactivar 2FA en el proyecto."""
@@ -116,63 +136,213 @@ class SecurityControllerMixin:
         if not self.project_manager.metadata:
             QMessageBox.warning(self, "Seguridad", "Abre un proyecto primero.")
             return
+
+        MIN_LEN = 8  # igual que en el dialogo de creacion de proyecto
+
+        from ui.login.logic import password_error
+        from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout,
+                                      QLabel, QLineEdit, QPushButton, QFrame)
+        from PyQt6.QtCore import Qt
+
         dlg = QDialog(self)
-        dlg.setWindowTitle("Cambiar Contrasena del Proyecto")
-        dlg.setFixedSize(400, 260)
-        l = QVBoxLayout(dlg)
-        l.setContentsMargins(20, 20, 20, 20)
-        l.setSpacing(10)
-        l.addWidget(QLabel("Introduce la nueva contrasena:"))
+        dlg.setWindowTitle("Cambiar Contraseña del Proyecto")
+        dlg.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
+        dlg.setMinimumWidth(440)
+        dlg.setModal(True)
 
-        curr_input = QLineEdit()
-        curr_input.setEchoMode(QLineEdit.EchoMode.Password)
-        curr_input.setPlaceholderText("Contrasena actual")
-        l.addWidget(curr_input)
+        root = QVBoxLayout(dlg)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
 
-        new_input = QLineEdit()
-        new_input.setEchoMode(QLineEdit.EchoMode.Password)
-        new_input.setPlaceholderText("Nueva contrasena (minimo 4 caracteres)")
-        l.addWidget(new_input)
+        # ── Encabezado ────────────────────────────────────────────────────
+        header = QLabel()
+        header.setTextFormat(Qt.TextFormat.RichText)
+        header.setText(
+            "<b style='font-size:15px;color:#f2f2f7;'>Cambiar contraseña</b><br>"
+            "<span style='font-size:11px;color:#8e8e93;'>"
+            f"La nueva contraseña debe tener al menos {MIN_LEN} caracteres.</span>"
+        )
+        header.setContentsMargins(24, 20, 24, 16)
+        header.setStyleSheet("background:#2c2c2e;")
+        header.setWordWrap(True)
+        root.addWidget(header)
 
-        confirm_input = QLineEdit()
-        confirm_input.setEchoMode(QLineEdit.EchoMode.Password)
-        confirm_input.setPlaceholderText("Confirmar nueva contrasena")
-        l.addWidget(confirm_input)
+        sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet("background:#3a3a3c; max-height:1px; border:none;")
+        root.addWidget(sep)
 
-        btn_box = QHBoxLayout()
+        # ── Formulario ────────────────────────────────────────────────────
+        form_w = QLabel(); form_w.setStyleSheet("background:#1c1c1e;")
+        form = QVBoxLayout()
+        form.setContentsMargins(24, 20, 24, 24)
+        form.setSpacing(12)
+
+        field_style = (
+            "background:#2c2c2e; border:1.5px solid #3a3a3c; border-radius:9px;"
+            "color:#f2f2f7; font-size:13px; padding:0 12px; font-family:'Segoe UI',sans-serif;"
+        )
+        label_style = (
+            "font-size:11px;font-weight:700;color:#636366;"
+            "letter-spacing:0.05em;font-family:'Segoe UI',sans-serif;"
+        )
+
+        def make_field(placeholder):
+            f = QLineEdit()
+            f.setEchoMode(QLineEdit.EchoMode.Password)
+            f.setPlaceholderText(placeholder)
+            f.setMinimumHeight(42)
+            f.setStyleSheet(field_style)
+            return f
+
+        def make_field_with_eye(placeholder):
+            """Campo de contraseña con botón ojo para mostrar/ocultar."""
+            from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton
+            import qtawesome as qta
+
+            wrapper = QWidget()
+            wrapper.setMinimumHeight(42)
+            wrapper.setStyleSheet(
+                "background:#2c2c2e; border:1.5px solid #3a3a3c; border-radius:9px;"
+            )
+            hl = QHBoxLayout(wrapper)
+            hl.setContentsMargins(0, 0, 4, 0)
+            hl.setSpacing(0)
+
+            field = QLineEdit()
+            field.setEchoMode(QLineEdit.EchoMode.Password)
+            field.setPlaceholderText(placeholder)
+            field.setStyleSheet(
+                "background:transparent; border:none; border-radius:9px;"
+                "color:#f2f2f7; font-size:13px; padding:0 10px;"
+                "font-family:'Segoe UI',sans-serif;"
+            )
+            hl.addWidget(field)
+
+            eye_btn = QPushButton()
+            eye_btn.setFixedSize(32, 32)
+            eye_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            eye_btn.setCheckable(True)
+            eye_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)  # Tab no aterriza aquí
+            eye_btn.setIcon(qta.icon("fa5s.eye", color="#636366"))
+            eye_btn.setStyleSheet(
+                "QPushButton { background:transparent; border:none; border-radius:6px; outline:none; }"
+                "QPushButton:hover { background:#3a3a3c; }"
+            )
+
+            def _toggle(checked, f=field, b=eye_btn):
+                if checked:
+                    f.setEchoMode(QLineEdit.EchoMode.Normal)
+                    b.setIcon(qta.icon("fa5s.eye-slash", color="#ffd60a"))
+                else:
+                    f.setEchoMode(QLineEdit.EchoMode.Password)
+                    b.setIcon(qta.icon("fa5s.eye", color="#636366"))
+
+            eye_btn.toggled.connect(_toggle)
+            hl.addWidget(eye_btn)
+
+            # Exponer el QLineEdit como atributo del wrapper para acceso externo
+            wrapper._field = field
+            return wrapper, field
+
+        # Contraseña actual (sin ojo — no es necesario verla)
+        lbl_curr = QLabel("CONTRASEÑA ACTUAL"); lbl_curr.setStyleSheet(label_style)
+        curr_input = make_field("••••••••")
+        form.addWidget(lbl_curr); form.addWidget(curr_input)
+
+        # Nueva contraseña (con ojo)
+        lbl_new = QLabel("NUEVA CONTRASEÑA"); lbl_new.setStyleSheet(label_style)
+        new_wrapper, new_input = make_field_with_eye(f"Mínimo {MIN_LEN} caracteres")
+        form.addWidget(lbl_new); form.addWidget(new_wrapper)
+
+        # Confirmar nueva contraseña (con ojo)
+        lbl_conf = QLabel("CONFIRMAR NUEVA CONTRASEÑA"); lbl_conf.setStyleSheet(label_style)
+        conf_wrapper, conf_input = make_field_with_eye("Repite la nueva contraseña")
+        form.addWidget(lbl_conf); form.addWidget(conf_wrapper)
+
+        # Feedback inline
+        feedback = QLabel(" ")
+        feedback.setStyleSheet(
+            "font-size:12px;color:#ff453a;font-family:'Segoe UI',sans-serif;"
+            "padding:6px 10px;background:rgba(255,69,58,0);border-radius:7px;"
+        )
+        feedback.setWordWrap(True)
+        feedback.setMinimumHeight(32)
+        form.addWidget(feedback)
+
+        # Botones
+        btn_row = QHBoxLayout(); btn_row.setSpacing(10)
         btn_cancel = QPushButton("Cancelar")
+        btn_cancel.setMinimumHeight(40)
+        btn_cancel.setStyleSheet(
+            "background:#3a3a3c;color:#e5e5ea;border:none;border-radius:9px;"
+            "font-size:13px;padding:0 18px;font-family:'Segoe UI',sans-serif;"
+        )
         btn_cancel.clicked.connect(dlg.reject)
-        btn_save = QPushButton("Guardar Contrasena")
-        btn_save.setStyleSheet("background-color: #30d158; color: white; font-weight: bold;")
-        btn_box.addStretch()
-        btn_box.addWidget(btn_cancel)
-        btn_box.addWidget(btn_save)
-        l.addLayout(btn_box)
+
+        btn_save = QPushButton("Guardar contraseña")
+        btn_save.setMinimumHeight(40)
+        btn_save.setStyleSheet(
+            "background:#ffd60a;color:#1c1c1e;border:none;border-radius:9px;"
+            "font-size:13px;font-weight:700;padding:0 18px;font-family:'Segoe UI',sans-serif;"
+        )
+        btn_row.addStretch()
+        btn_row.addWidget(btn_cancel)
+        btn_row.addWidget(btn_save)
+        form.addLayout(btn_row)
+
+        # Montar formulario en widget de fondo
+        body = QFrame()
+        body.setStyleSheet("background:#1c1c1e;")
+        body.setLayout(form)
+        root.addWidget(body)
+
+        # ── Validación ────────────────────────────────────────────────────
+        def _show_err(msg):
+            feedback.setText(f"⚠  {msg}")
+            feedback.setStyleSheet(
+                "font-size:12px;color:#ff453a;font-family:'Segoe UI',sans-serif;"
+                "padding:6px 10px;background:rgba(255,69,58,0.12);border-radius:7px;"
+            )
+
+        def _clear_err():
+            feedback.setText(" ")
+            feedback.setStyleSheet(
+                "font-size:12px;color:transparent;font-family:'Segoe UI',sans-serif;"
+                "padding:6px 10px;background:transparent;border-radius:7px;"
+            )
 
         def _do_change():
             curr = curr_input.text()
             new_p = new_input.text()
-            conf = confirm_input.text()
+            conf = conf_input.text()
+
             if curr != self.project_manager.password:
-                QMessageBox.critical(dlg, "Error", "La contrasena actual es incorrecta.")
-                curr_input.clear()
-                curr_input.setFocus()
+                _show_err("La contraseña actual es incorrecta.")
+                curr_input.clear(); curr_input.setFocus()
                 return
-            if len(new_p) < 4:
-                QMessageBox.warning(dlg, "Error", "La contrasena debe tener al menos 4 caracteres.")
+            pwd_err = password_error(new_p)
+            if pwd_err:
+                _show_err(pwd_err)
+                new_input.setFocus()
                 return
             if new_p != conf:
-                QMessageBox.warning(dlg, "Error", "Las nuevas contrasenas no coinciden.")
+                _show_err("Las contraseñas nuevas no coinciden.")
+                conf_input.setFocus()
                 return
+            _clear_err()
             try:
                 self.project_manager.change_password(new_p)
                 dlg.accept()
-                QMessageBox.information(self, "Contrasena Actualizada",
-                                        "Contrasena cambiada con exito.")
+                QMessageBox.information(
+                    self, "Contraseña actualizada",
+                    "Tu contraseña fue cambiada con éxito y el proyecto fue guardado."
+                )
             except Exception as e:
-                QMessageBox.critical(dlg, "Error", f"No se pudo cambiar la contrasena: {e}")
+                _show_err(f"No se pudo cambiar la contraseña: {e}")
 
         btn_save.clicked.connect(_do_change)
+        new_input.returnPressed.connect(lambda: conf_input.setFocus())
+        conf_input.returnPressed.connect(_do_change)
         dlg.exec()
 
     def open_trash_dialog(self):

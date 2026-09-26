@@ -5,6 +5,7 @@ Gestión del inspector de notas de autor y utilidades de búsqueda
 """
 
 import os
+import re
 from PyQt6.QtWidgets import (QInputDialog, QMessageBox, QDialog, QVBoxLayout,
                               QHBoxLayout, QLabel, QLineEdit, QPushButton,
                               QScrollArea, QListWidgetItem)
@@ -100,8 +101,13 @@ class NotesControllerMixin:
 
     def _on_inspector_add_note(self):
         """Crea una nueva nota y abre directamente el editor."""
-        if not self._current_container or not hasattr(self._current_container, "author_notes"):
-            QMessageBox.warning(self, "Aviso", "Selecciona una Obra, Libro o Capítulo primero.")
+        from core.models import Chapter
+        if not self._current_container or not isinstance(self._current_container, Chapter):
+            QMessageBox.warning(
+                self, "Aviso",
+                "Las notas de autor solo están permitidas dentro de los capítulos.\n"
+                "Por favor, selecciona un Capítulo primero."
+            )
             return
 
         title, ok = QInputDialog.getText(self, "Nueva Nota", "Título de la nota:")
@@ -160,6 +166,8 @@ class NotesControllerMixin:
 
     def _load_chapter(self, chapter: Chapter):
         self._current_chapter = chapter
+        self._current_container_type = "chapter"
+        self._current_container_obj = chapter
         html = self.project_manager.read_chapter_content(chapter.content_file)
 
         # Bloquear actualizaciones visuales para evitar el salto de línea
@@ -206,11 +214,156 @@ class NotesControllerMixin:
 
         self.editor.setFocus()
 
+    def _load_container_synopsis(self, container_type: str, container_obj):
+        """Carga la ficha / sinopsis de un Universo, Obra o Libro con formato
+        completamente uniforme y sin herencias del editor de capitulos."""
+        self._current_chapter = None
+        self._current_container_type = container_type
+        self._current_container_obj = container_obj
 
+        if not container_obj:
+            return
 
-    # ------------------------------------------------------------------
-    # Preview de media
-    # ------------------------------------------------------------------
+        raw_synopsis = getattr(container_obj, "synopsis", "") or ""
+
+        # Limpiar si el texto guardado anteriormente contenia cabeceras duplicadas
+        if "<h1" in raw_synopsis:
+            if '<div id="synopsis-body">' in raw_synopsis:
+                raw_synopsis = raw_synopsis.split('<div id="synopsis-body">')[-1].split('</div>')[0]
+            elif '<hr' in raw_synopsis:
+                raw_synopsis = raw_synopsis.split('<hr')[-1].split('>', 1)[-1]
+            raw_synopsis = raw_synopsis.strip()
+
+        title = getattr(container_obj, "title", "Sin Titulo")
+
+        if container_type == "universe":
+            header_subtitle = "Sinopsis del Universo Narrativo"
+            badge = "Autor: " + getattr(container_obj, "author", "Sin registrar")
+        elif container_type == "obra":
+            header_subtitle = "Sinopsis de la Obra"
+            num_libros = len(getattr(container_obj, "libros", []))
+            badge = f"Contiene {num_libros} libro(s)"
+        elif container_type == "libro":
+            header_subtitle = "Sinopsis del Libro"
+            num_caps = len(getattr(container_obj, "capitulos", []))
+            badge = f"Contiene {num_caps} capitulo(s)"
+        else:
+            header_subtitle = "Resumen"
+            badge = ""
+
+        # Normalizar contenido guardado: eliminar sangrias, margenes e inline styles de color antiguos
+        if raw_synopsis.startswith("<"):
+            # Quitar cualquier text-indent / margin-left inline que haya quedado guardado
+            raw_synopsis = re.sub(r'text-indent\s*:\s*[^;]+;?', 'text-indent:0;', raw_synopsis)
+            raw_synopsis = re.sub(r'margin-left\s*:\s*[^;]+;?', 'margin-left:0;', raw_synopsis)
+            # Eliminar atributos color: ... inline viejos para que responda al CSS dinámico
+            raw_synopsis = re.sub(r'color\s*:\s*[^;]+;?', '', raw_synopsis)
+            content_html = raw_synopsis
+        else:
+            paragraphs = raw_synopsis.split("\n\n") if raw_synopsis else []
+            content_html = "".join(
+                "<p>" + p.replace("\n", "<br>") + "</p>"
+                for p in paragraphs if p.strip()
+            )
+            if not content_html:
+                content_html = '<p class="placeholder">Escribe aquí la sinopsis, premisa o notas generales...</p>'
+
+        # Obtener tema y papel activo para ajustar los colores del HTML estático
+        from core.theme_manager import ThemeManager
+        paper = getattr(self.editor, "_paper_style", "auto")
+        is_dark_theme = ThemeManager.is_dark()
+        
+        # Determinar si la vista del editor es oscura según el papel o el tema
+        if paper == "oled":
+            paper_type = "oled"
+        elif paper == "noche":
+            paper_type = "noche"
+        elif paper in ("blanco", "sepia", "verde"):
+            paper_type = paper
+        else: # auto
+            paper_type = "dark" if is_dark_theme else "light"
+
+        if paper_type == "oled":
+            text_color = "#f4f4f5"
+            h1_color = "#ffffff"
+            sub_color = "#38bdf8"
+            badge_color = "#a1a1aa"
+            border_color = "#27272a"
+            placeholder_color = "#71717a"
+        elif paper_type in ("noche", "dark"):
+            text_color = "#e4e4e7"
+            h1_color = "#ffffff"
+            sub_color = "#60a5fa"
+            badge_color = "#a1a1aa"
+            border_color = "#3f3f46"
+            placeholder_color = "#8e8e93"
+        elif paper_type == "sepia":
+            text_color = "#2d241e"
+            h1_color = "#1c1510"
+            sub_color = "#0284c7"
+            badge_color = "#78716c"
+            border_color = "#d6c7b2"
+            placeholder_color = "#78716c"
+        elif paper_type == "verde":
+            text_color = "#1c2e1c"
+            h1_color = "#0f1c0f"
+            sub_color = "#0284c7"
+            badge_color = "#526e52"
+            border_color = "#c2d6c0"
+            placeholder_color = "#526e52"
+        else: # blanco / light
+            text_color = "#1f2937"
+            h1_color = "#111827"
+            sub_color = "#2563eb"
+            badge_color = "#4b5563"
+            border_color = "#e5e7eb"
+            placeholder_color = "#6b7280"
+
+        work_font = getattr(self.editor, "_work_font_family", "Georgia")
+
+        # CSS y estilos directos inline para garantizar que el motor de texto de Qt
+        # respete los colores independientemente de cualquier herencia previa
+        full_html = (
+            '<!DOCTYPE html>\n'
+            '<html><head><style>\n'
+            '* { box-sizing: border-box; }\n'
+            'body { margin: 0; padding: 0;'
+            f' font-family: "{work_font}", Georgia, serif;'
+            f' font-size: 15px; line-height: 1.6; color: {text_color}; }}\n'
+            '#synopsis-wrapper { max-width: 780px; margin: 0 auto; padding: 10px 20px 40px 20px; }\n'
+            '#synopsis-wrapper * { text-indent: 0 !important; margin-left: 0 !important; padding-left: 0 !important; }\n'
+            f'#synopsis-wrapper h1 {{ margin-top: 0; margin-bottom: 4px; font-size: 26px; font-weight: 700; line-height: 1.2; color: {h1_color}; }}\n'
+            f'#synopsis-wrapper .synopsis-meta {{ color: {sub_color}; font-weight: 600; font-size: 13px; margin-top: 0; margin-bottom: 12px; }}\n'
+            f'#synopsis-wrapper .synopsis-meta span {{ color: {badge_color}; font-weight: normal; }}\n'
+            f'#synopsis-wrapper hr {{ border: 0; border-top: 1px solid {border_color}; margin: 12px 0 20px 0; }}\n'
+            f'#synopsis-wrapper p {{ margin-top: 0; margin-bottom: 12px; line-height: 1.6; color: {text_color}; }}\n'
+            f'#synopsis-wrapper p.placeholder {{ color: {placeholder_color}; font-style: italic; }}\n'
+            '</style></head><body>\n'
+            '<div id="synopsis-wrapper">\n'
+            f'    <h1 style="color:{h1_color}; margin-top:0; margin-bottom:4px; font-size:26px; font-weight:700;">{title}</h1>\n'
+            f'    <p class="synopsis-meta" style="color:{sub_color}; font-weight:600; font-size:13px; margin-top:0; margin-bottom:12px;">{header_subtitle} &nbsp;&bull;&nbsp; <span style="color:{badge_color}; font-weight:normal;">{badge}</span></p>\n'
+            f'    <hr style="border:0; border-top:1px solid {border_color}; margin:12px 0 20px 0;">\n'
+            '    <div id="synopsis-body">\n'
+            f'        {content_html}\n'
+            '    </div>\n'
+            '</div>\n'
+            '</body></html>'
+        )
+
+        self.editor.setUpdatesEnabled(False)
+        try:
+            self.editor.setHtml(full_html)
+            # Solo aplicar apariencia visual (papel, zoom).
+            # NO llamar _apply_paragraph_spacing ni _update_document_font ya que
+            # esos metodos recorren bloque por bloque y rompen la uniformidad del HTML.
+            if hasattr(self.editor, "_apply_appearance"):
+                self.editor._apply_appearance()
+            self.editor.verticalScrollBar().setValue(0)
+        finally:
+            self.editor.setUpdatesEnabled(True)
+
+        self.statusBar().showMessage(f"Sinopsis: {title}")
+
 
     def _show_media_preview(self, media_id: str):
         """Muestra la imagen en un diálogo de previsualización dedicado."""

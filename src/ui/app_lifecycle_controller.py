@@ -129,12 +129,14 @@ class AppLifecycleMixin:
         dlg.exec()
 
     def _on_map_chapter_requested(self: "AuraMainWindow", chapter_id: str, dlg: QDialog):
-        """Cierra el mapa y abre el capítulo al hacer doble clic en un nodo."""
+        """Cierra el mapa y abre el capítulo seleccionado en el editor principal."""
         self._flush_content_to_metadata()
         chapter = self.project_manager.find_chapter(chapter_id)
         if chapter:
             dlg.accept()
             self._load_chapter(chapter)
+            if hasattr(self, "outline_tree"):
+                self.outline_tree.select_item_by_id(chapter_id)
 
     # ------------------------------------------------------------------
     # Tema y Modo Zen
@@ -334,7 +336,7 @@ class AppLifecycleMixin:
         worker.start()
 
     def _flush_content_to_metadata(self: "AuraMainWindow"):
-        """Persiste el contenido del editor y la nota activa al metadata."""
+        """Persiste el contenido del editor (capítulo o sinopsis de contenedor) y la nota activa al metadata."""
         if self._current_chapter and self._current_chapter.content_file:
             html = (self.editor.get_content_html()
                     if hasattr(self.editor, "get_content_html")
@@ -342,6 +344,15 @@ class AppLifecycleMixin:
             self.project_manager.write_chapter_content(
                 self._current_chapter.content_file, html
             )
+        elif getattr(self, "_current_container_obj", None) and getattr(self, "_current_container_type", "") in ("universe", "obra", "libro"):
+            html = (self.editor.get_content_html()
+                    if hasattr(self.editor, "get_content_html")
+                    else self.editor.toHtml())
+            # Remover cualquier cabecera dinámica estática guardada accidentalmente
+            if "<hr" in html:
+                html = html.split("<hr")[-1].split(">", 1)[-1].strip()
+            self._current_container_obj.synopsis = html
+
         if self._current_note:
             self._current_note.content = self.inspector_notes.toPlainText()
 
@@ -534,8 +545,15 @@ class AppLifecycleMixin:
         from ui.editor_appearance_dialog import EditorAppearanceDialog
         dlg = EditorAppearanceDialog(self.editor, self)
         dlg.appearance_changed.connect(self._update_zoom_indicator)
+        dlg.appearance_changed.connect(self._on_appearance_changed_refresh)
         dlg.exec()
         self._update_zoom_indicator()
+
+    def _on_appearance_changed_refresh(self: "AuraMainWindow"):
+        """Si está abierta la sinopsis de universo, obra o libro, refresca sus colores con el nuevo papel."""
+        if getattr(self, "_current_container_type", "") in ("universe", "obra", "libro"):
+            if getattr(self, "_current_container_obj", None):
+                self._load_container_synopsis(self._current_container_type, self._current_container_obj)
 
     def _on_zoom_in(self: "AuraMainWindow"):
         self.editor.zoom_in()

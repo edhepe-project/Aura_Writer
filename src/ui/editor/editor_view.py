@@ -82,7 +82,7 @@ class AuraEditor(QTextEdit):
         if style:
             self.setStyleSheet(f"AuraEditor {{ {style} {font_css} border: none; border-radius: 6px; padding: 12px; }}")
         else:
-            self.setStyleSheet(f"AuraEditor {{ {font_css} }}")
+            self.setStyleSheet(f"AuraEditor {{ {font_css} border: none; border-radius: 6px; padding: 12px; }}")
 
         self._apply_zoom()
 
@@ -109,6 +109,13 @@ class AuraEditor(QTextEdit):
             cursor.select(QTextCursor.SelectionType.Document)
             if cursor.hasSelection():
                 fmt = QTextCharFormat()
+                # SIEMPRE incluir la familia en el merge para que nunca se pise
+                # lo que _update_document_font acaba de escribir en los fragmentos.
+                fmt.setFontFamily(self._work_font_family)
+                try:
+                    fmt.setFontFamilies([self._work_font_family])
+                except Exception:
+                    pass
                 if abs(factor - 1.0) < 0.01:
                     fmt.clearProperty(QTextFormat.Property.FontPointSize)
                 else:
@@ -142,11 +149,15 @@ class AuraEditor(QTextEdit):
 
     def _update_document_font(self, family: str):
         doc = self.document()
-        if doc.isEmpty() or getattr(self, '_zoom_in_progress', False):
+        if doc.isEmpty():
+            return
+        # Usa un flag dedicado para no interferir con _zoom_in_progress
+        if getattr(self, '_font_update_in_progress', False):
             return
 
-        self._zoom_in_progress = True
+        self._font_update_in_progress = True
         try:
+            # 1. Aplicar mediante selección completa (actualiza el formato base del bloque)
             cursor = QTextCursor(doc)
             cursor.select(QTextCursor.SelectionType.Document)
             if cursor.hasSelection():
@@ -157,10 +168,38 @@ class AuraEditor(QTextEdit):
                 except Exception:
                     pass
                 cursor.mergeCharFormat(fmt)
-        finally:
-            self._zoom_in_progress = False
 
-        self._apply_zoom()
+            # 2. Recorrer cada fragmento e imponer la familia incondicionalmente.
+            # En Qt6, fontFamily() puede devolver '' si la fuente fue asignada
+            # via fontFamilies(), por lo que NO comparamos — siempre sobrescribimos.
+            block = doc.begin()
+            while block.isValid():
+                it = block.begin()
+                while not it.atEnd():
+                    frag = it.fragment()
+                    if frag.isValid():
+                        c = QTextCursor(doc)
+                        c.setPosition(frag.position())
+                        c.setPosition(frag.position() + frag.length(),
+                                      QTextCursor.MoveMode.KeepAnchor)
+                        new_fmt = QTextCharFormat()
+                        new_fmt.setFontFamily(family)
+                        try:
+                            new_fmt.setFontFamilies([family])
+                        except Exception:
+                            pass
+                        c.mergeCharFormat(new_fmt)
+                    it += 1
+                block = block.next()
+        finally:
+            self._font_update_in_progress = False
+
+        # Sincronizar solo el zoom (size). NO llamar _apply_appearance() de nuevo
+        # porque eso desencadenaría _apply_zoom() que pisaría los formatos recién escritos.
+        # _apply_appearance() ya fue llamado por set_work_font_family() ANTES de llegar aquí.
+        # Solo necesitamos re-escalar si el zoom no está al 100%.
+        if abs(self._zoom_percentage - 100) >= 1:
+            self._apply_zoom()
 
     def _apply_paragraph_spacing(self):
         doc = self.document()
@@ -213,11 +252,21 @@ class AuraEditor(QTextEdit):
         self._work_font_family = family
         self._apply_appearance()
         self._update_document_font(family)
+        # Actualiza el formato del cursor actual para que el próximo texto
+        # que se escriba (incluso en doc vacío) use la nueva fuente de inmediato
+        cur_fmt = self.currentCharFormat()
+        cur_fmt.setFontFamily(family)
+        try:
+            cur_fmt.setFontFamilies([family])
+        except Exception:
+            pass
+        self.setCurrentCharFormat(cur_fmt)
         try:
             from core.config_manager import ConfigManager
             ConfigManager.set("editor_font", family)
         except Exception:
             pass
+
 
     def get_paper_style(self) -> str:
         return self._paper_style

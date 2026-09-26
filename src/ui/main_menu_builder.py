@@ -93,7 +93,8 @@ class MainMenuBuilderMixin:
         edit_menu.addAction(pb_act)
 
         # ── Vista ────────────────────────────────────────────────────
-        view_menu = mb.addMenu("&Vista")
+        self._view_menu = mb.addMenu("&Vista")
+        view_menu = self._view_menu
 
         map_act = QAction("Mapa Mental del Universo", self)
         map_act.triggered.connect(self.open_universe_map)
@@ -268,6 +269,12 @@ class MainMenuBuilderMixin:
         vocab_act.triggered.connect(self.open_vocabulary_dialog)
         tools_menu.addAction(vocab_act)
 
+        tools_menu.addSeparator()
+
+        verify_act = QAction("🛡️ Verificar Autoría (Aura Protect)…", self)
+        verify_act.triggered.connect(self.open_protection_verifier)
+        tools_menu.addAction(verify_act)
+
         # ── Seguridad ────────────────────────────────────────────────
         sec_menu = mb.addMenu("&Seguridad")
 
@@ -325,6 +332,18 @@ class MainMenuBuilderMixin:
         self._main_toolbar = QToolBar("Principal")
         self._main_toolbar.setIconSize(QSize(20, 20))
         self.addToolBar(self._main_toolbar)
+
+        # Inyectar la acción de visibilidad en el menú Vista para que el
+        # usuario pueda restaurar la barra si la oculta con clic derecho.
+        if hasattr(self, "_view_menu"):
+            self._view_menu.addSeparator()
+            toggle_act = self._main_toolbar.toggleViewAction()
+            toggle_act.setText("Barra de Herramientas Principal")
+            self._view_menu.addAction(toggle_act)
+
+            self._act_customize_toolbar = QAction("Personalizar barra de herramientas…", self)
+            self._act_customize_toolbar.triggered.connect(self.open_toolbar_customize_dialog)
+            self._view_menu.addAction(self._act_customize_toolbar)
 
         try:
             from core.theme_manager import ThemeManager
@@ -395,6 +414,44 @@ class MainMenuBuilderMixin:
             self._main_toolbar.setFocusPolicy(_Qt.FocusPolicy.NoFocus)
             for _btn in self._main_toolbar.findChildren(QToolButton):
                 _btn.setFocusPolicy(_Qt.FocusPolicy.NoFocus)
+
+            # ── Mapa de acciones para el dialogo de personalizacion ──
+            self._toolbar_actions_map = {
+                "act_save":          self._act_save,
+                "act_bold":          self._bold_act,
+                "act_italic":        self._italic_act,
+                "act_underline":     self._underline_act,
+                "act_strike":        self._strike_act,
+                "act_clean":         self._clean_act,
+                "act_left":          self._act_left,
+                "act_center":        self._act_center,
+                "act_right":         self._act_right,
+                "act_justify":       self._act_justify,
+                "act_dot":           self._act_dot,
+                "act_dash":          self._act_dash,
+                "act_sep":           self._act_sep,
+                "act_pb":            self._act_pb,
+                "act_blank":         self._act_blank,
+                "act_img":           self._act_img,
+                "act_search":        self._act_search,
+                "act_lock":          self._act_lock,
+                "act_map":           self._act_map,
+                "act_graph":         self._act_graph,
+                "act_place_graph":   self._act_place_graph,
+                "act_story_graph":   self._act_story_graph,
+                "act_export":        self._act_export,
+                "act_trash":         self._act_trash,
+                "act_appearance_tb": self._appearance_tb_act,
+            }
+            # Aplicar las preferencias guardadas al arrancar
+            from ui.toolbar_customize_dialog import apply_saved_visibility
+            apply_saved_visibility(self._toolbar_actions_map)
+
+            # Clic derecho en la toolbar -> menu contextual personalizado
+            self._main_toolbar.setContextMenuPolicy(_Qt.ContextMenuPolicy.CustomContextMenu)
+            self._main_toolbar.customContextMenuRequested.connect(
+                self._show_toolbar_context_menu
+            )
         except Exception:
             self._main_toolbar.addAction("Guardar", self.save_project)
             self._main_toolbar.addSeparator()
@@ -420,6 +477,25 @@ class MainMenuBuilderMixin:
             self._main_toolbar.addAction("Nodos", self.open_relation_graph)
             self._main_toolbar.addSeparator()
             self._main_toolbar.addAction("Exportar", self.open_exporter)
+
+    # ── Personalización de la barra de herramientas ──────────────────────────
+    def open_toolbar_customize_dialog(self):
+        """Abre el diálogo para mostrar/ocultar botones de la toolbar."""
+        from ui.toolbar_customize_dialog import ToolbarCustomizeDialog
+        actions_map = getattr(self, "_toolbar_actions_map", {})
+        dlg = ToolbarCustomizeDialog(actions_map, parent=self)
+        dlg.exec()
+
+    def _show_toolbar_context_menu(self, pos):
+        """Menú contextual del clic derecho sobre la toolbar."""
+        from PyQt6.QtWidgets import QMenu
+        menu = QMenu(self)
+        menu.addAction(self._main_toolbar.toggleViewAction())
+        menu.addSeparator()
+        cust_act = menu.addAction("Personalizar barra de herramientas…")
+        cust_act.triggered.connect(self.open_toolbar_customize_dialog)
+        menu.exec(self._main_toolbar.mapToGlobal(pos))
+
 
     def _refresh_toolbar_icons(self):
         """Actualiza los iconos de la barra de herramientas al cambiar de tema."""
@@ -509,3 +585,14 @@ class MainMenuBuilderMixin:
             self._strike_act.blockSignals(True)
             self._strike_act.setChecked(fmt.fontStrikeOut())
             self._strike_act.blockSignals(False)
+
+    def open_protection_verifier(self):
+        """Abre el diálogo de verificación de huellas invisibles y autoría Aura Protect."""
+        try:
+            from ui.protection_verifier_dialog import ProtectionVerifierDialog
+            dlg = ProtectionVerifierDialog(parent=self)
+            dlg.exec()
+        except Exception as exc:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Aura Protect", f"Error al abrir el verificador de autoría:\n{exc}")
+

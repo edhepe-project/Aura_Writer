@@ -46,13 +46,16 @@ class DiffEngine:
         cls,
         old_text: str,
         new_text: str,
-        theme_name: str = "dark"
+        theme_name: str = "dark",
+        is_dark: bool | None = None
     ) -> tuple[str, DiffStats]:
         """
         Genera un documento HTML con diferencias semánticas resaltadas:
         - Inserciones en verde (<ins>)
         - Eliminaciones en rojo tachado (<del>)
         """
+        if is_dark is not None:
+            theme_name = "dark" if is_dark else "light"
         # Extraer texto si es HTML
         old_raw = cls.html_to_plain_text(old_text) if "<" in old_text and ">" in old_text else old_text
         new_raw = cls.html_to_plain_text(new_text) if "<" in new_text and ">" in new_text else new_text

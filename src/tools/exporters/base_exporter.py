@@ -38,3 +38,19 @@ def html_to_text(html_content: str) -> str:
     if not html_content:
         return ""
     return BeautifulSoup(html_content, "lxml").get_text()
+
+
+_MESES_ES = [
+    "", "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+]
+
+
+def format_date_es(dt=None) -> str:
+    """Devuelve la fecha formateada en español (ej. '26 de septiembre de 2026')."""
+    from datetime import datetime
+    if dt is None:
+        dt = datetime.now()
+    month_name = _MESES_ES[dt.month]
+    return f"{dt.day} de {month_name} de {dt.year}"
+
