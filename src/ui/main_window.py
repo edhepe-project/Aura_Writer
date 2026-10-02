@@ -434,26 +434,45 @@ class AuraMainWindow(
         meta = self.project_manager.metadata
         if not meta:
             return
-        self._current_container = {
-            "universe": lambda: meta,
-            "obra":     lambda: self._find_obra(item_id),
-            "libro":    lambda: self._find_libro(item_id),
-            "chapter":  lambda: self.project_manager.find_chapter(item_id),
-        }.get(item_type, lambda: None)()
-
+        if item_type in ("media", "author_note"):
+            parent = self._find_parent_chapter(item_id)
+            parent_type = "chapter"
+            if not parent:
+                parent = self._find_parent_libro(item_id)
+                parent_type = "libro"
+            if not parent:
+                parent = self._find_parent_obra(item_id)
+                parent_type = "obra"
+            if not parent:
+                parent = meta
+                parent_type = "universe"
+            
+            # Si el padre es distinto al contenedor actual, o si el editor está vacío (arranque)
+            if self._current_container != parent or not self.editor.toPlainText().strip():
+                self._current_container = parent
+                if parent_type == "chapter":
+                    self._load_chapter(parent)
+                else:
+                    self._load_container_synopsis(parent_type, parent)
+        else:
+            self._current_container = {
+                "universe": lambda: meta,
+                "obra":     lambda: self._find_obra(item_id),
+                "libro":    lambda: self._find_libro(item_id),
+                "chapter":  lambda: self.project_manager.find_chapter(item_id),
+            }.get(item_type, lambda: None)()
+    
+            if item_type == "chapter":
+                chapter = self.project_manager.find_chapter(item_id)
+                if chapter:
+                    self._load_chapter(chapter)
+            elif item_type in ("universe", "obra", "libro"):
+                container_obj = self._current_container
+                self._load_container_synopsis(item_type, container_obj)
+                
         self._refresh_notes_list()
         self._update_dock_context(item_id, item_type)
-
-        # Recordar el último nodo/capítulo seleccionado
         meta.last_selected_node_id = item_id
-
-        if item_type == "chapter":
-            chapter = self.project_manager.find_chapter(item_id)
-            if chapter:
-                self._load_chapter(chapter)
-        elif item_type in ("universe", "obra", "libro"):
-            container_obj = self._current_container
-            self._load_container_synopsis(item_type, container_obj)
 
     def _on_tree_item_double_clicked(self, item_id: str, item_type: str):
         """Responde al doble clic en un nodo del árbol. Los nodos 'media' abren

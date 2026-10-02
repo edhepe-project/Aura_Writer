@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
     QLabel, QPushButton, QCheckBox, QMessageBox
 )
 from PyQt6.QtCore import Qt
+import re
 import qtawesome as qta
 
 from core.theme_manager import ThemeManager
@@ -285,6 +286,7 @@ class ChapterComparatorDialog(QDialog):
                 panel.chapter_id = cid
                 panel.content_file = cfile
                 html = self.pm.read_chapter_content(cfile)
+                html = self._normalize_html_fonts(html)
                 panel.editor.blockSignals(True)
                 panel.editor.setHtml(html)
                 panel.editor.setReadOnly(True)
@@ -313,11 +315,26 @@ class ChapterComparatorDialog(QDialog):
         panel.content_file = cfile
 
         html = self.pm.read_chapter_content(cfile)
+        # Normalizar font-size y font-family embebidos en el HTML para que la
+        # mesa de cotejo muestre ambos capítulos con la misma tipografía base.
+        html = self._normalize_html_fonts(html)
         panel.editor.blockSignals(True)
         panel.editor.setHtml(html)
         panel.editor.blockSignals(False)
         panel._dirty = False
         panel._on_text_changed()
+
+    @staticmethod
+    def _normalize_html_fonts(html: str) -> str:
+        """Elimina font-size y font-family de los estilos inline del HTML
+        para que la mesa de cotejo muestre tipografía uniforme en ambos paneles."""
+        if not html:
+            return html
+        # Quitar font-size: XX.Xpt / font-size:XXpx, etc.
+        html = re.sub(r'font-size\s*:\s*[\d.]+\s*(?:pt|px|em|rem|%)?\s*;?', '', html, flags=re.IGNORECASE)
+        # Quitar font-family: 'Georgia', serif; etc.
+        html = re.sub(r'font-family\s*:\s*[^;]+;?', '', html, flags=re.IGNORECASE)
+        return html
 
     def _find_parent_libro_for_chapter(self, chapter_id: str):
         meta = self.pm.metadata

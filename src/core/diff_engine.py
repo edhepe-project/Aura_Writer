@@ -47,12 +47,15 @@ class DiffEngine:
         old_text: str,
         new_text: str,
         theme_name: str = "dark",
-        is_dark: bool | None = None
+        is_dark: bool | None = None,
+        condense_context: bool = True,
+        context_words: int = 40
     ) -> tuple[str, DiffStats]:
         """
         Genera un documento HTML con diferencias semánticas resaltadas:
         - Inserciones en verde (<ins>)
         - Eliminaciones en rojo tachado (<del>)
+        - Condensa el texto no modificado para facilitar la lectura.
         """
         if is_dark is not None:
             theme_name = "dark" if is_dark else "light"
@@ -78,27 +81,71 @@ class DiffEngine:
             ins_fg = "#5c4d41"
             del_bg = "#d9b3a8"
             del_fg = "#8c3123"
+            muted_fg = "#8c8273"
         elif is_light:
             ins_bg = "#d4edda"
             ins_fg = "#155724"
             del_bg = "#f8d7da"
             del_fg = "#721c24"
+            muted_fg = "#6c757d"
         else:
             ins_bg = "#1a3d24"
             ins_fg = "#4cd964"
             del_bg = "#4d1919"
             del_fg = "#ff453a"
+            muted_fg = "#8e8e93"
 
         ins_style = f"background-color: {ins_bg}; color: {ins_fg}; text-decoration: none; border-radius: 3px; padding: 1px 3px; font-weight: bold;"
         del_style = f"background-color: {del_bg}; color: {del_fg}; text-decoration: line-through; border-radius: 3px; padding: 1px 3px;"
 
         for opcode, a0, a1, b0, b1 in matcher.get_opcodes():
             if opcode == "equal":
-                text_equal = "".join(old_tokens[a0:a1])
-                escaped = html.escape(text_equal).replace("\n", "<br>")
-                out_fragments.append(escaped)
-                word_count = len([t for t in old_tokens[a0:a1] if t.strip()])
+                tokens = old_tokens[a0:a1]
+                word_count = len([t for t in tokens if t.strip()])
                 stats.words_unchanged += word_count
+
+                if condense_context and word_count > context_words * 2.5:
+                    # Encontrar el índice del token para el inicio
+                    start_idx = 0
+                    w_cnt = 0
+                    while start_idx < len(tokens) and w_cnt < context_words:
+                        if tokens[start_idx].strip(): w_cnt += 1
+                        start_idx += 1
+                    
+                    # Encontrar el índice del token para el final
+                    end_idx = len(tokens) - 1
+                    w_cnt = 0
+                    while end_idx >= 0 and w_cnt < context_words:
+                        if tokens[end_idx].strip(): w_cnt += 1
+                        end_idx -= 1
+                    end_idx += 1
+                    
+                    prefix_tokens = tokens[:start_idx]
+                    suffix_tokens = tokens[end_idx:]
+                    
+                    # Si es el primer bloque, no mostrar prefijo (el capítulo empieza directamente resumido)
+                    if a0 == 0:
+                        prefix_tokens = []
+                    
+                    # Si es el último bloque, no mostrar sufijo
+                    if a1 == len(old_tokens):
+                        suffix_tokens = []
+                        
+                    prefix_str = "".join(prefix_tokens)
+                    suffix_str = "".join(suffix_tokens)
+                    
+                    escaped_prefix = html.escape(prefix_str).replace("\n", "<br>")
+                    escaped_suffix = html.escape(suffix_str).replace("\n", "<br>")
+                    
+                    hidden_words = word_count - len([t for t in prefix_tokens + suffix_tokens if t.strip()])
+                    
+                    separator = f'<div style="text-align: center; margin: 24px 0;"><span style="color: {muted_fg}; font-style: italic; background-color: rgba(128,128,128,0.1); padding: 6px 16px; border-radius: 12px; font-size: 0.85em; user-select: none;">... {hidden_words} palabras sin cambios ...</span></div>'
+                    
+                    out_fragments.append(escaped_prefix + separator + escaped_suffix)
+                else:
+                    text_equal = "".join(tokens)
+                    escaped = html.escape(text_equal).replace("\n", "<br>")
+                    out_fragments.append(escaped)
             elif opcode == "insert":
                 text_ins = "".join(new_tokens[b0:b1])
                 escaped = html.escape(text_ins).replace("\n", "<br>")

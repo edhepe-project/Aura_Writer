@@ -269,6 +269,11 @@ class MainMenuBuilderMixin:
         vocab_act.triggered.connect(self.open_vocabulary_dialog)
         tools_menu.addAction(vocab_act)
 
+        thesaurus_act = QAction("Diccionario de Sinónimos…", self)
+        thesaurus_act.setShortcut("Shift+F7")
+        thesaurus_act.triggered.connect(lambda: self.editor.open_thesaurus())
+        tools_menu.addAction(thesaurus_act)
+
         tools_menu.addSeparator()
 
         verify_act = QAction("🛡️ Verificar Autoría (Aura Protect)…", self)

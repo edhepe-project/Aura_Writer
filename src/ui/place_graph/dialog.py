@@ -9,8 +9,9 @@ from PyQt6.QtWidgets import (
     QTabWidget
 )
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont, QColor
+from PyQt6.QtGui import QFont, QColor, QPixmap
 import qtawesome as qta
+import os
 
 from core.models import Place, PlaceLink, UniverseMetadata, CONNECTION_TYPES, CONNECTION_COLORS
 from core.theme_manager import ThemeManager
@@ -142,6 +143,22 @@ class PlaceGraphDialog(QDialog):
         self._info_desc.setStyleSheet("font-size: 11px; color: #8e8e93;")
         self._info_desc.setWordWrap(True)
         pl.addWidget(self._info_desc)
+
+        self._btn_view_map = QPushButton("Ver Mapa / Ilustración")
+        self._btn_view_map.setIcon(qta.icon("fa5s.map", color="#ffffff"))
+        self._btn_view_map.setStyleSheet("""
+            QPushButton {
+                background-color: #5e5ce6;
+                color: white;
+                font-weight: bold;
+                padding: 6px;
+                border-radius: 4px;
+            }
+            QPushButton:hover { background-color: #4b48b6; }
+        """)
+        self._btn_view_map.clicked.connect(self._view_place_map)
+        self._btn_view_map.hide()
+        pl.addWidget(self._btn_view_map)
 
         # Tab Widget: Rutas vs Presencia vs Historial
         self._tabs = QTabWidget()
@@ -308,6 +325,11 @@ class PlaceGraphDialog(QDialog):
         desc = place.description or place.lore_history or place.climate_atmosphere or "Sin detalles registrados."
         self._info_desc.setText(desc[:180] + ("..." if len(desc) > 180 else ""))
 
+        if place.image_asset:
+            self._btn_view_map.show()
+        else:
+            self._btn_view_map.hide()
+
         self._connections_list.clear()
         self._btn_delete_link.setEnabled(False)
         place_names = {p.id: p.name for p in places}
@@ -399,11 +421,6 @@ class PlaceGraphDialog(QDialog):
             except Exception:
                 pass
 
-        # Recargar grafo y panel
-        self._graph_widget.set_data(meta.places, meta.place_links)
-        if self._selected_place_id:
-            self._on_place_selected(self._selected_place_id)
-
     def _on_place_double_clicked(self, place_id: str):
         self.place_selected_for_focus.emit(place_id)
 
@@ -422,14 +439,13 @@ class PlaceGraphDialog(QDialog):
         if not hasattr(meta, "place_links") or meta.place_links is None:
             meta.place_links = []
 
-        # Comprobar si ya existe
         existing = any(
             (lk.place_id_a == source_id and lk.place_id_b == target_id) or
             (lk.place_id_b == source_id and lk.place_id_a == target_id)
             for lk in meta.place_links
         )
         if existing:
-            QMessageBox.information(self, "Aviso", "Ya existe una ruta o conexión entre estos dos lugares.")
+            QMessageBox.information(self, "Aviso", "Ya existe una ruta o conexion entre estos dos lugares.")
             return
 
         new_link = PlaceLink(
@@ -442,13 +458,31 @@ class PlaceGraphDialog(QDialog):
         meta.place_links.append(new_link)
         self._input_conn_label.clear()
 
-        # Guardar cambios en el proyecto si tiene carpeta activa
         if hasattr(self.pm, "save_metadata") and getattr(self.pm, "temp_dir", None):
             try:
                 self.pm.save_metadata()
             except Exception:
                 pass
 
-        # Recargar grafo y panel
         self._graph_widget.set_data(meta.places, meta.place_links)
         self._on_place_selected(source_id)
+
+    def _view_place_map(self):
+        if not self._selected_place_id or not self.pm:
+            return
+
+        meta = self.pm.metadata
+        places = getattr(meta, "places", [])
+        place = next((p for p in places if p.id == self._selected_place_id), None)
+
+        if not place or not place.image_asset:
+            return
+
+        asset_path = self.pm.get_media_asset_path(place.image_asset)
+        if not os.path.exists(asset_path):
+            QMessageBox.warning(self, "Error", "La imagen del mapa no se encuentra en el disco.")
+            return
+
+        from ui.image_viewer import ImageViewerDialog
+        viewer = ImageViewerDialog(asset_path, title=f"Mapa / Ilustracion: {place.name}", parent=self)
+        viewer.exec()

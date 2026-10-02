@@ -379,7 +379,7 @@ class UniverseMapWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._meta: Optional[UniverseMetadata] = None
+        self._meta: UniverseMetadata | None = None
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
         layout.setSpacing(6)

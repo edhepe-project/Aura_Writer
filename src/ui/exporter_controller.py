@@ -193,6 +193,7 @@ class ExporterControllerMixin:
                     content = self.project_manager.read_chapter_content(cap.content_file)
                     media_items = [
                         {
+                            "asset_name": m.image_asset,
                             "path": self.project_manager.get_media_asset_path(m.image_asset),
                             "caption": m.caption,
                             "position": m.position,

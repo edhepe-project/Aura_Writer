@@ -15,6 +15,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_LEFT
 
 from tools.exporters.base_exporter import _COLORS, clean_html, format_date_es
+from bs4 import BeautifulSoup
 from tools.protection.aura_protect import strip_zero_width_chars
 from tools.exporters.pdf.flowables import (
     OrnamentalRule, DecorativeLine, ChapterMarker
@@ -184,21 +185,81 @@ class PDFExporter:
                     if m.get("position") == "before" and os.path.exists(m.get("path", "")):
                         story.extend(self._media_block(m, avail_width, st["caption"]))
 
-                soup = clean_html(item.get("content", ""))
-                paragraphs = soup.find_all(["p", "h1", "h2", "h3"])
+                # No usar clean_html para no perder los estilos que nos ayudan a detectar el pie de foto
+                soup = BeautifulSoup(item.get("content", ""), "lxml")
+
+                # Buscar el cuerpo del documento HTML para iterar en orden
+                body = soup.find("body") or soup
 
                 is_first_para = True
                 first_heading_skipped = False
-                for p in paragraphs:
-                    text = strip_zero_width_chars(p.get_text(strip=True))
+                embedded_assets = set()
+
+                for node in body.children:
+                    # Ignorar nodos de texto sueltos (espacios/saltos de línea)
+                    if not hasattr(node, "name") or node.name is None:
+                        continue
+
+                    tag_name = node.name.lower()
+
+                    # ── Imagen embebida (base64) — puede ser <img> directo o <p><img></p> (Qt) ──
+                    img_tag = None
+                    if tag_name == "img":
+                        img_tag = node
+                    elif tag_name == "p":
+                        # Qt envuelve las imágenes en <p>, buscamos si el único contenido
+                        # significativo del párrafo es una <img>
+                        children_tags = [c for c in node.children if hasattr(c, "name") and c.name]
+                        if len(children_tags) == 1 and children_tags[0].name == "img":
+                            img_tag = children_tags[0]
+
+                    if img_tag is not None:
+                        src = img_tag.get("src", "")
+                        if "base64," in src:
+                            # Registrar el asset_name si existe, para no duplicarlo al final
+                            if "asset=" in src:
+                                for part in src.split(";"):
+                                    if part.startswith("asset="):
+                                        embedded_assets.add(part.split("=")[1])
+                                        
+                            try:
+                                b64_part = src.split("base64,", 1)[1]
+                                import base64, tempfile
+                                img_bytes = base64.b64decode(b64_part)
+                                tmp = tempfile.NamedTemporaryFile(
+                                    suffix=".png", delete=False, dir=self.temp_dir
+                                )
+                                tmp.write(img_bytes)
+                                tmp.close()
+                                rl_img = RLImage(tmp.name)
+                                iw, ih = rl_img.drawWidth, rl_img.drawHeight
+                                if iw > avail_width:
+                                    ratio = avail_width / iw
+                                    rl_img.drawWidth = avail_width
+                                    rl_img.drawHeight = ih * ratio
+                                rl_img.hAlign = "CENTER"
+                                story.append(Spacer(1, 10))
+                                story.append(rl_img)
+                                story.append(Spacer(1, 4))
+                                is_first_para = True
+                            except Exception:
+                                pass
+                        continue  # Ya procesado como imagen
+
+                    # ── Párrafos y encabezados de texto ───────────────────────────
+                    if tag_name not in ("p", "h1", "h2", "h3"):
+                        continue
+
+                    text = strip_zero_width_chars(node.get_text(strip=True))
                     if not text:
                         continue
 
-                    if p.name in ("h1", "h2", "h3") and not first_heading_skipped:
+                    # Saltar el primer encabezado (ya está en el título del capítulo)
+                    if tag_name in ("h1", "h2", "h3") and not first_heading_skipped:
                         first_heading_skipped = True
                         continue
 
-                    # Detección de Página en Blanco y Salto de Página
+                    # Página en blanco
                     if "[ Página en Blanco ]" in text or "[ Página en blanco ]" in text or "página en blanco" in text.lower():
                         story.append(NextPageTemplate("BlankPage"))
                         story.append(PageBreak())
@@ -208,11 +269,13 @@ class PDFExporter:
                         is_first_para = True
                         continue
 
-                    if "Salto de Página" in text or "salto de página" in text.lower() or "page-break-after" in str(p.get("style", "")):
+                    # Salto de página
+                    if "Salto de Página" in text or "salto de página" in text.lower():
                         story.append(PageBreak())
                         is_first_para = True
                         continue
 
+                    # Separadores escénicos
                     if text.strip() in ("***", "* * *", "---", "———", "• • •", "⁂"):
                         story.append(Spacer(1, 8))
                         story.append(OrnamentalRule(
@@ -228,11 +291,12 @@ class PDFExporter:
                         is_first_para = True
                         continue
 
-                    if p.name in ("h2", "h3"):
+                    # Sub-encabezados h2/h3
+                    if tag_name in ("h2", "h3"):
                         sub_style = ParagraphStyle(
                             "SubHeading",
                             fontName="Times-Bold",
-                            fontSize=12 if p.name == "h2" else 11,
+                            fontSize=12 if tag_name == "h2" else 11,
                             leading=16,
                             alignment=TA_LEFT,
                             textColor=HexColor(_COLORS["text_primary"]),
@@ -243,12 +307,29 @@ class PDFExporter:
                         is_first_para = True
                         continue
 
+                    # Pie de foto: detectado por el estilo font-style:italic o font-size:9pt
+                    # Buscamos en el nodo mismo o en sus hijos (como spans)
+                    style_str = node.get("style", "")
+                    for child in node.find_all(True):
+                        style_str += str(child.get("style", ""))
+                    
+                    is_caption = "italic" in style_str.lower() or "font-size:9" in style_str.replace(" ", "").lower() or "font-size: 9" in style_str.lower()
+
+                    if is_caption:
+                        story.append(Paragraph(f"<i>{text}</i>", st["caption"]))
+                        is_first_para = True
+                        continue
+
+                    # Párrafo de cuerpo normal
                     style = st["body_first"] if is_first_para else st["body"]
                     story.append(Paragraph(text, style))
                     is_first_para = False
 
                 for m in item.get("medias", []):
                     if m.get("position") in ("after", "inline") and os.path.exists(m.get("path", "")):
+                        # Si la imagen ya fue renderizada inline, saltarla para no duplicar
+                        if m.get("asset_name") in embedded_assets:
+                            continue
                         story.extend(self._media_block(m, avail_width, st["caption"]))
 
                 for note_text in item.get("author_notes", []):

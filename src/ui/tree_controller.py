@@ -236,10 +236,75 @@ class TreeControllerMixin:
         if item_type == "chapter" and self._current_chapter and self._current_chapter.id == item_id:
             self._current_chapter = None
             self.editor.clear()
+        elif item_type == "media":
+            # Eliminar la imagen correspondiente de la hoja de texto del capítulo
+            self._remove_media_from_chapter_content(obj)
 
         self._mark_dirty()  # NEW-02: eliminar nodo debe marcar el proyecto como modificado
         self._refresh_tree()
         self.statusBar().showMessage(f"'{title}' movido a la papelera (puedes restaurarlo)", 4000)
+
+    def _remove_media_from_chapter_content(self, media_obj):
+        """Elimina la imagen correspondiente del editor activo o del archivo HTML del capítulo."""
+        asset_name = getattr(media_obj, "image_asset", "")
+        raw_bytes = None
+        if asset_name and self.project_manager:
+            try:
+                asset_path = self.project_manager.get_media_asset_path(asset_name)
+                if os.path.exists(asset_path):
+                    with open(asset_path, "rb") as f:
+                        raw_bytes = f.read()
+            except Exception:
+                pass
+
+        # 1. Si el editor actual tiene la imagen abierta, removerla directamente del documento
+        editor_cleaned = False
+        if hasattr(self, "editor"):
+            if asset_name and hasattr(self.editor, "remove_image_by_source"):
+                editor_cleaned = self.editor.remove_image_by_source(asset_name)
+            if not editor_cleaned and raw_bytes and hasattr(self.editor, "remove_image_by_raw_data"):
+                editor_cleaned = self.editor.remove_image_by_raw_data(raw_bytes)
+
+        # 2. Si no estaba en el editor activo (o por seguridad en disco), buscar en los capítulos
+        #    guardados en disco y limpiar la etiqueta <img> correspondiente
+        if raw_bytes or asset_name:
+            import re
+            b64_prefix = ""
+            if raw_bytes:
+                from PyQt6.QtCore import QByteArray
+                b64_prefix = QByteArray(raw_bytes).toBase64().data().decode("utf-8")[:50]
+
+            meta = self.project_manager.metadata
+            if meta:
+                for obra in meta.obras:
+                    for libro in obra.libros:
+                        for cap in libro.capitulos:
+                            if not cap.content_file:
+                                continue
+                            # Si es el capítulo actualmente abierto y ya se limpió en el editor,
+                            # omitir leer de disco para no pisar el editor vivo
+                            if self._current_chapter and self._current_chapter.id == cap.id:
+                                continue
+                            try:
+                                html = self.project_manager.read_chapter_content(cap.content_file)
+                                if not html:
+                                    continue
+                                modified = False
+                                if asset_name and asset_name in html:
+                                    # Quitar bloque o tag img con asset_name
+                                    pattern = rf'<p[^>]*>\s*<img[^>]*{re.escape(asset_name)}[^>]*>\s*</p>|<img[^>]*{re.escape(asset_name)}[^>]*>'
+                                    html, count = re.subn(pattern, '', html, flags=re.IGNORECASE)
+                                    if count > 0:
+                                        modified = True
+                                if not modified and b64_prefix and b64_prefix in html:
+                                    pattern = rf'<p[^>]*>\s*<img[^>]*{re.escape(b64_prefix)}[^>]*>\s*</p>|<img[^>]*{re.escape(b64_prefix)}[^>]*>'
+                                    html, count = re.subn(pattern, '', html, flags=re.IGNORECASE)
+                                    if count > 0:
+                                        modified = True
+                                if modified:
+                                    self.project_manager.write_chapter_content(cap.content_file, html)
+                            except Exception:
+                                pass
 
     # ------------------------------------------------------------------
     # Extracción de nodos

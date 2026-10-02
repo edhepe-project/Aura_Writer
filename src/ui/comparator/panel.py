@@ -80,6 +80,9 @@ class ChapterEditorPanel(QFrame):
         font = QFont("Georgia", 13)
         font.setStyleHint(QFont.StyleHint.Serif)
         self.editor.setFont(font)
+        # Aplicar la fuente al documento base para que todos los bloques la hereden,
+        # incluyendo los que vienen del HTML con estilos embebidos.
+        self.editor.document().setDefaultFont(font)
         self.editor.setStyleSheet(f"""
             QTextEdit {{
                 background-color: {editor_bg};

@@ -15,6 +15,7 @@ from PyQt6.QtGui import (
     QTextImageFormat, QTextBlockFormat, QColor, QTextDocument
 )
 from PyQt6.QtCore import Qt, QUrl, QTimer
+import os
 import uuid
 
 from core.theme_manager import ThemeManager
@@ -63,6 +64,13 @@ class AuraEditor(QTextEdit):
         self._spell_timer.setInterval(600)
         self._spell_timer.timeout.connect(self._trigger_spell_check)
         self.textChanged.connect(self._on_text_changed_for_spell)
+
+        # ── Sinónimos (Thesaurus) ──────────────────────────────────────────
+        try:
+            from core.thesaurus import AuraThesaurus
+            AuraThesaurus.get_instance().preload_async()
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Apariencia, Zoom y Accesibilidad
@@ -535,7 +543,7 @@ class AuraEditor(QTextEdit):
             else:
                 super().insertFromMimeData(source)
 
-    def _insert_image_object(self, image: QImage, name: str = ""):
+    def _insert_image_object(self, image: QImage, name: str = "", caption: str = ""):
         if image.isNull():
             return
 
@@ -558,7 +566,11 @@ class AuraEditor(QTextEdit):
         buffer.open(QIODevice.OpenModeFlag.WriteOnly)
         image.save(buffer, "PNG")
         b64_data = ba.toBase64().data().decode("utf-8")
-        resource_name = f"data:image/png;base64,{b64_data}"
+        if name:
+            safe_name = os.path.basename(name)
+            resource_name = f"data:image/png;asset={safe_name};base64,{b64_data}"
+        else:
+            resource_name = f"data:image/png;base64,{b64_data}"
 
         cursor = self.textCursor()
         cursor.insertBlock()
@@ -572,12 +584,69 @@ class AuraEditor(QTextEdit):
         img_fmt.setHeight(image.height())
         cursor.insertImage(img_fmt)
 
+        # Pie de foto (caption) — si se proporcionó
+        if caption:
+            cursor.insertBlock()
+            cap_fmt = cursor.blockFormat()
+            cap_fmt.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            cursor.setBlockFormat(cap_fmt)
+            char_fmt = QTextCharFormat()
+            char_fmt.setFontItalic(True)
+            char_fmt.setFontPointSize(9)
+            cursor.setCharFormat(char_fmt)
+            cursor.insertText(caption)
+            # Restaurar formato normal
+            normal_fmt = QTextCharFormat()
+            cursor.setCharFormat(normal_fmt)
+
         cursor.insertBlock()
         block_fmt2 = cursor.blockFormat()
         block_fmt2.setAlignment(Qt.AlignmentFlag.AlignLeft)
         cursor.setBlockFormat(block_fmt2)
 
         self.setTextCursor(cursor)
+
+    def remove_image_by_source(self, name_or_asset: str) -> bool:
+        """Busca y elimina del documento de texto una imagen que coincida con name_or_asset."""
+        if not name_or_asset:
+            return False
+        doc = self.document()
+        block = doc.begin()
+        removed = False
+        while block.isValid():
+            it = block.begin()
+            while not it.atEnd():
+                frag = it.fragment()
+                if frag.isValid():
+                    fmt = frag.charFormat()
+                    if fmt.isImageFormat():
+                        img_fmt = fmt.toImageFormat()
+                        img_name = img_fmt.name()
+                        # Coincidencia directa por asset_name o data-URI
+                        if name_or_asset in img_name:
+                            c = QTextCursor(doc)
+                            c.setPosition(frag.position())
+                            c.setPosition(frag.position() + frag.length(), QTextCursor.MoveMode.KeepAnchor)
+                            c.removeSelectedText()
+                            removed = True
+                            break
+                it += 1
+            if removed:
+                break
+            block = block.next()
+
+        if removed:
+            self.document().setModified(True)
+        return removed
+
+    def remove_image_by_raw_data(self, raw_bytes: bytes) -> bool:
+        """Elimina una imagen del documento comparando los bytes base64."""
+        if not raw_bytes:
+            return False
+        from PyQt6.QtCore import QByteArray
+        b64 = QByteArray(raw_bytes).toBase64().data().decode("utf-8")
+        prefix = b64[:50]  # Suficiente para identificar únicamente la imagen
+        return self.remove_image_by_source(prefix)
 
     def _show_context_menu(self, pos):
         EditorContextMenu.show_menu(self, pos)
@@ -643,12 +712,42 @@ class AuraEditor(QTextEdit):
         cursor.insertText(new_word)
         self.setTextCursor(cursor)
 
+    def open_thesaurus(self, word: str = ""):
+        """Abre el diálogo de sinónimos para el término indicado o el seleccionado."""
+        if not word:
+            cursor = self.textCursor()
+            if cursor.hasSelection():
+                word = cursor.selectedText().strip()
+            else:
+                temp_c = QTextCursor(cursor)
+                temp_c.select(QTextCursor.SelectionType.WordUnderCursor)
+                word = temp_c.selectedText().strip()
+
+        clean_word = "".join(c for c in word if c.isalpha() or c == "-")
+
+        def _on_replace(replacement: str):
+            cursor = self.textCursor()
+            if not cursor.hasSelection():
+                cursor.select(QTextCursor.SelectionType.WordUnderCursor)
+            cursor.insertText(replacement)
+            self.setTextCursor(cursor)
+
+        from ui.thesaurus_dialog import ThesaurusDialog
+        dialog = ThesaurusDialog(initial_word=clean_word, on_replace=_on_replace, parent=self)
+        dialog.exec()
+
     # ------------------------------------------------------------------
     # Manejo de Teclado, Sonidos y Atajos
     # ------------------------------------------------------------------
 
     def keyPressEvent(self, e):  # noqa: N802
         event = e
+
+        # Atajo Shift+F7 para Diccionario de Sinónimos
+        if event.key() == Qt.Key.Key_F7 and (event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
+            self.open_thesaurus()
+            event.accept()
+            return
 
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and not event.modifiers():
             try:

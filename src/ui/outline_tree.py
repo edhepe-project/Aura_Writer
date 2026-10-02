@@ -145,7 +145,7 @@ class OutlineTree(QTreeView):
                         self.setCurrentIndex(idx)
                         self.selectionModel().select(idx, self.selectionModel().SelectionFlag.ClearAndSelect)
                         node_type = child.data(Qt.ItemDataRole.UserRole + 1)
-                        if emit_signal and node_type != "media":
+                        if emit_signal:
                             self.item_selected.emit(target_id, node_type)
                         return True
                     if _search_item(child):

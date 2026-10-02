@@ -291,7 +291,7 @@ class AppLifecycleMixin:
         if self._current_chapter:
             self._detect_character_mentions(self._current_chapter)
             self._detect_place_mentions(self._current_chapter)
-        self._flush_content_to_metadata()
+        self._flush_content_to_metadata(force=True)
         if self._current_chapter:
             try:
                 self.project_manager.create_chapter_revision(
@@ -351,37 +351,38 @@ class AppLifecycleMixin:
         worker.start()
         return True  # Bug #1: retornar True para que closeEvent lo interprete correctamente
 
-    def _flush_content_to_metadata(self: "AuraMainWindow"):
-        """Persiste el contenido del editor (capítulo o sinopsis de contenedor) y la nota activa al metadata."""
-        if self._current_chapter and self._current_chapter.content_file:
-            html = (self.editor.get_content_html()
-                    if hasattr(self.editor, "get_content_html")
-                    else self.editor.toHtml())
-            self.project_manager.write_chapter_content(
-                self._current_chapter.content_file, html
-            )
-        elif getattr(self, "_current_container_obj", None) and getattr(self, "_current_container_type", "") in ("universe", "obra", "libro"):
-            html = (self.editor.get_content_html()
-                    if hasattr(self.editor, "get_content_html")
-                    else self.editor.toHtml())
-            # Bug #2: eliminar SOLO el encabezado dinámico insertado por _load_container_synopsis.
-            # La estrategia anterior de split("<hr") cortaba el contenido real del usuario si
-            # su texto contenia una etiqueta <hr>. Ahora buscamos el marcador exacto que
-            # _load_container_synopsis inserta al principio del documento.
-            import re as _re
-            # El encabezado tiene la forma: <h2>Título</h2><hr .../>  o  <h2>...</h2><hr/>
-            # Solo eliminamos si está al principio del body del HTML.
-            html = _re.sub(
-                r'^(.*?<body[^>]*>\s*)<(?:p|h[1-6])[^>]*>[^<]*</(?:p|h[1-6])>\s*<hr\s*[^/]*/?>\s*',
-                r'\1',
-                html,
-                count=1,
-                flags=_re.DOTALL | _re.IGNORECASE,
-            )
-            self._current_container_obj.synopsis = html
-
-        if self._current_note:
-            self._current_note.content = self.inspector_notes.toPlainText()
+    def _flush_content_to_metadata(self: "AuraMainWindow", force: bool = False):
+        """Persiste el contenido del editor (capítulo o sinopsis de contenedor) al metadata.
+        
+        Args:
+            force: Si True, guarda siempre aunque el documento no esté marcado como modificado.
+                   Usar­o únicamente por save_project() para garantizar integridad en guardados
+                   explícitos del usuario. En navegación rápida usar force=False (por defecto).
+        """
+        if force or self.editor.document().isModified():
+            if self._current_chapter and self._current_chapter.content_file:
+                html = (self.editor.get_content_html()
+                        if hasattr(self.editor, "get_content_html")
+                        else self.editor.toHtml())
+                self.project_manager.write_chapter_content(
+                    self._current_chapter.content_file, html
+                )
+                self.editor.document().setModified(False)
+            elif getattr(self, "_current_container_obj", None) and getattr(self, "_current_container_type", "") in ("universe", "obra", "libro"):
+                html = (self.editor.get_content_html()
+                        if hasattr(self.editor, "get_content_html")
+                        else self.editor.toHtml())
+                # Bug #2: eliminar SOLO el encabezado dinámico insertado por _load_container_synopsis.
+                import re as _re
+                html = _re.sub(
+                    r'^(.*?<body[^>]*>\s*)<(?:p|h[1-6])[^>]*>[^<]*</(?:p|h[1-6])>\s*<hr\s*[^/]*/?>\s*',
+                    r'\1',
+                    html,
+                    count=1,
+                    flags=_re.DOTALL | _re.IGNORECASE,
+                )
+                self._current_container_obj.synopsis = html
+                self.editor.document().setModified(False)
 
     def _mark_dirty(self: "AuraMainWindow"):
         self._dirty = True
@@ -412,20 +413,29 @@ class AppLifecycleMixin:
         )
         if not path:
             return
+
+        # Pedir pie de foto (opcional)
+        from PyQt6.QtWidgets import QInputDialog
+        caption, ok = QInputDialog.getText(
+            self,
+            "Pie de Foto",
+            "Pie de foto (opcional — presiona OK para omitir):",
+        )
+        if not ok:
+            return  # El usuario canceló
+        caption = caption.strip()
+
         ext = os.path.splitext(path)[1]
         with open(path, "rb") as f:
             data = f.read()
         asset_name = self.project_manager.save_media_asset(data, ext)
-        media = MediaNode(title=os.path.basename(path), image_asset=asset_name)
-        self._current_chapter.medias.append(media)
         img = QImage()
         img.loadFromData(data)
         if img.isNull():
             QMessageBox.critical(self, "Error", "El archivo de imagen esta corrupto.")
             return
-        self.editor._insert_image_object(img, asset_name)
-        self._refresh_tree()
-        self.statusBar().showMessage(f"Imagen anadida: {media.title}", 3000)
+        self.editor._insert_image_object(img, asset_name, caption=caption)
+        self.statusBar().showMessage("Imagen insertada en el texto.", 3000)
 
     # ------------------------------------------------------------------
     # Mesa de Cotejo / Comparador de Capítulos

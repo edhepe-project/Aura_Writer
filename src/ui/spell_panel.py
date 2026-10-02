@@ -78,7 +78,7 @@ class SpellPanel(QWidget):
         # Toggle on/off
         self._btn_toggle = QPushButton()
         self._btn_toggle.setCheckable(True)
-        self._btn_toggle.setChecked(True)
+        self._btn_toggle.setChecked(False)  # Por defecto apagado visualmente
         self._btn_toggle.setFixedSize(28, 28)
         self._btn_toggle.setToolTip("Activar / Desactivar corrector")
         self._btn_toggle.clicked.connect(self._on_toggle)
@@ -105,7 +105,7 @@ class SpellPanel(QWidget):
         root.addLayout(lang_row)
 
         # ── Contador de errores ───────────────────────────────────────
-        self._count_lbl = QLabel("Sin errores encontrados")
+        self._count_lbl = QLabel("Corrector desactivado")
         self._count_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         font_sm = QFont()
         font_sm.setPointSize(9)
@@ -245,7 +245,10 @@ class SpellPanel(QWidget):
         self._list.clear()
 
         if not errors:
-            self._count_lbl.setText("✅ Sin errores encontrados")
+            if not self._checker.show_errors:
+                self._count_lbl.setText("Corrector en segundo plano")
+            else:
+                self._count_lbl.setText("✅ Sin errores encontrados")
             self._update_buttons()
             return
 
@@ -292,7 +295,7 @@ class SpellPanel(QWidget):
             self._count_lbl.setText("Corrector desactivado")
             self._update_buttons()
         else:
-            self._count_lbl.setText("Revisando ortografía…")
+            self._count_lbl.setText("Revisando capítulo…")
             self.recheck_requested.emit()
         # Actualizar icono del toggle y colores del panel
         self._apply_theme()
@@ -301,7 +304,7 @@ class SpellPanel(QWidget):
         code = self._combo_lang.itemData(index)
         if code:
             self._checker.set_language(code)
-            if self._checker.enabled:
+            if self._checker.show_errors:
                 self._count_lbl.setText("Revisando ortografía…")
                 self.recheck_requested.emit()
 

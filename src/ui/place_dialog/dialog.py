@@ -140,13 +140,18 @@ class PlaceEditDialog(QDialog):
         self.btn_attach_img.clicked.connect(self._attach_image)
         img_box.addWidget(self.btn_attach_img)
 
+        self.btn_view_img = QPushButton("Ver Mapa")
+        self.btn_view_img.clicked.connect(self._view_image)
+        self.btn_view_img.hide()
+        img_box.addWidget(self.btn_view_img)
+
         self.btn_remove_img = QPushButton("✕ Quitar")
         self.btn_remove_img.clicked.connect(self._remove_image)
         self.btn_remove_img.hide()
         img_box.addWidget(self.btn_remove_img)
 
         l_geo.addLayout(img_box)
-        self.tabs.addTab(tab_geo, "Geografía & Plano")
+        self.tabs.addTab(tab_geo, "Geografía y Plano")
 
         # ── PESTAÑA 2: Atmósfera & Inmersión Sensorial ────────────────
         tab_sens = QWidget()
@@ -182,7 +187,7 @@ class PlaceEditDialog(QDialog):
         self.edit_notes.setPlaceholderText("Secretos no revelados a los personajes, ideas futuras para giros de trama...")
         l_lore.addWidget(self.edit_notes, 1)
 
-        self.tabs.addTab(tab_lore, "Lore & Notas")
+        self.tabs.addTab(tab_lore, "Lore y Notas")
 
         root.addWidget(self.tabs, 1)
 
@@ -233,6 +238,7 @@ class PlaceEditDialog(QDialog):
         if self._place.image_asset:
             self.lbl_img_status.setText(f"Imagen adjunta: {self._place.image_asset}")
             self.btn_remove_img.show()
+            self.btn_view_img.show()
 
     def _attach_image(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -248,6 +254,7 @@ class PlaceEditDialog(QDialog):
                 self._place.image_asset = asset_name
                 self.lbl_img_status.setText(f"Imagen adjunta: {asset_name}")
                 self.btn_remove_img.show()
+                self.btn_view_img.show()
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"No se pudo guardar la imagen: {e}")
 
@@ -255,6 +262,19 @@ class PlaceEditDialog(QDialog):
         self._place.image_asset = ""
         self.lbl_img_status.setText("Sin mapa o imagen adjunta")
         self.btn_remove_img.hide()
+        self.btn_view_img.hide()
+
+    def _view_image(self):
+        if not self._place.image_asset or not self.pm:
+            return
+        path = self.pm.get_media_asset_path(self._place.image_asset)
+        if not os.path.exists(path):
+            QMessageBox.warning(self, "Error", "La imagen no se encuentra en el disco.")
+            return
+
+        from ui.image_viewer import ImageViewerDialog
+        viewer = ImageViewerDialog(path, title=f"Mapa / Ilustración: {self._place.name}", parent=self)
+        viewer.exec()
 
     def _save_place(self):
         name = self.edit_name.text().strip()

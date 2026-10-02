@@ -217,7 +217,10 @@ class _SpellWorker(QRunnable):
             errors = self._checker._check_text(self._text)
             if getattr(self._checker, "_is_closing", False) or not getattr(self._checker, "_enabled", True):
                 return
-            self.signals.finished.emit(errors)
+            if getattr(self._checker, "_show_errors", True):
+                self.signals.finished.emit(errors)
+            else:
+                self.signals.finished.emit([])
         except RuntimeError:
             # Objeto Qt subyacente ya fue destruido (la ventana se está cerrando)
             pass
@@ -261,7 +264,8 @@ class AuraSpellChecker(QObject):
         self._personal_words: set[str] = set()
         self._ignored_words: set[str] = set()
         self._pool = QThreadPool.globalInstance()
-        self._enabled = True
+        self._enabled = False  # Completamente desactivado por defecto
+        self._show_errors = False
         self._is_closing = False
         self._load_checker()
 
@@ -335,8 +339,18 @@ class AuraSpellChecker(QObject):
     @enabled.setter
     def enabled(self, value: bool):
         self._enabled = value
+        self._show_errors = value
         if not value:
             self.errors_ready.emit([])
+
+    @property
+    def show_errors(self) -> bool:
+        return self._show_errors
+
+    @show_errors.setter
+    def show_errors(self, value: bool):
+        # Activar show_errors también activa el motor; desactivar apaga todo
+        self.enabled = value
 
     @property
     def language(self) -> str:

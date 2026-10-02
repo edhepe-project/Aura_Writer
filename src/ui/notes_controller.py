@@ -170,6 +170,10 @@ class NotesControllerMixin:
         self._current_container_obj = chapter
         html = self.project_manager.read_chapter_content(chapter.content_file)
 
+        # Cancelar cualquier revision ortografica pendiente del capitulo anterior
+        if hasattr(self.editor, '_spell_timer'):
+            self.editor._spell_timer.stop()
+
         # Bloquear actualizaciones visuales para evitar el salto de línea
         # que produce Qt al recorrer y modificar formatos de párrafo tras setHtml()
         self.editor.setUpdatesEnabled(False)
@@ -190,6 +194,7 @@ class NotesControllerMixin:
                 self.editor._apply_paragraph_spacing()
             # Forzar scroll al inicio de forma silenciosa antes de mostrar
             self.editor.verticalScrollBar().setValue(0)
+            self.editor.document().setModified(False)
         finally:
             self.editor.setUpdatesEnabled(True)
 
@@ -359,6 +364,7 @@ class NotesControllerMixin:
             if hasattr(self.editor, "_apply_appearance"):
                 self.editor._apply_appearance()
             self.editor.verticalScrollBar().setValue(0)
+            self.editor.document().setModified(False)
         finally:
             self.editor.setUpdatesEnabled(True)
 

@@ -137,6 +137,44 @@ class EditorContextMenu:
         mime = clipboard.mimeData()
         can_paste = bool(mime and (mime.hasText() or mime.hasImage()))
 
+        # ── Sinónimos (Thesaurus offline) ─────────────────────────────
+        syn_actions: list[tuple[any, str, QTextCursor]] = []
+        act_open_thesaurus = None
+        target_thesaurus_word = ""
+
+        try:
+            from core.thesaurus import AuraThesaurus
+            thesaurus = AuraThesaurus.get_instance()
+
+            if editor.textCursor().hasSelection():
+                t_cursor = editor.textCursor()
+            else:
+                t_cursor = QTextCursor(cursor)
+                t_cursor.select(QTextCursor.SelectionType.WordUnderCursor)
+
+            raw_word = t_cursor.selectedText().strip()
+            clean_word = "".join(c for c in raw_word if c.isalpha() or c == "-")
+            if len(clean_word) > 1 and thesaurus.has_synonyms(clean_word):
+                target_thesaurus_word = clean_word
+                syns = thesaurus.get_synonyms(clean_word, max_results=8)
+                syn_menu = menu.addMenu(
+                    qta.icon("fa5s.book-open", color=_blue),
+                    f"Sinónimos de «{clean_word}»"
+                )
+                if syns:
+                    for syn in syns:
+                        act_syn = syn_menu.addAction(qta.icon("fa5s.exchange-alt", color=_blue), f"  {syn}")
+                        syn_actions.append((act_syn, syn, t_cursor))
+                    syn_menu.addSeparator()
+
+                act_open_thesaurus = syn_menu.addAction(
+                    qta.icon("fa5s.search", color=_accent),
+                    "Más sinónimos y alternativas…\tShift+F7"
+                )
+                menu.addSeparator()
+        except Exception:
+            pass
+
         # Edición Estándar
         act_undo = menu.addAction(qta.icon("fa5s.undo", color=_ic if can_undo else (_ic + "55")), "Deshacer\tCtrl+Z")
         act_undo.setEnabled(can_undo)
@@ -196,6 +234,17 @@ class EditorContextMenu:
         chosen = menu.exec(editor.viewport().mapToGlobal(pos))
         if not chosen:
             return
+
+        if chosen == act_open_thesaurus:
+            if hasattr(editor, "open_thesaurus"):
+                editor.open_thesaurus(target_thesaurus_word)
+            return
+
+        for act_s, syn_val, word_c in syn_actions:
+            if chosen == act_s:
+                word_c.insertText(syn_val)
+                editor.setTextCursor(word_c)
+                return
 
         if chosen == act_undo:
             editor.undo()
