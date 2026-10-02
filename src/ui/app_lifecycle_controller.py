@@ -277,14 +277,14 @@ class AppLifecycleMixin:
     # Guardado y persistencia
     # ------------------------------------------------------------------
 
-    def save_project(self: "AuraMainWindow"):
+    def save_project(self: "AuraMainWindow", sync: bool = False):
         if not self.project_manager.metadata:
             self.statusBar().showMessage("No hay proyecto abierto.", 3000)
-            return
-        # Evitar guardados paralelos
-        if getattr(self, "_save_worker_active", False):
+            return False
+        # Evitar guardados paralelos si ya hay uno en curso y no es sync
+        if not sync and getattr(self, "_save_worker_active", False):
             log.debug("Guardado ya en curso, se omite.")
-            return
+            return False
         
         self.char_dock._save_current_card()
         self._sync_relations_to_metadata()
@@ -300,6 +300,21 @@ class AppLifecycleMixin:
                 )
             except Exception as e:
                 log.warning("No se pudo registrar la revisión del capítulo: %s", e)
+
+        if sync:
+            if getattr(self, "_active_save_worker", None) and self._active_save_worker.isRunning():
+                self._active_save_worker.wait(5000)
+            try:
+                self.project_manager.save_project()
+                self._dirty = False
+                now = datetime.now().strftime("%H:%M:%S")
+                self._autosave_indicator.setText(f"Guardado: {now}")
+                self._autosave_indicator.setStyleSheet("color:#30d158;font-size:11px;padding:0 8px;")
+                return True
+            except Exception as e:
+                log.error("Error al guardar síncronamente: %s", e)
+                QMessageBox.critical(self, "Error al Guardar", str(e))
+                return False
 
         # Indicador visual de guardado en progreso
         self._autosave_indicator.setText("⏳ Guardando...")
@@ -334,6 +349,7 @@ class AppLifecycleMixin:
         # Mantener referencia al worker para evitar que sea recolectado por GC
         self._active_save_worker = worker
         worker.start()
+        return True  # Bug #1: retornar True para que closeEvent lo interprete correctamente
 
     def _flush_content_to_metadata(self: "AuraMainWindow"):
         """Persiste el contenido del editor (capítulo o sinopsis de contenedor) y la nota activa al metadata."""
@@ -348,9 +364,20 @@ class AppLifecycleMixin:
             html = (self.editor.get_content_html()
                     if hasattr(self.editor, "get_content_html")
                     else self.editor.toHtml())
-            # Remover cualquier cabecera dinámica estática guardada accidentalmente
-            if "<hr" in html:
-                html = html.split("<hr")[-1].split(">", 1)[-1].strip()
+            # Bug #2: eliminar SOLO el encabezado dinámico insertado por _load_container_synopsis.
+            # La estrategia anterior de split("<hr") cortaba el contenido real del usuario si
+            # su texto contenia una etiqueta <hr>. Ahora buscamos el marcador exacto que
+            # _load_container_synopsis inserta al principio del documento.
+            import re as _re
+            # El encabezado tiene la forma: <h2>Título</h2><hr .../>  o  <h2>...</h2><hr/>
+            # Solo eliminamos si está al principio del body del HTML.
+            html = _re.sub(
+                r'^(.*?<body[^>]*>\s*)<(?:p|h[1-6])[^>]*>[^<]*</(?:p|h[1-6])>\s*<hr\s*[^/]*/?>\s*',
+                r'\1',
+                html,
+                count=1,
+                flags=_re.DOTALL | _re.IGNORECASE,
+            )
             self._current_container_obj.synopsis = html
 
         if self._current_note:

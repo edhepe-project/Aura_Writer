@@ -5,6 +5,7 @@ Gestiona:
 - Espaciado armónico de párrafos y márgenes de página
 - Atajos literarios (guion largo '—', punto medio '·', separadores, saltos de página)
 - Integración de sonido mecánico Aura Singularity
+- Corrector ortográfico offline integrado (AuraSpellChecker + SpellHighlighter)
 """
 from __future__ import annotations
 
@@ -17,11 +18,16 @@ from PyQt6.QtCore import Qt, QUrl, QTimer
 import uuid
 
 from core.theme_manager import ThemeManager
+from core.spell_checker import AuraSpellChecker
 from .context_menu import EditorContextMenu
+from .spell_highlighter import SpellHighlighter
 
 
 class AuraEditor(QTextEdit):
     """Editor de texto enriquecido especializado para novelistas y escritores."""
+
+    # Paso de zoom por clic / rueda de ratón (en puntos porcentuales)
+    ZOOM_STEP: int = 10
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -45,6 +51,18 @@ class AuraEditor(QTextEdit):
         # Menú contextual extendido
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
+
+        # ── Corrector ortográfico ──────────────────────────────────────────
+        self._spell_checker = AuraSpellChecker(language="es", parent=self)
+        self._spell_highlighter = SpellHighlighter(self.document())
+        self._spell_checker.errors_ready.connect(self._on_spell_errors)
+
+        # Timer de debounce: espera 600ms sin escribir antes de revisar
+        self._spell_timer = QTimer(self)
+        self._spell_timer.setSingleShot(True)
+        self._spell_timer.setInterval(600)
+        self._spell_timer.timeout.connect(self._trigger_spell_check)
+        self.textChanged.connect(self._on_text_changed_for_spell)
 
     # ------------------------------------------------------------------
     # Apariencia, Zoom y Accesibilidad
@@ -237,10 +255,10 @@ class AuraEditor(QTextEdit):
             pass
 
     def zoom_in(self):
-        self.set_zoom_percentage(self._zoom_percentage + 10)
+        self.set_zoom_percentage(self._zoom_percentage + self.ZOOM_STEP)
 
     def zoom_out(self):
-        self.set_zoom_percentage(self._zoom_percentage - 10)
+        self.set_zoom_percentage(self._zoom_percentage - self.ZOOM_STEP)
 
     def zoom_reset(self):
         self.set_zoom_percentage(100)
@@ -565,6 +583,67 @@ class AuraEditor(QTextEdit):
         EditorContextMenu.show_menu(self, pos)
 
     # ------------------------------------------------------------------
+    # Corrector Ortográfico
+    # ------------------------------------------------------------------
+
+    @property
+    def spell_checker(self) -> AuraSpellChecker:
+        """Acceso al motor del corrector ortográfico."""
+        return self._spell_checker
+
+    @property
+    def spell_highlighter(self) -> SpellHighlighter:
+        """Acceso al highlighter de subrayado rojo."""
+        return self._spell_highlighter
+
+    def _on_text_changed_for_spell(self):
+        """Reinicia el timer de debounce en cada cambio de texto."""
+        if self._spell_checker.enabled:
+            self._spell_timer.start()
+
+    def cleanup(self):
+        """Detiene timers y recursos en segundo plano antes de destruir el editor."""
+        if hasattr(self, "_spell_timer"):
+            self._spell_timer.stop()
+        if hasattr(self, "_spell_checker"):
+            self._spell_checker.stop()
+
+    def _trigger_spell_check(self):
+        """Lanza la revisión en segundo plano con el texto plano actual."""
+        if self._spell_checker.enabled:
+            self._spell_checker.check_async(self.toPlainText())
+
+    def _on_spell_errors(self, errors):
+        """Recibe los errores del checker y actualiza el highlighter."""
+        self._spell_highlighter.set_errors(errors)
+
+    def navigate_to_spell_error(self, start: int, end: int):
+        """Posiciona el cursor del editor en el error ortográfico indicado."""
+        cursor = QTextCursor(self.document())
+        cursor.setPosition(start)
+        cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
+        self.setTextCursor(cursor)
+        self.ensureCursorVisible()
+        self.setFocus()
+
+        # Breve destello para señalar la palabra
+        selection = QTextEdit.ExtraSelection()
+        hl = QColor("#ff453a")
+        hl.setAlpha(80)
+        selection.format.setBackground(hl)
+        selection.cursor = cursor
+        self.setExtraSelections([selection])
+        QTimer.singleShot(1200, self.clear_highlight)
+
+    def replace_spell_word(self, start: int, end: int, new_word: str):
+        """Reemplaza la palabra con error por la nueva palabra sugerida."""
+        cursor = QTextCursor(self.document())
+        cursor.setPosition(start)
+        cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
+        cursor.insertText(new_word)
+        self.setTextCursor(cursor)
+
+    # ------------------------------------------------------------------
     # Manejo de Teclado, Sonidos y Atajos
     # ------------------------------------------------------------------
 
@@ -748,12 +827,14 @@ class AuraEditor(QTextEdit):
             self.setExtraSelections([selection])
 
             # 3. Desvanecer destello después de 1.8 segundos
-            if hasattr(self, "_highlight_timer") and self._highlight_timer.isActive():
-                self._highlight_timer.stop()
-            else:
+            if not hasattr(self, "_highlight_timer"):
+                # Bug #4: crear el timer solo UNA vez — antes se recreaba cuando no estaba activo
                 self._highlight_timer = QTimer(self)
                 self._highlight_timer.setSingleShot(True)
                 self._highlight_timer.timeout.connect(self.clear_highlight)
+
+            if self._highlight_timer.isActive():
+                self._highlight_timer.stop()
 
             self._highlight_timer.start(1800)
             self.setFocus()

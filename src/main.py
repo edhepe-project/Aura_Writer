@@ -322,6 +322,10 @@ def main():
                     ]
                     main_win.place_dock.update_chapters_data(chapters_data)
 
+                # Cargar diccionario personal en el corrector
+                if hasattr(main_win, "editor") and hasattr(main_win.editor, "spell_checker"):
+                    main_win.editor.spell_checker.load_personal_dictionary(getattr(meta, "personal_dictionary", []))
+
                 # Reabrir exactamente donde nos quedamos (último capítulo/nodo) o primer capítulo por defecto
                 last_node = getattr(meta, "last_selected_node_id", "")
                 restored = False

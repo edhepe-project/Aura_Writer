@@ -23,6 +23,7 @@ a = Analysis(
     datas=[
         ('aura_writer.ico', '.'),
         ('assets', 'assets'),
+        ('src/core/dicts', 'core/dicts'),
     ],
     hiddenimports=[
         'PyQt6',
@@ -47,6 +48,9 @@ a = Analysis(
         'pydantic',
         'markdown',
         'pygame.mixer',
+        'spylls',
+        'spylls.hunspell',
+        'spellchecker',
     ],
     hookspath=[],
     hooksconfig={},

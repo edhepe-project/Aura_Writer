@@ -396,6 +396,8 @@ class UniverseMetadata(BaseModel):
     # ── Cronograma Narrativo (Grafo de Historia) ──────────────────
     story_blocks: List[StoryBlock] = Field(default_factory=list)
     story_arcs: List[StoryArc] = Field(default_factory=list)
+    # ── Corrector Ortográfico ───────────────────────────────────────
+    personal_dictionary: List[str] = Field(default_factory=list)
     # Timestamps
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)

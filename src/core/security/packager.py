@@ -20,9 +20,14 @@ def package_project(password: str, source_dir: str, output_file: str, totp_secre
     with zipfile.ZipFile(memory_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
         for root, _, files in os.walk(source_dir):
             for file in files:
+                if file.endswith('.tmp'):
+                    continue
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, source_dir)
-                zf.write(full_path, rel_path)
+                try:
+                    zf.write(full_path, rel_path)
+                except (FileNotFoundError, OSError) as e:
+                    log.warning("Archivo omitido durante empaquetado (no encontrado o bloqueado): %s (%s)", full_path, e)
 
     zip_data = memory_zip.getvalue()
     if totp_secret:
@@ -68,8 +73,22 @@ def migrate_v1_to_v2(password: str, file_path: str) -> bool:
         raise ValueError(f"No se pudo migrar V1→V2: {e}") from e
 
     new_blob = encrypt_data(password, plaintext)
-    with open(file_path, 'wb') as f:
-        f.write(new_blob)
+
+    # Bug #15: usar escritura atómica para evitar corrupción si el proceso se interrumpe
+    temp_path = file_path + ".tmp"
+    try:
+        with open(temp_path, 'wb') as f:
+            f.write(new_blob)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temp_path, file_path)
+    except Exception:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+        raise
 
     log.info("Archivo migrado exitosamente a formato V2: %s", file_path)
     return True

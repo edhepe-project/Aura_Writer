@@ -1,11 +1,12 @@
 """
-context_menu.py — Menú contextual estilizado con soporte para temas e inspección de imágenes.
+context_menu.py — Menú contextual estilizado con soporte para temas, inspección de imágenes
+y sugerencias del corrector ortográfico.
 """
 from __future__ import annotations
 
 from PyQt6.QtWidgets import QMenu, QApplication
 from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QTextCursor, QTextImageFormat, QImage
+from PyQt6.QtGui import QTextCursor, QTextImageFormat, QImage, QFont
 import qtawesome as qta
 
 from core.theme_manager import ThemeManager
@@ -27,6 +28,87 @@ class EditorContextMenu:
         _danger = "#ff453a" if is_dark else "#dc2626"
         _blue = "#32ade6" if is_dark else "#0284c7"
         _clean_ic = "#ff9f0a" if is_dark else "#d97706"
+        _spell_c = "#ff453a"
+
+        # ── Sugerencias ortográficas (si la palabra bajo el cursor tiene error) ──
+        spell_error = None
+        if hasattr(editor, '_spell_highlighter') and hasattr(editor, '_spell_checker'):
+            # Obtener posición absoluta del clic en el documento
+            click_pos = cursor.position()
+            spell_error = editor._spell_highlighter.has_error_at(click_pos)
+
+        if spell_error:
+            # Título de sección (no seleccionable)
+            title_act = menu.addAction(
+                qta.icon("fa5s.spell-check", color=_spell_c),
+                f"  ¿Quiso decir... ({spell_error.word})"
+            )
+            title_font = QFont()
+            title_font.setBold(True)
+            title_font.setPointSize(10)
+            title_act.setFont(title_font)
+            title_act.setEnabled(False)
+
+            suggestion_actions = []
+            sugs = spell_error.suggestions or (editor.spell_checker.suggestions(spell_error.word) if hasattr(editor, "spell_checker") else [])
+            for sug in sugs[:5]:
+                act = menu.addAction(
+                    qta.icon("fa5s.check", color="#30d158"),
+                    f"    {sug}"
+                )
+                suggestion_actions.append((act, sug))
+
+            menu.addSeparator()
+            act_ignore = menu.addAction(
+                qta.icon("fa5s.eye-slash", color="#8e8e93"), "  Ignorar esta vez"
+            )
+            act_add_dict = menu.addAction(
+                qta.icon("fa5s.plus-circle", color="#30d158"), "  Añadir al diccionario"
+            )
+            menu.addSeparator()
+
+            chosen = menu.exec(editor.viewport().mapToGlobal(pos))
+            if chosen:
+                for act, sug in suggestion_actions:
+                    if chosen == act:
+                        editor.replace_spell_word(spell_error.start, spell_error.end, sug)
+                        return
+                if chosen == act_ignore:
+                    editor._spell_checker.ignore_word(spell_error.word)
+                    # Refrescar
+                    editor._trigger_spell_check()
+                    return
+                if chosen == act_add_dict:
+                    editor._spell_checker.add_to_personal_dictionary(spell_error.word)
+                    # Bug #8: persistir al proyecto. El menú contextual no tiene acceso directo
+                    # al ProjectManager, por lo que notificamos a través del SpellPanel si existe,
+                    # o buscamos el ProjectManager subiendo la jerarquía de widgets.
+                    word = spell_error.word
+                    persisted = False
+                    # Intentar via SpellPanel (tiene señal word_added_to_dict conectada al PM)
+                    try:
+                        parent = editor.parent()
+                        while parent is not None:
+                            if hasattr(parent, "spell_panel") and hasattr(parent.spell_panel, "word_added_to_dict"):
+                                parent.spell_panel.word_added_to_dict.emit(word)
+                                persisted = True
+                                break
+                            if hasattr(parent, "project_manager") and hasattr(parent.project_manager, "add_personal_word"):
+                                parent.project_manager.add_personal_word(word)
+                                persisted = True
+                                break
+                            parent = getattr(parent, "parent", lambda: None)()
+                    except Exception:
+                        pass
+                    if not persisted:
+                        import logging as _log
+                        _log.getLogger(__name__).warning(
+                            "add_to_dict desde menú contextual: no se pudo persistir '%s' al proyecto", word
+                        )
+                    editor._trigger_spell_check()
+                    return
+            else:
+                return
 
         if char_fmt.isImageFormat():
             img_fmt = char_fmt.toImageFormat()
@@ -163,35 +245,58 @@ class EditorContextMenu:
 
     @staticmethod
     def resize_image(editor, cursor: QTextCursor, img_fmt: QTextImageFormat, scale: float):
-        resource = editor.document().resource(
-            editor.document().ResourceType.ImageResource,
-            QUrl(img_fmt.name())
-        )
-        if resource is None:
-            return
+        name = img_fmt.name()
+        original = None
 
-        original = QImage(resource)
-        if original.isNull():
-            return
+        # 1. Intentar cargar desde data-URI si está incrustada en Base64
+        if name.startswith("data:image"):
+            try:
+                _, b64 = name.split(",", 1)
+                from PyQt6.QtCore import QByteArray
+                img = QImage()
+                if img.loadFromData(QByteArray.fromBase64(b64.encode("utf-8"))):
+                    original = img
+            except Exception:
+                pass
 
-        if scale >= 1.0:
-            new_w = original.width()
-            new_h = original.height()
+        # 2. Si no es data-URI o falló, buscar en los recursos del documento Qt
+        if original is None or original.isNull():
+            resource = editor.document().resource(
+                editor.document().ResourceType.ImageResource,
+                QUrl(name)
+            )
+            if resource is not None:
+                original = QImage(resource)
+
+        # 3. Fallback: dimensiones actuales del formato si no pudimos extraer el QImage
+        if original is None or original.isNull():
+            base_w = img_fmt.width() or 400
+            base_h = img_fmt.height() or 300
         else:
-            new_w = int(original.width() * scale)
-            new_h = int(original.height() * scale)
+            base_w = original.width()
+            base_h = original.height()
+
+        new_w = int(base_w * scale)
+        new_h = int(base_h * scale)
 
         available = editor.viewport().width() - 40
-        if new_w > available:
+        if new_w > available and new_w > 0:
             ratio = available / new_w
             new_w = available
             new_h = int(new_h * ratio)
 
-        cursor.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.KeepAnchor, 1)
-        if cursor.charFormat().isImageFormat():
+        # Buscar la imagen en la posición actual del cursor (derecha o izquierda)
+        target_cursor = QTextCursor(cursor)
+        target_cursor.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.KeepAnchor, 1)
+        if not target_cursor.charFormat().isImageFormat():
+            target_cursor = QTextCursor(cursor)
+            target_cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.KeepAnchor, 1)
+
+        if target_cursor.charFormat().isImageFormat():
             new_fmt = QTextImageFormat()
             new_fmt.setName(img_fmt.name())
             new_fmt.setWidth(new_w)
             new_fmt.setHeight(new_h)
-            cursor.removeSelectedText()
-            cursor.insertImage(new_fmt)
+            target_cursor.removeSelectedText()
+            target_cursor.insertImage(new_fmt)
+

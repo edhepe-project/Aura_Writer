@@ -1,5 +1,5 @@
 ╔═══════════════════════════════════════════════════════════════════╗
-║           AURA WRITER v1.7.7 — GUÍA DE INSTALACIÓN               ║
+║           AURA WRITER v1.7.8 — GUÍA DE INSTALACIÓN               ║
 ║         "Tu obra masiva, protegida y profesional"                 ║
 ╚═══════════════════════════════════════════════════════════════════╝
 
@@ -10,7 +10,7 @@ portátiles y viajan contigo en USB, disco externo o donde prefieras.
   OPCIÓN 1 — INSTALADOR VISUAL (WINDOWS) ✅ Recomendada
 ═══════════════════════════════════════════════════════════════════
 
-1. Descarga  AuraWriter_Setup_v1.7.7.exe  desde la sección Releases
+1. Descarga  AuraWriter_Setup_v1.7.8.exe  desde la sección Releases
    del repositorio en GitHub.
 
 2. Ejecuta el instalador y sigue el asistente (siguiente → siguiente).
@@ -97,4 +97,4 @@ EN LA COMPUTADORA NUEVA:
 
 ═══════════════════════════════════════════════════════════════════
 
-Aura Writer v1.7.7 — Diseñado por escritores, para escritores.
+Aura Writer v1.7.8 — Diseñado por escritores, para escritores.

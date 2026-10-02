@@ -21,6 +21,8 @@ Pillow>=10.0
 # ── Procesamiento de texto ───────────────────────────────────
 beautifulsoup4>=4.12
 lxml>=5.0
+spylls>=0.1.7
+pyspellchecker>=0.8.0
 
 # ── Grafos y visualización ───────────────────────────────────
 networkx>=3.0

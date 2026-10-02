@@ -37,8 +37,10 @@ class ProjectManager:
         self.usb_sync: USBSync = USBSync()
         self._last_usb_error: str = ""
 
-        # Limpiar carpetas huérfanas de sesiones anteriores
-        self.cleanup_orphaned_temp_dirs()
+        # Limpiar carpetas huérfanas de sesiones anteriores en segundo plano
+        # (usa glob + shutil.rmtree — operaciones de I/O que bloquearían el hilo principal)
+        import threading
+        threading.Thread(target=self.cleanup_orphaned_temp_dirs, daemon=True).start()
         # Asegurar limpieza al salir del proceso
         atexit.register(self._cleanup_on_exit)
 
@@ -55,7 +57,8 @@ class ProjectManager:
         os.makedirs(os.path.join(self.temp_dir, "content"), exist_ok=True)
         os.makedirs(os.path.join(self.temp_dir, "assets"), exist_ok=True)
 
-        chapter = Chapter(title="Prólogo", content_file="chap_1.html")
+        import uuid as _uuid
+        chapter = Chapter(title="Prólogo", content_file=f"chap_{_uuid.uuid4().hex[:8]}.html")
         book = Book(title="Libro I", capitulos=[chapter])
         obra = Obra(title=name, libros=[book])
 
@@ -116,7 +119,9 @@ class ProjectManager:
         """Cifra el estado actual al archivo local Y sincroniza con USB."""
         if self.is_locked or not self.current_project_path:
             log.warning("save_project() llamado sin proyecto abierto.")
-            return
+            return  # Bug #3: faltaba este return — de lo contrario continuaba con datos inválidos
+        if self.metadata and self.temp_dir:
+            self._ensure_all_chapter_files_exist()
         self.save_metadata()
         SecurityManager.package_project(
             self.password, self.temp_dir, self.current_project_path,
@@ -293,6 +298,11 @@ class ProjectManager:
         antivirus / Windows Search Indexer.
         """
         import time as _time
+        # Verificar que temp_dir sigue existiendo (puede haber sido limpiado
+        # por cleanup_orphaned_temp_dirs o al cerrar el proyecto)
+        if not self.temp_dir or not os.path.exists(self.temp_dir):
+            log.warning("_write_content: temp_dir no disponible, ignorando escritura de '%s'", filename)
+            return
         content_dir = os.path.join(self.temp_dir, "content")
         os.makedirs(content_dir, exist_ok=True)
         target = os.path.join(content_dir, filename)
@@ -331,11 +341,32 @@ class ProjectManager:
         )
 
     def read_chapter_content(self, content_file: str) -> str:
-        """Lee el HTML de un capítulo. Retorna '' si no existe."""
+        """Lee el HTML de un capítulo. Retorna '' si no existe.
+        Si el archivo de contenido no existe en disco pero sí en los metadatos,
+        lo crea vacío para evitar [WinError 2] en escrituras posteriores.
+        """
         if not content_file:
+            return ""
+        if not self.temp_dir or not os.path.exists(self.temp_dir):
+            log.warning("read_chapter_content: temp_dir no disponible")
             return ""
         path = os.path.join(self.temp_dir, "content", content_file)
         if not os.path.exists(path):
+            # El archivo figura en los metadatos pero no en disco.
+            # Puede pasar al abrir un proyecto antiguo cuyo .aura no
+            # incluyó este archivo. Lo creamos vacío para que las escrituras
+            # posteriores (auto-guardado, flush) no lancen [WinError 2].
+            try:
+                content_dir = os.path.join(self.temp_dir, "content")
+                os.makedirs(content_dir, exist_ok=True)
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write("")
+                log.warning(
+                    "read_chapter_content: archivo '%s' no encontrado en disco "
+                    "- creado vacío para evitar WinError 2.", content_file
+                )
+            except OSError as e:
+                log.error("No se pudo crear archivo de contenido faltante '%s': %s", path, e)
             return ""
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
@@ -601,6 +632,25 @@ class ProjectManager:
                     result.append((cap, libro.title))
         return result
 
+    def _ensure_all_chapter_files_exist(self):
+        """Verifica que todos los archivos de contenido de capítulos referenciados existan en disco."""
+        if not self.metadata or not self.temp_dir or not os.path.exists(self.temp_dir):
+            return
+        content_dir = os.path.join(self.temp_dir, "content")
+        os.makedirs(content_dir, exist_ok=True)
+        for obra in self.metadata.obras:
+            for libro in obra.libros:
+                for cap in libro.capitulos:
+                    if cap.content_file:
+                        path = os.path.join(content_dir, cap.content_file)
+                        if not os.path.exists(path):
+                            log.warning("_ensure_all_chapter_files_exist: creando archivo faltante '%s'", cap.content_file)
+                            try:
+                                with open(path, "w", encoding="utf-8") as f:
+                                    f.write(f"<h1>{cap.title}</h1>")
+                            except OSError as e:
+                                log.error("No se pudo crear archivo faltante '%s': %s", path, e)
+
     # ------------------------------------------------------------------
     # 2FA (TOTP)
     # ------------------------------------------------------------------
@@ -654,3 +704,16 @@ class ProjectManager:
         self._totp_secret = ""
         self.save_project()  # Ahora guarda en V2 (sin TOTP en KDF)
         log.info("2FA desactivado y archivo vuelto a formato V2 para el proyecto")
+
+    # ------------------------------------------------------------------
+    # Corrector Ortográfico
+    # ------------------------------------------------------------------
+
+    def add_personal_word(self, word: str):
+        """Añade una palabra al diccionario personal y guarda el proyecto."""
+        if not self.metadata:
+            return
+        w = word.lower().strip()
+        if w not in self.metadata.personal_dictionary:
+            self.metadata.personal_dictionary.append(w)
+            self.save_project()
