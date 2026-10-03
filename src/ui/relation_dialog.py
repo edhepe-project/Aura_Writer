@@ -45,18 +45,17 @@ class RelationDialog(QDialog):
         layout.setContentsMargins(20, 20, 20, 20)
 
         # ── Caja de Vista Previa en tiempo real ──
-        is_dark = ThemeManager.is_dark()
+        c = ThemeManager.palette()
         self.preview_lbl = QLabel()
-        if is_dark:
-            self.preview_lbl.setStyleSheet(
-                "background: rgba(94, 92, 230, 0.2); border: 1px solid #5e5ce6; "
-                "border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #f2f2f7; font-weight: bold;"
-            )
-        else:
-            self.preview_lbl.setStyleSheet(
-                "background: #ede9fe; border: 1px solid #818cf8; "
-                "border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #3730a3; font-weight: bold;"
-            )
+        self.preview_lbl.setStyleSheet(f"""
+            background: {c['bg_hover']};
+            border: 1px solid {c['border_default']};
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 13px;
+            color: {c['fg_primary']};
+            font-weight: bold;
+        """)
         self.preview_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview_lbl.setWordWrap(True)
         layout.addWidget(self.preview_lbl)

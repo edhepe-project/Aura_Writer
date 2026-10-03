@@ -109,6 +109,15 @@ class PlaceNodeItem(QGraphicsEllipseItem):
         self._font_badge = QFont("Segoe UI", 8, QFont.Weight.Bold)
         self._icon_str = PLACE_ICONS.get(place.category, "●")
 
+        # Colores cacheados del tema (evitan llamar ThemeManager en cada paint())
+        self._cached_fg_primary = QColor(ThemeManager.color("fg_primary"))
+        self._cached_fg_secondary = QColor(ThemeManager.color("fg_secondary"))
+
+    def _refresh_theme_cache(self):
+        """Actualiza los colores cacheados cuando cambia el tema."""
+        self._cached_fg_primary = QColor(ThemeManager.color("fg_primary"))
+        self._cached_fg_secondary = QColor(ThemeManager.color("fg_secondary"))
+
     def boundingRect(self) -> QRectF:
         r = self.radius
         # Debe cubrir el aura máxima en estado enfocado (aura_mult=0.85) + margen de etiqueta
@@ -126,10 +135,8 @@ class PlaceNodeItem(QGraphicsEllipseItem):
     def paint(self, painter: QPainter | None, option, widget=None):
         if painter is None:
             return
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
-        # Suprimir el rectángulo de selección estilo sistema operativo que dibuja Qt.
-        # Usamos nuestro propio anillo circular enfocado en su lugar.
+
+        # Suprimir el rectángulo de selección de Qt; usamos nuestro anillo propio.
         if option is not None and hasattr(option, 'state'):
             from PyQt6.QtWidgets import QStyle
             option.state &= ~QStyle.StateFlag.State_Selected
@@ -138,11 +145,27 @@ class PlaceNodeItem(QGraphicsEllipseItem):
         r = self.radius
         c = self._color
 
-        # Opacidad según estado de foco (siempre visible)
         if self._is_dimmed and not self._is_focused:
             painter.setOpacity(0.35)
         else:
             painter.setOpacity(1.0)
+
+        # ── LOD: renderizado simplificado a zoom muy bajo ──────────────────
+        # Cuando el usuario ve todo el mapa (zoom < 30%), dibujar solo un
+        # círculo sólido sin gradientes, texto ni iconos. Ahorro ~10x por nodo.
+        lod_scale = painter.worldTransform().m11()  # escala horizontal actual
+        if lod_scale < 0.30 and not self._is_focused:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            painter.setPen(Qt.PenStyle.NoPen)
+            lod_color = QColor(c)
+            lod_color.setAlphaF(0.75)
+            painter.setBrush(QBrush(lod_color))
+            lod_r = max(r * 0.8, 6.0)
+            painter.drawEllipse(QPointF(0, 0), lod_r, lod_r)
+            return
+
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
 
         # 1. Halo difuso / Corona Solar
         aura_mult = 0.85 if self._is_focused else (0.60 if self.tier == 0 else (0.45 if self.tier == 1 else 0.25))
@@ -217,8 +240,7 @@ class PlaceNodeItem(QGraphicsEllipseItem):
         # 6. Nombre del lugar debajo del nodo
         show_name = True
         if show_name:
-            is_dark = ThemeManager.is_dark()
-            name_col = QColor("#f2f2f7" if is_dark else "#1c1c1e")
+            name_col = QColor(self._cached_fg_primary)
             if self._is_dimmed and not self._is_focused:
                 name_col.setAlphaF(0.40)
             painter.setFont(self._font_name)
@@ -232,7 +254,7 @@ class PlaceNodeItem(QGraphicsEllipseItem):
 
             # Sub-etiqueta de categoría si está seleccionado
             if self._is_focused:
-                sub_col = QColor(c.lighter(160) if is_dark else c.darker(140))
+                sub_col = QColor(self._cached_fg_secondary)
                 sub_col.setAlphaF(0.92)
                 sub_font = QFont("Segoe UI", 8)
                 painter.setFont(sub_font)

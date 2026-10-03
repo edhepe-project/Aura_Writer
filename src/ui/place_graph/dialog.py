@@ -58,17 +58,24 @@ class PlaceGraphDialog(QDialog):
             QTimer.singleShot(50, self._graph_widget._fit_to_view)
 
     def _setup_ui(self):
-        is_dark = ThemeManager.is_dark()
-        bg_main = "#1c1c1e" if is_dark else "#f5f0ea"
-        bg_panel = "#2c2c2e" if is_dark else "#ffffff"
-        fg_title = "#f2f2f7" if is_dark else "#1c1c1e"
-        b_border = "#3a3a3c" if is_dark else "#d4cfc8"
+        c = ThemeManager.palette()
+        bg_main = c["bg_surface"]
+        bg_panel = c["bg_app"]
+        fg_title = c["fg_primary"]
+        b_border = c["border_default"]
+        bg_input = c["bg_hover"]
+        btn_bg = c["bg_hover"]
+        btn_hover = c["bg_selected"]
+        list_bg = c["bg_surface"]
+        item_border = c["border_subtle"]
+        accent = c["accent"]
+        fg_selected = c["fg_selected"]
 
         self.setStyleSheet(f"""
             QDialog {{ background-color: {bg_main}; }}
             QFrame#panel {{ background-color: {bg_panel}; border-left: 1px solid {b_border}; }}
             QLineEdit, QComboBox {{
-                background-color: {'#3a3a3c' if is_dark else '#fbf9f5'};
+                background-color: {bg_input};
                 color: {fg_title};
                 border: 1px solid {b_border};
                 border-radius: 6px;
@@ -76,7 +83,7 @@ class PlaceGraphDialog(QDialog):
                 font-size: 11px;
             }}
             QPushButton {{
-                background-color: {'#3a3a3c' if is_dark else '#e8e4dc'};
+                background-color: {btn_bg};
                 color: {fg_title};
                 border: 1px solid {b_border};
                 border-radius: 6px;
@@ -85,10 +92,10 @@ class PlaceGraphDialog(QDialog):
                 font-size: 11px;
             }}
             QPushButton:hover {{
-                background-color: {'#48484a' if is_dark else '#ded8ce'};
+                background-color: {btn_hover};
             }}
             QListWidget {{
-                background-color: {'#232326' if is_dark else '#faf7f2'};
+                background-color: {list_bg};
                 border: 1px solid {b_border};
                 border-radius: 6px;
                 color: {fg_title};
@@ -96,11 +103,11 @@ class PlaceGraphDialog(QDialog):
             }}
             QListWidget::item {{
                 padding: 4px 6px;
-                border-bottom: 1px solid {'#2c2c2e' if is_dark else '#eee9e0'};
+                border-bottom: 1px solid {item_border};
             }}
             QListWidget::item:selected {{
-                background-color: #0a84ff;
-                color: #ffffff;
+                background-color: {accent};
+                color: {fg_selected};
             }}
         """)
 
@@ -121,7 +128,8 @@ class PlaceGraphDialog(QDialog):
         # Panel lateral con pestañas: Rutas, Presencia e Historial
         panel = QFrame()
         panel.setObjectName("panel")
-        panel.setFixedWidth(360)
+        panel.setMinimumWidth(300)
+        panel.setMaximumWidth(480)
         pl = QVBoxLayout(panel)
         pl.setContentsMargins(10, 10, 10, 10)
         pl.setSpacing(8)
@@ -135,26 +143,26 @@ class PlaceGraphDialog(QDialog):
         pl.addWidget(title_lbl)
 
         self._info_name = QLabel("Selecciona un lugar en el mapa")
-        self._info_name.setStyleSheet("font-size: 13px; font-weight: bold; color: #0a84ff;")
+        self._info_name.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {accent};")
         self._info_name.setWordWrap(True)
         pl.addWidget(self._info_name)
 
         self._info_desc = QLabel("Haz clic en cualquier astro para ver sus rutas, presencia actual e historial de visitas.")
-        self._info_desc.setStyleSheet("font-size: 11px; color: #8e8e93;")
+        self._info_desc.setStyleSheet(f"font-size: 11px; color: {c['fg_muted']};")
         self._info_desc.setWordWrap(True)
         pl.addWidget(self._info_desc)
 
         self._btn_view_map = QPushButton("Ver Mapa / Ilustración")
-        self._btn_view_map.setIcon(qta.icon("fa5s.map", color="#ffffff"))
-        self._btn_view_map.setStyleSheet("""
-            QPushButton {
-                background-color: #5e5ce6;
-                color: white;
+        self._btn_view_map.setIcon(qta.icon("fa5s.map", color=c["fg_selected"]))
+        self._btn_view_map.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {c['indigo']};
+                color: {c['fg_selected']};
                 font-weight: bold;
                 padding: 6px;
                 border-radius: 4px;
-            }
-            QPushButton:hover { background-color: #4b48b6; }
+            }}
+            QPushButton:hover {{ background-color: {c['accent']}; }}
         """)
         self._btn_view_map.clicked.connect(self._view_place_map)
         self._btn_view_map.hide()
@@ -177,10 +185,10 @@ class PlaceGraphDialog(QDialog):
         # Botón para eliminar la ruta seleccionada
         self._btn_delete_link = QPushButton("Eliminar Ruta Seleccionada")
         self._btn_delete_link.setEnabled(False)
-        self._btn_delete_link.setStyleSheet("""
-            QPushButton { color: #ff453a; border-color: #5c2020; }
-            QPushButton:hover { background-color: #5c2020; color: #ffffff; }
-            QPushButton:disabled { color: #636366; border-color: #3a3a3c; }
+        self._btn_delete_link.setStyleSheet(f"""
+            QPushButton {{ color: {c['red']}; border-color: {c['border_default']}; }}
+            QPushButton:hover {{ background-color: {c['red']}; color: {c['fg_selected']}; }}
+            QPushButton:disabled {{ color: {c['fg_disabled']}; border-color: {c['border_subtle']}; }}
         """)
         self._btn_delete_link.clicked.connect(self._delete_selected_connection)
         rtl.addWidget(self._btn_delete_link)
@@ -236,6 +244,9 @@ class PlaceGraphDialog(QDialog):
         pl.addWidget(btn_close)
 
         splitter.addWidget(panel)
+        splitter.setSizes([840, 360])
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 0)
         root.addWidget(splitter)
 
     def _on_chapter_changed_in_toolbar(self, chapter_id: str | None):
@@ -337,7 +348,7 @@ class PlaceGraphDialog(QDialog):
         # 1. Mostrar planeta superior si es una estancia
         if place.parent_place_id and place.parent_place_id in place_names:
             parent_item = QListWidgetItem(f"🪐 Órbita de: {place_names[place.parent_place_id]}")
-            parent_item.setForeground(QColor("#0a84ff"))
+            parent_item.setForeground(QColor(ThemeManager.color("blue")))
             parent_item.setData(Qt.ItemDataRole.UserRole, None)  # no eliminable como ruta libre
             self._connections_list.addItem(parent_item)
 
@@ -346,7 +357,7 @@ class PlaceGraphDialog(QDialog):
         if sub_places:
             for sp in sub_places:
                 sp_item = QListWidgetItem(f"🌙 Satélite/Estancia: {sp.name} ({sp.category})")
-                sp_item.setForeground(QColor("#bf5af2"))
+                sp_item.setForeground(QColor(ThemeManager.color("purple")))
                 sp_item.setData(Qt.ItemDataRole.UserRole, None)
                 self._connections_list.addItem(sp_item)
 

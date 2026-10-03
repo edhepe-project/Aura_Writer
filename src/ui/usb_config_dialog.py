@@ -175,8 +175,9 @@ class USBConfigDialog(QDialog):
         self.btn_refresh.setIcon(qta.icon("fa5s.sync-alt", color=fg_title))
         self.btn_import.setIcon(qta.icon("fa5s.download", color=fg_title))
         
-        self.btn_save.setIcon(qta.icon("fa5s.check-circle", color="#ffffff"))
-        self.btn_save.setStyleSheet("background-color: #30d158; color: white; font-weight: bold; padding: 6px 14px; border-radius: 6px;")
+        c = ThemeManager.palette()
+        self.btn_save.setIcon(qta.icon("fa5s.check-circle", color=c["fg_selected"]))
+        self.btn_save.setStyleSheet(f"background-color: {c['green']}; color: {c['fg_selected']}; font-weight: bold; padding: 6px 14px; border-radius: 6px;")
         
         self._update_status_label()
         self._refresh_import_button()
@@ -236,12 +237,13 @@ class USBConfigDialog(QDialog):
 
     def _update_status_label(self):
         """Actualiza la etiqueta de estado con la configuración actual."""
+        c = ThemeManager.palette()
         if not self.usb_sync.is_configured():
             self.status_label.setText(
                 "No hay USB configurada.\n"
                 "Selecciona una unidad arriba y guarda la configuración."
             )
-            self.status_label.setStyleSheet("color: #8e8e93; font-size: 12px;")
+            self.status_label.setStyleSheet(f"color: {c['fg_muted']}; font-size: 12px;")
             return
 
         drive = self.usb_sync.find_configured_drive()
@@ -252,17 +254,18 @@ class USBConfigDialog(QDialog):
                 f"Archivo: {self.usb_sync.usb_filename}\n"
                 f"Última sincronización: {sync_time}"
             )
-            self.status_label.setStyleSheet("color: #30d158; font-size: 12px;")
+            self.status_label.setStyleSheet(f"color: {c['green']}; font-size: 12px;")
         else:
             self.status_label.setText(
                 f"USB '{self.usb_sync.volume_label}' no está conectada.\n"
                 f"Archivo configurado: {self.usb_sync.usb_filename}\n"
                 f"Conecta la USB para sincronizar."
             )
-            self.status_label.setStyleSheet("color: #ff453a; font-size: 12px;")
+            self.status_label.setStyleSheet(f"color: {c['red']}; font-size: 12px;")
 
     def _refresh_import_button(self):
         """Habilita el botón de importación solo si la USB está conectada y tiene el archivo."""
+        c = ThemeManager.palette()
         can_import = False
         if self.usb_sync.is_configured() and self.project_manager.current_project_path:
             drive = self.usb_sync.find_configured_drive()
@@ -272,10 +275,10 @@ class USBConfigDialog(QDialog):
                 can_import = _os.path.exists(usb_file)
         self.btn_import.setEnabled(can_import)
         if not can_import:
-            self.btn_import.setStyleSheet("color: #636366;")
+            self.btn_import.setStyleSheet(f"color: {c['fg_disabled']};")
         else:
             self.btn_import.setStyleSheet(
-                "background-color: #0a84ff; color: white; font-weight: bold;"
+                f"background-color: {c['blue']}; color: {c['fg_selected']}; font-weight: bold;"
             )
 
     def _on_import_from_usb(self):

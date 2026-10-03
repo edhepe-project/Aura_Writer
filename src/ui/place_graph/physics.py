@@ -174,7 +174,19 @@ def compute_places_layout(
     # corrige solapamientos extremos. 10 iteraciones son suficientes visualmente.
     nodes_list = list(place_map.keys())
     n = len(nodes_list)
-    max_it = 10 if n <= 150 else 6
+    # La espiral áurea ya produce un layout de alta calidad.
+    # Las iteraciones N-Body solo corrigen solapamientos extremos.
+    # Reducir para grafos pequeños evita bloqueos perceptibles en el hilo del worker.
+    if n <= 10:
+        max_it = 0   # sin solapamientos posibles: 0 iteraciones
+    elif n <= 30:
+        max_it = 3   # corrección mínima
+    elif n <= 80:
+        max_it = 6   # equilibrio calidad/velocidad
+    elif n <= 150:
+        max_it = 10  # grafos medianos
+    else:
+        max_it = 6   # grafos gigantes: priorizar velocidad
 
     if max_it > 0:
         radius_dict = {nid: TIER_NODE_RADIUS.get(tier_map.get(nid, 4), 16.0) for nid in nodes_list}

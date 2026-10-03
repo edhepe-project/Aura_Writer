@@ -126,9 +126,9 @@ class ThesaurusDialog(QDialog):
         bg_input = tc["bg_input"]
         border = tc["border"]
         fg = tc["fg_text"]
-        sub_text = tc.get("sub_text", "#8e8e93")
+        sub_text = ThemeManager.color("fg_muted")
         accent = tc["accent"]
-        hover = tc.get("hover", bg_card)
+        hover = ThemeManager.color("bg_hover")
 
         # En temas claros/sepia, el texto seleccionado debe contrastar nítidamente
         if ThemeManager.is_dark():
@@ -236,9 +236,8 @@ class ThesaurusDialog(QDialog):
 
     def _do_search(self):
         query = self._search_input.text().strip()
-        tc = ThemeManager.theme_colors()
-        sub_text = tc.get("sub_text", "#8e8e93")
-        accent = tc["accent"]
+        sub_text = ThemeManager.color("fg_muted")
+        accent = ThemeManager.color("accent")
 
         if not query:
             self._status_lbl.setText("Ingresa una palabra para buscar.")

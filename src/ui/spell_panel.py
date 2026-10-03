@@ -68,7 +68,7 @@ class SpellPanel(QWidget):
         # ── Encabezado ────────────────────────────────────────────────
         header = QHBoxLayout()
         icon_lbl = QLabel()
-        icon_lbl.setPixmap(qta.icon("fa5s.spell-check", color="#ff453a").pixmap(18, 18))
+        icon_lbl.setPixmap(qta.icon("fa5s.spell-check", color=ThemeManager.color("red")).pixmap(18, 18))
         self._title_lbl = QLabel("Corrector Ortográfico")
         self._title_lbl.setFont(QFont("", 11, QFont.Weight.Bold))
         header.addWidget(icon_lbl)
@@ -125,19 +125,19 @@ class SpellPanel(QWidget):
         btn_layout.setSpacing(4)
 
         self._btn_goto = QPushButton(
-            qta.icon("fa5s.search", color="#32ade6"), "  Ir al error")
+            qta.icon("fa5s.search", color=ThemeManager.color("blue")), "  Ir al error")
         self._btn_goto.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._btn_goto.clicked.connect(self._on_goto)
         btn_layout.addWidget(self._btn_goto)
 
         self._btn_ignore = QPushButton(
-            qta.icon("fa5s.eye-slash", color="#8e8e93"), "  Ignorar esta vez")
+            qta.icon("fa5s.eye-slash", color=ThemeManager.color("fg_muted")), "  Ignorar esta vez")
         self._btn_ignore.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._btn_ignore.clicked.connect(self._on_ignore)
         btn_layout.addWidget(self._btn_ignore)
 
         self._btn_add = QPushButton(
-            qta.icon("fa5s.plus-circle", color="#30d158"), "  Añadir al diccionario")
+            qta.icon("fa5s.plus-circle", color=ThemeManager.color("green")), "  Añadir al diccionario")
         self._btn_add.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._btn_add.clicked.connect(self._on_add_to_dict)
         btn_layout.addWidget(self._btn_add)
@@ -155,16 +155,18 @@ class SpellPanel(QWidget):
         self._update_buttons()
 
     def _apply_theme(self):
-        is_dark = ThemeManager.is_dark()
-        bg = "#1c1c1e" if is_dark else "#f5f5f7"
-        fg = "#f2f2f7" if is_dark else "#1c1c1e"
-        border = "#3a3a3c" if is_dark else "#d1d1d6"
-        item_alt = "#2c2c2e" if is_dark else "#ebebeb"
-        btn_bg = "#2c2c2e" if is_dark else "#e5e5ea"
-        btn_hover = "#3a3a3c" if is_dark else "#d1d1d6"
+        c = ThemeManager.palette()
+        bg = c["bg_surface"]
+        fg = c["fg_primary"]
+        border = c["border_default"]
+        item_alt = c["bg_app"]
+        btn_bg = c["bg_hover"]
+        btn_hover = c["bg_selected"]
+        accent = c["accent"]
+        accent_hover = c["accent_hover"]
 
         toggle_icon = "fa5s.toggle-on" if self._btn_toggle.isChecked() else "fa5s.toggle-off"
-        toggle_color = "#30d158" if self._btn_toggle.isChecked() else "#8e8e93"
+        toggle_color = c["green"] if self._btn_toggle.isChecked() else c["fg_muted"]
         self._btn_toggle.setIcon(qta.icon(toggle_icon, color=toggle_color))
 
         self.setStyleSheet(f"""
@@ -184,15 +186,15 @@ class SpellPanel(QWidget):
                 alternate-background-color: {item_alt};
             }}
             QListWidget::item:selected {{
-                background-color: #0a84ff;
-                color: #ffffff;
+                background-color: {accent};
+                color: {c['fg_selected']};
                 border-radius: 4px;
             }}
             QListWidget::item:hover {{
-                background-color: {'#3a3a3c' if is_dark else '#e0e0e8'};
+                background-color: {btn_hover};
             }}
             QListWidget::item:selected:hover {{
-                background-color: #0a84ff;
+                background-color: {accent_hover};
             }}
             QPushButton {{
                 background-color: {btn_bg};
@@ -207,7 +209,7 @@ class SpellPanel(QWidget):
                 background-color: {btn_hover};
             }}
             QPushButton:disabled {{
-                color: {'#48484a' if is_dark else '#aeaeb2'};
+                color: {c['fg_disabled']};
             }}
             QComboBox {{
                 background-color: {btn_bg};

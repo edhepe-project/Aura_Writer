@@ -24,19 +24,15 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 #  Constantes de layout compartidas con el resto del paquete
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+#  Constantes de layout compartidas con el resto del paquete
+# ---------------------------------------------------------------------------
 _ROLE_ORDER = ["Protagonista", "Antagonista", "Secundario", "Misterioso", "Otro"]
 
-_TYPE_INFO = {
-    "present":    ("Presente",    "#30d158"),
-    "transit":    ("En transito", "#0a84ff"),
-    "departed":   ("Salida",      "#ff453a"),
-    "referenced": ("Mencion",     "#8e8e93"),
-}
-
-_COL_CHAR_WIDTH = 210   # ancho fijo de la columna de personajes (Q1 y Q3)
-_COL_CHAPTER_W  = 130   # ancho de cada columna de capitulo
-_ROW_HEADER_H   = 72    # alto del header de capitulos (Q1 y Q2)
-_ROW_CELL_H     = 54    # alto de cada fila de personaje
+_COL_CHAR_WIDTH = 220   # ancho fijo de la columna de personajes (Q1 y Q3)
+_COL_CHAPTER_W  = 160   # ancho de cada columna de capítulo (ampliado para evitar texto cortado)
+_ROW_HEADER_H   = 84    # alto del header de capítulos (Q1 y Q2)
+_ROW_CELL_H     = 64    # alto de cada fila de personaje
 
 
 # ---------------------------------------------------------------------------
@@ -44,34 +40,35 @@ _ROW_CELL_H     = 54    # alto de cada fila de personaje
 # ---------------------------------------------------------------------------
 class _PresenceCell(QFrame):
     """
-    Celda clickeable de la cuadricula que representa la presencia de un personaje
-    en un capitulo especifico. Muestra el lugar asignado y el tipo de presencia.
+    Celda clickeable de la cuadrícula que representa la presencia de un personaje
+    en un capítulo específico. Muestra el lugar asignado y el tipo de presencia.
 
     Clic izquierdo → abre _PlacePickerDialog para asignar/cambiar.
     Clic derecho   → limpia la presencia directamente.
     """
 
-    def __init__(self, char_id: str, chapter_id: str, is_dark: bool, grid_widget_ref, parent=None):
+    def __init__(self, char_id: str, chapter_id: str, tc: dict, grid_widget_ref, parent=None):
         super().__init__(parent)
         self.char_id     = char_id
         self.chapter_id  = chapter_id
-        self._is_dark    = is_dark
+        self._tc         = tc
         self._grid_ref   = grid_widget_ref  # referencia directa al _PresenceGridWidget
         self._place_id   = ""
         self._place_name = ""
         self._pres_type  = ""
 
-        self.setFixedSize(_COL_CHAPTER_W - 2, _ROW_CELL_H - 2)
+        self.setFixedSize(_COL_CHAPTER_W - 6, _ROW_CELL_H - 6)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.setToolTip("Clic para asignar  |  Clic derecho para limpiar")
+        self.setToolTip("Clic para asignar ubicación  |  Clic derecho para limpiar")
 
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(5, 3, 5, 3)
-        lay.setSpacing(1)
+        lay.setContentsMargins(6, 6, 6, 6)
+        lay.setSpacing(3)
         lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self._pill = QLabel("--")
+        self._pill = QLabel("")
         self._pill.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._pill.setWordWrap(True)
         lay.addWidget(self._pill)
 
         self._type_lbl = QLabel("")
@@ -86,14 +83,21 @@ class _PresenceCell(QFrame):
         self._place_name = place_name
         self._place_id   = place_id
         self._pres_type  = pres_type
-        short = (place_name[:12] + "...") if len(place_name) > 12 else place_name
+        short = (place_name[:16] + "...") if len(place_name) > 16 else place_name
         self._pill.setText(short)
-        self._type_lbl.setText(_TYPE_INFO.get(pres_type, ("", "#8e8e93"))[0])
+
+        type_names = {
+            "present": "Presente",
+            "transit": "En tránsito",
+            "departed": "Salida",
+            "referenced": "Mención"
+        }
+        self._type_lbl.setText(type_names.get(pres_type, ""))
         self._refresh_style()
 
     def clear_presence(self) -> None:
         self._place_id = self._place_name = self._pres_type = ""
-        self._pill.setText("--")
+        self._pill.setText("")
         self._type_lbl.setText("")
         self._refresh_style()
 
@@ -103,25 +107,50 @@ class _PresenceCell(QFrame):
     # -- Estilo ---------------------------------------------------------------
 
     def _refresh_style(self) -> None:
-        is_dark = self._is_dark
+        tc = self._tc
+        is_dark = ThemeManager.is_dark()
+        
+        type_colors = {
+            "present":    (tc["green"],  "rgba(34, 197, 94, 0.14)"),
+            "transit":    (tc["blue"],   "rgba(59, 130, 246, 0.14)"),
+            "departed":   (tc["red"],    "rgba(239, 68, 68, 0.14)"),
+            "referenced": (tc["purple"], "rgba(168, 85, 247, 0.14)"),
+        }
+
         if self._place_id:
-            color = _TYPE_INFO.get(self._pres_type, ("", "#8e8e93"))[1]
-            if is_dark:
-                bg, bord, text_c = f"{color}22", f"{color}66", color
-            else:
-                bg, bord, text_c = f"{color}18", f"{color}88", color
+            color, bg_pill = type_colors.get(self._pres_type, (tc["subtext"], "rgba(142, 142, 147, 0.12)"))
+            bord = f"{color}66" if is_dark else f"{color}99"
+            bg = bg_pill
+            text_c = color
         else:
-            bg     = "#242426" if is_dark else "#ffffff"
-            bord   = "#333336" if is_dark else "#e2e8f0"
-            text_c = "#48484a" if is_dark else "#94a3b8"
+            bg     = tc["bg_input"]
+            bord   = tc["border"]
+            text_c = tc["subtext"]
             color  = "transparent"
 
-        self.setStyleSheet(f"background: {bg}; border: 1px solid {bord}; border-radius: 6px;")
+        self.setStyleSheet(f"""
+            _PresenceCell {{
+                background: {bg};
+                border: 1px solid {bord};
+                border-radius: 8px;
+            }}
+            _PresenceCell:hover {{
+                border-color: {tc['accent']};
+            }}
+            QLabel {{
+                background: transparent;
+                border: none;
+                outline: none;
+            }}
+        """)
         self._pill.setStyleSheet(
-            f"font-size: 11px; font-weight: {'bold' if self._place_id else 'normal'}; "
-            f"color: {text_c}; background: transparent;"
+            f"font-size: 12px; font-weight: {'bold' if self._place_id else 'normal'}; "
+            f"color: {text_c}; background: transparent; border: none; padding: 0px;"
         )
-        self._type_lbl.setStyleSheet(f"font-size: 9px; color: {color}; background: transparent; font-weight: 600;")
+        self._type_lbl.setStyleSheet(
+            f"font-size: 11px; color: {color}; background: transparent; border: none; font-weight: 600;"
+        )
+
 
     # -- Eventos de raton -----------------------------------------------------
 
@@ -134,7 +163,7 @@ class _PresenceCell(QFrame):
 
 
 # ---------------------------------------------------------------------------
-#  Widget principal de la cuadricula con 4 cuadrantes + scroll sincronizado
+#  Widget principal de la cuadrícula con 4 cuadrantes + scroll sincronizado
 # ---------------------------------------------------------------------------
 class _PresenceGridWidget(QWidget):
     """
@@ -165,34 +194,37 @@ class _PresenceGridWidget(QWidget):
 
     def _build_layout(self) -> None:
         """Construye la estructura de 4 cuadrantes con scrollbars sincronizados."""
-        is_dark = self._is_dark
-        bg_hdr  = "#1a1a1c" if is_dark else "#f1f5f9"
-        bord    = "#2c2c2e" if is_dark else "#cbd5e1"
-        sub     = "#8e8e93" if is_dark else "#64748b"
+        tc = ThemeManager.theme_colors()
+        bg_hdr  = tc["bg_card"]
+        bord    = tc["border"]
+        sub     = tc["subtext"]
+
+        self.setStyleSheet("QLabel { border: none; background: transparent; outline: none; }")
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
+
 
         # -- Fila superior: Q1 (esquina) + Q2 (headers capitulos) -------------
         top_row = QHBoxLayout()
         top_row.setContentsMargins(0, 0, 0, 0)
         top_row.setSpacing(0)
 
-        # Q1: Esquina estatica
+        # Q1: Esquina estática
         self._q1_corner = QFrame()
         self._q1_corner.setFixedSize(_COL_CHAR_WIDTH, _ROW_HEADER_H)
         self._q1_corner.setStyleSheet(
-            f"background: {bg_hdr}; border-right: 2px solid {bord}; border-bottom: 2px solid {bord};"
+            f"background: {bg_hdr}; border-right: 1px solid {bord}; border-bottom: 2px solid {bord};"
         )
         q1_lay = QHBoxLayout(self._q1_corner)
         q1_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         q1_lbl = QLabel("PERSONAJE")
-        q1_lbl.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {sub}; letter-spacing: 1px;")
+        q1_lbl.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {sub}; letter-spacing: 1px; border: none; background: transparent;")
         q1_lay.addWidget(q1_lbl)
         top_row.addWidget(self._q1_corner)
 
-        # Q2: Headers de capitulos (scroll horizontal, sin barra visible)
+        # Q2: Headers de capítulos (scroll horizontal, sin barra visible)
         self._q2_scroll = QScrollArea()
         self._q2_scroll.setFixedHeight(_ROW_HEADER_H)
         self._q2_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -238,12 +270,10 @@ class _PresenceGridWidget(QWidget):
         bottom_row.addWidget(self._q4_scroll, stretch=1)
         outer.addLayout(bottom_row, stretch=1)
 
-        # -- Sincronizacion de scrollbars -------------------------------------
-        # Q4 horizontal → Q2 horizontal (headers de capitulos)
+        # -- Sincronización de scrollbars -------------------------------------
         self._q4_scroll.horizontalScrollBar().valueChanged.connect(
             self._q2_scroll.horizontalScrollBar().setValue
         )
-        # Q4 vertical → Q3 vertical (nombres de personajes)
         self._q4_scroll.verticalScrollBar().valueChanged.connect(
             self._q3_scroll.verticalScrollBar().setValue
         )
@@ -256,6 +286,7 @@ class _PresenceGridWidget(QWidget):
         if not meta:
             return
 
+        tc = ThemeManager.theme_colors()
         self._places     = list(getattr(meta, "places", []))
         self._characters = self._sorted_characters(getattr(meta, "characters", []))
         self._chapters   = self._sorted_chapters(meta)
@@ -268,51 +299,41 @@ class _PresenceGridWidget(QWidget):
             if key not in pres_map or p.is_manual:
                 pres_map[key] = p
 
-        is_dark = self._is_dark
-        fg      = "#f2f2f7" if is_dark else "#0f172a"
-        bg_hdr  = "#1a1a1c" if is_dark else "#f8fafc"
-        bord    = "#2c2c2e" if is_dark else "#e2e8f0"
+        fg      = tc["fg_text"]
+        bg_hdr  = tc["bg_card"]
+        bord    = tc["border"]
+        sub     = tc["subtext"]
+        accent  = tc["accent"]
 
-        if is_dark:
-            role_colors = {
-                "Protagonista": "#ffd60a", "Antagonista": "#ff453a",
-                "Secundario":   "#30d158", "Misterioso":  "#bf5af2", "Otro": "#8e8e93",
-            }
-        else:
-            role_colors = {
-                "Protagonista": "#d97706", "Antagonista": "#dc2626",
-                "Secundario":   "#16a34a", "Misterioso":  "#9333ea", "Otro": "#64748b",
-            }
+        role_colors = {
+            "Protagonista": tc["amber"],
+            "Antagonista":  tc["red"],
+            "Secundario":   tc["green"],
+            "Misterioso":  tc["purple"],
+            "Otro":        tc["subtext"],
+        }
 
         # Limpiar contenidos anteriores
         self._clear_layout(self._q2_lay)
         self._clear_layout(self._q3_lay)
         self._clear_grid(self._q4_lay)
 
-        # -- Q2: Headers de capitulos -----------------------------------------
-        accent_hdr = "#3a3a4c" if is_dark else "#cbd5e1"
+        # -- Q2: Headers de capítulos -----------------------------------------
         total_w = 0
         for chapter in self._chapters:
             hdr = QFrame()
             hdr.setFixedSize(_COL_CHAPTER_W, _ROW_HEADER_H)
             hdr.setStyleSheet(
-                f"background: {bg_hdr}; border-right: 1px solid {bord}; "
-                f"border-bottom: 2px solid {accent_hdr};"
+                f"background: {bg_hdr}; border-right: 1px solid {bord}; border-bottom: 1px solid {bord};"
             )
             hl = QVBoxLayout(hdr)
-            hl.setContentsMargins(4, 6, 4, 4)
-            hl.setSpacing(2)
+            hl.setContentsMargins(8, 12, 8, 12)
             hl.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-            num_color = "#8e8e93" if is_dark else "#64748b"
-            n = QLabel(f"#{chapter.in_world_order}" if chapter.in_world_order > 0 else "")
-            n.setStyleSheet(f"font-size: 10px; color: {num_color}; font-weight: bold;")
-            n.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            hl.addWidget(n)
-
             raw = (chapter.title or "").strip()
-            t = QLabel((raw[:14] + "...") if len(raw) > 14 else raw or "Sin título")
-            t.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {fg};")
+            t = QLabel(raw or "Sin título")
+            t.setWordWrap(True)
+            t.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {fg}; background: transparent; border: none; outline: none; line-height: 1.3;")
             t.setAlignment(Qt.AlignmentFlag.AlignCenter)
             t.setToolTip(raw)
             hl.addWidget(t)
@@ -325,9 +346,9 @@ class _PresenceGridWidget(QWidget):
         # -- Q3: Nombres de personajes + Q4: Celdas ---------------------------
         total_h = 0
         for ri, char in enumerate(self._characters):
-            rc = role_colors.get(char.role, "#636366")
+            rc = role_colors.get(char.role, tc["subtext"])
 
-            # Fila de personaje: [barra de color 4px] [nombre + rol]
+            # Fila de personaje
             ch = QFrame()
             ch.setFixedSize(_COL_CHAR_WIDTH, _ROW_CELL_H)
             ch.setStyleSheet(
@@ -348,17 +369,19 @@ class _PresenceGridWidget(QWidget):
             text_area = QWidget()
             text_area.setStyleSheet("background: transparent; border: none;")
             txt_lay = QVBoxLayout(text_area)
-            txt_lay.setContentsMargins(10, 6, 8, 6)
-            txt_lay.setSpacing(2)
+            txt_lay.setContentsMargins(12, 8, 10, 8)
+            txt_lay.setSpacing(3)
             txt_lay.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-            nl = QLabel((char.name[:22] + "...") if len(char.name) > 22 else char.name)
+            nl = QLabel(char.name)
             nl.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {fg}; background: transparent;")
             nl.setToolTip(char.name)
             txt_lay.addWidget(nl)
 
             rl = QLabel(char.role)
-            rl.setStyleSheet(f"font-size: 10px; color: {rc}; background: transparent; font-weight: 500;")
+            rl.setStyleSheet(
+                f"font-size: 11px; color: {rc}; background: transparent; font-weight: 600;"
+            )
             txt_lay.addWidget(rl)
 
             ch_row.addWidget(text_area, stretch=1)
@@ -368,7 +391,7 @@ class _PresenceGridWidget(QWidget):
             # Celdas Q4 para este personaje
             for ci, chapter in enumerate(self._chapters):
                 cell = _PresenceCell(
-                    char.id, chapter.id, is_dark,
+                    char.id, chapter.id, tc,
                     grid_widget_ref=self,
                     parent=self._q4_content,
                 )
@@ -387,6 +410,8 @@ class _PresenceGridWidget(QWidget):
 
         self._q3_content.setFixedSize(_COL_CHAR_WIDTH, total_h)
         self._q4_content.setFixedSize(total_w, total_h)
+
+
 
     # -- Limpieza de layouts --------------------------------------------------
 
@@ -432,12 +457,35 @@ class _PresenceGridWidget(QWidget):
             return
 
         if dlg.cleared:
-            self._remove_presence(cell)
+            self._confirm_and_remove_presence(cell)
         elif dlg.selected_place_id:
             self._set_presence(cell, dlg.selected_place_id, dlg.selected_type)
 
     def _on_cell_right_clicked(self, cell: _PresenceCell) -> None:
         if cell.get_place_id():
+            self._confirm_and_remove_presence(cell)
+
+    def _confirm_and_remove_presence(self, cell: _PresenceCell) -> None:
+        char_name = next(
+            (c.name for c in self._characters if c.id == cell.char_id),
+            "este personaje",
+        )
+        cap_title = next(
+            ((c.title or "").strip() or f"Cap. {c.in_world_order}"
+             for c in self._chapters if c.id == cell.chapter_id),
+            "este capítulo",
+        )
+        place_name = getattr(cell, "_place_name", "la ubicación")
+
+        from PyQt6.QtWidgets import QMessageBox
+        reply = QMessageBox.question(
+            self,
+            "Confirmar eliminación",
+            f"¿Deseas eliminar la ubicación '{place_name}' asignada a {char_name} en '{cap_title}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
             self._remove_presence(cell)
 
     def _set_presence(self, cell: _PresenceCell, place_id: str, pres_type: str) -> None:

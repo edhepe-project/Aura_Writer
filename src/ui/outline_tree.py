@@ -42,15 +42,18 @@ class OutlineTree(QTreeView):
         self.clicked.connect(self._on_clicked)
         self.doubleClicked.connect(self._on_double_clicked)
 
-        # Iconos monocromáticos elegantes (Estilo Suizo / Minimal)
+        self._reload_icons()
+
+    def _reload_icons(self):
+        c = ThemeManager.palette()
         try:
             self.icons = {
-                "universe":    qta.icon("fa5s.globe",        color="#a1a1aa"),
-                "obra":        qta.icon("fa5s.book-open",    color="#d97706"),
-                "libro":       qta.icon("fa5s.book",         color="#71717a"),
-                "chapter":     qta.icon("fa5s.bookmark",     color="#a1a1aa"),
-                "media":       qta.icon("fa5s.image",        color="#71717a"),
-                "author_note": qta.icon("fa5s.sticky-note",  color="#52525b"),
+                "universe":    qta.icon("fa5s.globe",        color=c["fg_muted"]),
+                "obra":        qta.icon("fa5s.book-open",    color=c["accent"]),
+                "libro":       qta.icon("fa5s.book",         color=c["fg_secondary"]),
+                "chapter":     qta.icon("fa5s.bookmark",     color=c["fg_muted"]),
+                "media":       qta.icon("fa5s.image",        color=c["fg_secondary"]),
+                "author_note": qta.icon("fa5s.sticky-note",  color=c["fg_muted"]),
             }
         except Exception:
             pass
@@ -60,6 +63,7 @@ class OutlineTree(QTreeView):
     # ------------------------------------------------------------------
 
     def populate_from_metadata(self, meta: UniverseMetadata):
+        self._reload_icons()
         self._model.blockSignals(True)  # evitar señales falsas de itemChanged
         self._model.clear()
         self._model.setHorizontalHeaderLabels(["Universo Narrativo"])

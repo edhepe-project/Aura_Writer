@@ -74,11 +74,11 @@ class TOTPSetupDialog(QDialog):
         layout.addWidget(qr_label)
 
         # ── Secreto manual ──────────────────────────────────────
-        is_dark = ThemeManager.is_dark()
-        code_bg = "rgba(255, 255, 255, 0.08)" if is_dark else "rgba(0, 0, 0, 0.04)"
-        code_border = "#3a3a3c" if is_dark else "#d1d5db"
-        txt_col = "#f2f2f7" if is_dark else "#1f2937"
-        sub_col = "#8e8e93" if is_dark else "#6b7280"
+        c = ThemeManager.palette()
+        code_bg = c["bg_hover"]
+        code_border = c["border_default"]
+        txt_col = c["fg_primary"]
+        sub_col = c["fg_muted"]
 
         secret_lbl = QLabel(
             f"<span style='color: {sub_col}; font-weight: 500;'>Clave manual:</span> "

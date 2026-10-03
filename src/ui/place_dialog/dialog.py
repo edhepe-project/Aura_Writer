@@ -37,12 +37,14 @@ class PlaceEditDialog(QDialog):
             self._load_from_place()
 
     def _setup_ui(self):
-        is_dark = ThemeManager.is_dark()
-        bg_main = "#1c1c1e" if is_dark else "#f5f0ea"
-        fg_title = "#f2f2f7" if is_dark else "#1a1a2e"
-        b_border = "#3a3a3c" if is_dark else "#d4cfc8"
-        bg_tab = "rgba(0,0,0,0.15)" if is_dark else "rgba(255,255,255,0.5)"
-        accent = "#ffd60a" if is_dark else "#d97706"
+        c = ThemeManager.palette()
+        bg_main = c["bg_surface"]
+        fg_title = c["fg_primary"]
+        b_border = c["border_default"]
+        bg_tab = c["bg_app"]
+        accent = c["accent"]
+        bg_input = c["bg_hover"]
+        fg_muted = c["fg_muted"]
 
         self.setStyleSheet(f"""
             QDialog {{ background-color: {bg_main}; }}
@@ -53,7 +55,7 @@ class PlaceEditDialog(QDialog):
             }}
             QTabBar::tab {{
                 background: transparent;
-                color: {'#8e8e93' if is_dark else '#7a7a8a'};
+                color: {c['fg_muted']};
                 padding: 8px 16px;
                 font-size: 12px;
                 font-weight: 700;
@@ -64,7 +66,7 @@ class PlaceEditDialog(QDialog):
                 border-bottom: 2px solid {accent};
             }}
             QLineEdit, QTextEdit, QComboBox {{
-                background-color: {'#2c2c2e' if is_dark else '#ffffff'};
+                background-color: {bg_input};
                 color: {fg_title};
                 border: 1px solid {b_border};
                 border-radius: 6px;
@@ -133,7 +135,7 @@ class PlaceEditDialog(QDialog):
         # Imagen / Mapa adjunto
         img_box = QHBoxLayout()
         self.lbl_img_status = QLabel("Sin mapa o imagen adjunta")
-        self.lbl_img_status.setStyleSheet(f"color: {'#8e8e93' if is_dark else '#7a7a8a'}; font-size: 11px;")
+        self.lbl_img_status.setStyleSheet(f"color: {fg_muted}; font-size: 11px;")
         img_box.addWidget(self.lbl_img_status, 1)
 
         self.btn_attach_img = QPushButton("Adjuntar Imagen / Mapa")
@@ -200,17 +202,17 @@ class PlaceEditDialog(QDialog):
         btn_row.addWidget(btn_cancel)
 
         btn_save = QPushButton(" Guardar Lugar")
-        btn_save.setIcon(qta.icon("fa5s.save", color="#ffffff"))
-        btn_save.setStyleSheet("""
-            QPushButton {
-                background-color: #34c759;
-                color: #ffffff;
+        btn_save.setIcon(qta.icon("fa5s.save", color=c["fg_selected"]))
+        btn_save.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {c['green']};
+                color: {c['fg_selected']};
                 font-weight: bold;
                 padding: 8px 20px;
                 border-radius: 6px;
                 border: none;
-            }
-            QPushButton:hover { background-color: #30d158; }
+            }}
+            QPushButton:hover {{ background-color: {c['accent']}; }}
         """)
         btn_save.clicked.connect(self._save_place)
         btn_row.addWidget(btn_save)

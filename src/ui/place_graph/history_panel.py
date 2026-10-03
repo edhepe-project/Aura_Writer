@@ -48,18 +48,19 @@ class _ChapterGroupHeader(QFrame):
         self._expanded = expanded
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
-        accent = "#ffd60a" if is_latest else ("#5e5ce6" if is_dark else "#4f46e5")
-        bg     = "#1e1e20" if is_dark else "#ede9e0"
-        fg     = "#f2f2f7" if is_dark else "#1c1c1e"
-        sub_fg = "#8e8e93" if is_dark else "#6e6e73"
+        c      = ThemeManager.palette()
+        accent = c["accent"] if is_latest else c["indigo"]
+        bg     = c["bg_app"]
+        fg     = c["fg_primary"]
+        sub_fg = c["fg_muted"]
 
         self.setStyleSheet(f"""
             QFrame {{
                 background: {bg};
-                border: 1px solid {accent}44;
+                border: 1px solid {c['border_default']};
                 border-radius: 6px;
             }}
-            QFrame:hover {{ border-color: {accent}88; }}
+            QFrame:hover {{ border-color: {accent}; }}
         """)
 
         layout = QHBoxLayout(self)

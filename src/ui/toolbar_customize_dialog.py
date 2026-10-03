@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QWidget, QCheckBox, QFrame,
 )
+from core.theme_manager import ThemeManager
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -222,102 +223,131 @@ class ToolbarCustomizeDialog(QDialog):
 
     # ── Estilos ────────────────────────────────────────────────────────────────
     def _apply_style(self) -> None:
-        self.setStyleSheet("""
-            QDialog { background: #1c1c1e; }
+        c = ThemeManager.palette()
+        bg_dialog = c["bg_surface"]
+        bg_header = c["bg_app"]
+        fg_title = c["fg_primary"]
+        fg_subtitle = c["fg_muted"]
+        border_sep = c["border_default"]
+        
+        grp_fg = c["fg_muted"]
+        cb_fg = c["fg_primary"]
+        cb_hover_bg = c["bg_hover"]
+        cb_disabled = c["fg_disabled"]
+        
+        chk_indicator_bg = c["bg_input"]
+        chk_indicator_border = c["border_default"]
+        chk_checked_bg = c["accent"]
+        chk_hover_border = c["accent"]
+        
+        btnbar_bg = c["bg_app"]
+        btn_pri_bg = c["accent"]
+        btn_pri_fg = c["fg_selected"]
+        btn_pri_hover = c["accent_hover"]
+        
+        btn_sec_bg = c["bg_button"]
+        btn_sec_fg = c["fg_primary"]
+        btn_sec_border = c["border_default"]
+        btn_sec_hover = c["bg_hover"]
+        
+        scroll_handle = c["scrollbar_handle"]
 
-            #tbcd_header { background: #2c2c2e; }
+        self.setStyleSheet(f"""
+            QDialog {{ background: {bg_dialog}; }}
 
-            #tbcd_title {
+            #tbcd_header {{ background: {bg_header}; }}
+
+            #tbcd_title {{
                 font-size: 15px;
                 font-weight: 700;
-                color: #f2f2f7;
+                color: {fg_title};
                 font-family: 'Segoe UI', sans-serif;
-            }
-            #tbcd_subtitle {
+            }}
+            #tbcd_subtitle {{
                 font-size: 11px;
-                color: #8e8e93;
+                color: {fg_subtitle};
                 font-family: 'Segoe UI', sans-serif;
-            }
+            }}
 
-            #tbcd_sep {
-                background: #3a3a3c;
+            #tbcd_sep {{
+                background: {border_sep};
                 min-height: 1px;
                 max-height: 1px;
                 border: none;
-            }
+            }}
 
-            #tbcd_content { background: #1c1c1e; }
+            #tbcd_content {{ background: {bg_dialog}; }}
 
-            QScrollArea { background: #1c1c1e; border: none; }
-            QScrollBar:vertical {
-                background: #1c1c1e; width: 6px; border: none;
-            }
-            QScrollBar::handle:vertical {
-                background: #48484a; border-radius: 3px; min-height: 24px;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+            QScrollArea {{ background: {bg_dialog}; border: none; }}
+            QScrollBar:vertical {{
+                background: {bg_dialog}; width: 6px; border: none;
+            }}
+            QScrollBar::handle:vertical {{
+                background: {scroll_handle}; border-radius: 3px; min-height: 24px;
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
                 height: 0;
-            }
+            }}
 
-            #tbcd_group {
+            #tbcd_group {{
                 font-size: 10px;
                 font-weight: 700;
-                color: #636366;
+                color: {grp_fg};
                 letter-spacing: 0.08em;
                 font-family: 'Segoe UI', sans-serif;
                 padding-top: 10px;
                 padding-bottom: 2px;
-            }
+            }}
 
-            #tbcd_cb {
+            #tbcd_cb {{
                 font-size: 13px;
-                color: #e5e5ea;
+                color: {cb_fg};
                 font-family: 'Segoe UI', sans-serif;
                 padding: 5px 10px;
                 border-radius: 6px;
                 spacing: 8px;
-            }
-            #tbcd_cb:hover { background: #2c2c2e; }
-            #tbcd_cb:disabled { color: #48484a; }
+            }}
+            #tbcd_cb:hover {{ background: {cb_hover_bg}; }}
+            #tbcd_cb:disabled {{ color: {cb_disabled}; }}
 
-            #tbcd_cb::indicator {
+            #tbcd_cb::indicator {{
                 width: 16px;
                 height: 16px;
                 border-radius: 4px;
-                border: 1.5px solid #48484a;
-                background: #1c1c1e;
-            }
-            #tbcd_cb::indicator:checked {
-                background: #ffd60a;
-                border-color: #ffd60a;
+                border: 1.5px solid {chk_indicator_border};
+                background: {chk_indicator_bg};
+            }}
+            #tbcd_cb::indicator:checked {{
+                background: {chk_checked_bg};
+                border-color: {chk_checked_bg};
                 image: none;
-            }
-            #tbcd_cb::indicator:unchecked:hover { border-color: #636366; }
+            }}
+            #tbcd_cb::indicator:unchecked:hover {{ border-color: {chk_hover_border}; }}
 
-            #tbcd_btnbar { background: #2c2c2e; }
+            #tbcd_btnbar {{ background: {btnbar_bg}; }}
 
-            #tbcd_btn_primary {
-                background: #ffd60a;
-                color: #1c1c1e;
+            #tbcd_btn_primary {{
+                background: {btn_pri_bg};
+                color: {btn_pri_fg};
                 border: none;
                 border-radius: 8px;
                 padding: 7px 22px;
                 font-size: 13px;
                 font-weight: 600;
                 font-family: 'Segoe UI', sans-serif;
-            }
-            #tbcd_btn_primary:hover   { background: #ffe84d; }
-            #tbcd_btn_primary:pressed { background: #c9a800; }
+            }}
+            #tbcd_btn_primary:hover   {{ background: {btn_pri_hover}; }}
+            #tbcd_btn_primary:pressed {{ background: {btn_pri_hover}; }}
 
-            #tbcd_btn_secondary {
-                background: #3a3a3c;
-                color: #e5e5ea;
-                border: none;
+            #tbcd_btn_secondary {{
+                background: {btn_sec_bg};
+                color: {btn_sec_fg};
+                border: 1px solid {btn_sec_border};
                 border-radius: 8px;
                 padding: 7px 14px;
                 font-size: 13px;
                 font-family: 'Segoe UI', sans-serif;
-            }
-            #tbcd_btn_secondary:hover   { background: #48484a; }
-            #tbcd_btn_secondary:pressed { background: #2c2c2e; }
+            }}
+            #tbcd_btn_secondary:hover   {{ background: {btn_sec_hover}; }}
+            #tbcd_btn_secondary:pressed {{ background: {cb_hover_bg}; }}
         """)

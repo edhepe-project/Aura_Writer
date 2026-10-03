@@ -103,7 +103,7 @@ class VocabularyDialog(QDialog):
             "El motor NLP las utilizará para detectar la presencia y movimiento de personajes con máxima precisión."
         )
         desc.setWordWrap(True)
-        desc.setStyleSheet("color: #8e8e93; font-size: 11px;")
+        desc.setStyleSheet(f"color: {tc['sub_text']}; font-size: 11px;")
         root.addWidget(desc)
 
         # Formulario rápido para añadir
@@ -178,23 +178,29 @@ class VocabularyDialog(QDialog):
             self.table.setItem(row, 0, item_word)
 
             # Tipo
+            e_type = getattr(entry, "presence_type", getattr(entry, "entry_type", "present"))
             type_label = {
+                "present": "Presente / Llegada",
+                "transit": "En Tránsito / Movimiento",
+                "departed": "Salida / Partida",
+                "referenced": "Mención / Lore",
                 "verb_arrive": "Verbo Llegada",
                 "verb_transit": "Verbo Tránsito",
                 "verb_depart": "Verbo Salida",
                 "place_noun": "Sustantivo Lugar",
                 "lore_term": "Término Lore"
-            }.get(entry.entry_type, entry.entry_type)
+            }.get(e_type, e_type)
             item_type = QTableWidgetItem(type_label)
             self.table.setItem(row, 1, item_type)
 
             # Significado
-            item_meaning = QTableWidgetItem(entry.meaning or "")
+            notes_text = getattr(entry, "notes", getattr(entry, "meaning", "")) or ""
+            item_meaning = QTableWidgetItem(notes_text)
             self.table.setItem(row, 2, item_meaning)
 
             # Botón Eliminar
             btn_del = QPushButton()
-            btn_del.setIcon(qta.icon('ph.trash-bold', color="#ff453a"))
+            btn_del.setIcon(qta.icon('ph.trash-bold', color=ThemeManager.color("red")))
             btn_del.setFixedSize(30, 24)
             btn_del.setToolTip("Eliminar término")
             btn_del.setStyleSheet("border: none; background: transparent;")
@@ -218,7 +224,7 @@ class VocabularyDialog(QDialog):
             QMessageBox.warning(self, "Término Duplicado", f"El término '{word}' ya existe en el vocabulario.")
             return
 
-        new_entry = CustomVocabularyEntry(word=word, entry_type=entry_type, meaning=meaning)
+        new_entry = CustomVocabularyEntry(word=word, presence_type=entry_type, notes=meaning)
         vocab.append(new_entry)
         self.pm.metadata.custom_vocabulary = vocab
 
@@ -233,3 +239,4 @@ class VocabularyDialog(QDialog):
         vocab = getattr(self.pm.metadata, "custom_vocabulary", [])
         self.pm.metadata.custom_vocabulary = [e for e in vocab if e.word != word]
         self._load_data()
+

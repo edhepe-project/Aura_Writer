@@ -7,12 +7,13 @@ from PyQt6.QtWidgets import (
     QLineEdit, QPushButton, QMessageBox, QWidget, QFrame,
 )
 import qtawesome as qta
+from core.theme_manager import ThemeManager
 
 
 class LockDialog(QDialog):
     """
     Pantalla de bloqueo de sesión de Aura Writer.
-    Diseño premium tipo 'lock screen' – tamaño generoso y estilo oscuro.
+    Diseño premium tipo 'lock screen' sincronizado con el tema activo.
     Soporta contraseña maestra + código TOTP / código de recuperación.
     """
 
@@ -59,8 +60,9 @@ class LockDialog(QDialog):
 
         icon_lbl = QLabel()
         icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        accent_color = ThemeManager.color("accent")
         icon_lbl.setPixmap(
-            qta.icon("fa5s.lock", color="#ffd60a").pixmap(QSize(36, 36))
+            qta.icon("fa5s.lock", color=accent_color).pixmap(QSize(36, 36))
         )
         top_l.addWidget(icon_lbl)
 
@@ -141,7 +143,7 @@ class LockDialog(QDialog):
         btn = QPushButton("  Desbloquear")
         btn.setObjectName("ld_btn")
         btn.setMinimumHeight(46)
-        btn.setIcon(qta.icon("fa5s.unlock-alt", color="#1c1c1e"))
+        btn.setIcon(qta.icon("fa5s.unlock-alt", color=ThemeManager.color("fg_selected")))
         btn.setIconSize(QSize(18, 18))
         btn.clicked.connect(self.check_unlock)
         form_l.addWidget(btn)
@@ -209,102 +211,124 @@ class LockDialog(QDialog):
 
     # ── Estilos ────────────────────────────────────────────────────────────────
     def _apply_style(self) -> None:
-        self.setStyleSheet("""
-            QDialog {
-                background: #1c1c1e;
-            }
+        c = ThemeManager.palette()
+        bg_dialog = c["bg_surface"]
+        bg_top = c["bg_app"]
+        fg_title = c["fg_primary"]
+        fg_subtitle = c["fg_muted"]
+        border_sep = c["border_default"]
+        
+        lbl_field = c["fg_muted"]
+        bg_input = c["bg_input"]
+        border_input = c["border_default"]
+        fg_input = c["fg_primary"]
+        focus_border = c["accent"]
+        focus_bg = c["bg_hover"]
+        ph_color = c["fg_placeholder"]
+        note_color = c["green"]
+        
+        btn_bg = c["accent"]
+        btn_fg = c["fg_selected"]
+        btn_hover = c["accent_hover"]
+        btn_pressed = c["accent_hover"]
+        err_color = c["red"]
+
+        self.setStyleSheet(f"""
+            QDialog {{
+                background: {bg_dialog};
+            }}
 
             /* ── Panel superior ── */
-            #ld_top {
-                background: #2c2c2e;
-            }
-            #ld_title {
+            #ld_top {{
+                background: {bg_top};
+            }}
+            #ld_title {{
                 font-size: 20px;
                 font-weight: 700;
-                color: #f2f2f7;
+                color: {fg_title};
                 font-family: 'Segoe UI', sans-serif;
-            }
-            #ld_subtitle {
+            }}
+            #ld_subtitle {{
                 font-size: 13px;
-                color: #8e8e93;
+                color: {fg_subtitle};
                 font-family: 'Segoe UI', sans-serif;
-            }
+            }}
 
             /* ── Separador ── */
-            #ld_sep {
-                background: #3a3a3c;
+            #ld_sep {{
+                background: {border_sep};
                 min-height: 1px;
                 max-height: 1px;
                 border: none;
-            }
+            }}
 
             /* ── Formulario ── */
-            #ld_form {
-                background: #1c1c1e;
-            }
-            #ld_field_label {
+            #ld_form {{
+                background: {bg_dialog};
+            }}
+            #ld_field_label {{
                 font-size: 11px;
                 font-weight: 600;
-                color: #636366;
+                color: {lbl_field};
                 letter-spacing: 0.06em;
                 font-family: 'Segoe UI', sans-serif;
-            }
+            }}
 
             /* Inputs */
-            #ld_input, #ld_input_mono {
-                background: #2c2c2e;
-                border: 1.5px solid #3a3a3c;
+            #ld_input, #ld_input_mono {{
+                background: {bg_input};
+                border: 1.5px solid {border_input};
                 border-radius: 10px;
-                color: #f2f2f7;
+                color: {fg_input};
                 font-size: 15px;
                 padding: 0 14px;
                 font-family: 'Segoe UI', sans-serif;
-            }
-            #ld_input:focus, #ld_input_mono:focus {
-                border-color: #ffd60a;
-                background: #3a3a3c;
-            }
-            #ld_input_mono {
+            }}
+            #ld_input:focus, #ld_input_mono:focus {{
+                border-color: {focus_border};
+                background: {focus_bg};
+            }}
+            #ld_input_mono {{
                 font-family: 'Consolas', 'Courier New', monospace;
                 font-size: 18px;
                 letter-spacing: 6px;
-            }
-            QLineEdit::placeholder {
-                color: #636366;
-            }
+            }}
+            QLineEdit::placeholder {{
+                color: {ph_color};
+            }}
 
             /* Nota 2FA */
-            #ld_note {
+            #ld_note {{
                 font-size: 11px;
-                color: #30d158;
+                color: {note_color};
                 font-family: 'Segoe UI', sans-serif;
-            }
+            }}
 
             /* Botón */
-            #ld_btn {
-                background: #ffd60a;
-                color: #1c1c1e;
+            #ld_btn {{
+                background: {btn_bg};
+                color: {btn_fg};
                 border: none;
                 border-radius: 12px;
                 font-size: 15px;
                 font-weight: 700;
                 font-family: 'Segoe UI', sans-serif;
-            }
-            #ld_btn:hover   { background: #ffe84d; }
-            #ld_btn:pressed { background: #c9a800; }
+            }}
+            #ld_btn:hover   {{ background: {btn_hover}; }}
+            #ld_btn:pressed {{ background: {btn_pressed}; }}
 
             /* Error — base siempre transparente */
-            #ld_error {
+            #ld_error {{
                 font-size: 12px;
                 color: transparent;
                 font-family: 'Segoe UI', sans-serif;
                 padding: 6px 12px;
                 background: transparent;
                 border-radius: 8px;
-            }
+            }}
             /* Error activo — muestra el texto y el fondo */
-            #ld_error[active="true"] {
-                color: #ff453a;
+            #ld_error[active="true"] {{
+                color: {err_color};
                 background: rgba(255, 69, 58, 0.12);
-            }
+            }}
         """)

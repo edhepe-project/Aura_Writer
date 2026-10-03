@@ -87,7 +87,7 @@ class PlaceCard(QFrame):
         btn_layout.setContentsMargins(0, 0, 0, 0)
 
         self._btn_edit = QPushButton()
-        self._btn_edit.setIcon(qta.icon("fa5s.edit", color="#0a84ff" if ThemeManager.is_dark() else "#007aff"))
+        self._btn_edit.setIcon(qta.icon("fa5s.edit", color=ThemeManager.color("blue")))
         self._btn_edit.setFixedSize(24, 24)
         self._btn_edit.setToolTip("Editar escenario")
         self._btn_edit.clicked.connect(lambda: self.edit_requested.emit(self.place.id))

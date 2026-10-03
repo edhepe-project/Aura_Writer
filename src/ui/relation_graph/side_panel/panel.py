@@ -24,13 +24,14 @@ class NexusSidePanel(QFrame):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._mode = "compact"  # "compact" (320px) o "full" (460px)
-        self.setFixedWidth(320)
+        self._mode = "compact"  # "compact" (380px) o "full" (500px)
+        self.setFixedWidth(380)
         self.setObjectName("NexusSidePanel")
 
         is_dark = ThemeManager.is_dark()
-        bg_panel = "#1c1c1e" if is_dark else "#f5f0ea"
-        b_border = "#3a3a3c" if is_dark else "#d4cfc8"
+        c = ThemeManager.palette()
+        bg_panel = c["bg_surface"]
+        b_border = c["border_default"]
         self.setStyleSheet(f"""
             QFrame#NexusSidePanel {{
                 background: {bg_panel};
@@ -51,6 +52,8 @@ class NexusSidePanel(QFrame):
         self._scroll.setWidgetResizable(True)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_handle = "rgba(255,255,255,0.2)" if is_dark else "rgba(0,0,0,0.15)"
+        scroll_handle_hover = "rgba(255,255,255,0.35)" if is_dark else "rgba(0,0,0,0.3)"
         self._scroll.setStyleSheet(f"""
             QScrollArea {{
                 background: transparent;
@@ -62,12 +65,12 @@ class NexusSidePanel(QFrame):
                 margin: 0px;
             }}
             QScrollBar::handle:vertical {{
-                background: {'rgba(255,255,255,0.2)' if is_dark else 'rgba(0,0,0,0.15)'};
+                background: {scroll_handle};
                 min-height: 20px;
                 border-radius: 3px;
             }}
             QScrollBar::handle:vertical:hover {{
-                background: {'rgba(255,255,255,0.35)' if is_dark else 'rgba(0,0,0,0.3)'};
+                background: {scroll_handle_hover};
             }}
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
                 height: 0px;
@@ -129,13 +132,13 @@ class NexusSidePanel(QFrame):
 
     def _on_close_full(self):
         self._mode = "compact"
-        self.setFixedWidth(320)
+        self.setFixedWidth(380)
         if self._current_char:
             self.show_character(self._current_char, self._current_relations, self._char_map)
 
     def _on_open_full_sheet(self):
         self._mode = "full"
-        self.setFixedWidth(460)
+        self.setFixedWidth(500)
         if self._current_char:
             self.show_character(self._current_char, self._current_relations, self._char_map)
 
@@ -181,7 +184,7 @@ class NexusSidePanel(QFrame):
         self._current_char = None
         self._current_relations.clear()
         self._mode = "compact"
-        self.setFixedWidth(320)
+        self.setFixedWidth(380)
         self._header.clear()
 
         is_dark = ThemeManager.is_dark()
@@ -207,12 +210,13 @@ class NexusSidePanel(QFrame):
             old_body.deleteLater()
         self._scroll.setWidget(empty_body)
 
-    def update_theme(self, is_dark: bool):
-        bg_panel = "#1c1c1e" if is_dark else "#f5f0ea"
-        b_border = "#3a3a3c" if is_dark else "#d4cfc8"
-        tip_bg   = "#2c2c2e" if is_dark else "#faf7f3"
-        tip_fg   = "#f2f2f7" if is_dark else "#1a1a2e"
-        tip_b    = "#3a3a3c" if is_dark else "#c4bfb8"
+    def update_theme(self, is_dark: bool = True):
+        c = ThemeManager.palette()
+        bg_panel = c["bg_surface"]
+        b_border = c["border_default"]
+        tip_bg   = c["bg_hover"]
+        tip_fg   = c["fg_primary"]
+        tip_b    = c["border_default"]
 
         self.setStyleSheet(f"""
             QToolTip {{

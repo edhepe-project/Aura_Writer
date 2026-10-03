@@ -32,18 +32,22 @@ class UpdateDialog(QDialog):
         layout.setSpacing(12)
         layout.setContentsMargins(18, 18, 18, 18)
 
+        c = ThemeManager.palette()
+
         # ── Encabezado ──────────────────────────────────────────────
         header = QHBoxLayout()
         icon_lbl = QLabel()
         try:
-            icon_lbl.setPixmap(qta.icon("fa5s.arrow-alt-circle-up", color="#30d158").pixmap(44, 44))
+            icon_lbl.setPixmap(qta.icon("fa5s.arrow-alt-circle-up", color=c["green"]).pixmap(44, 44))
         except Exception:
             pass
         header.addWidget(icon_lbl)
 
         new_ver = self.release_info.get("version", "Nueva")
-        title_text = f"<b>¡Nueva versión disponible: v{new_ver}!</b><br>" \
-                     f"<span style='color:#8e8e93;'>Versión actual instalada: v{__version__}</span>"
+        title_text = (
+            f"<b>¡Nueva versión disponible: v{new_ver}!</b><br>"
+            f"<span style='color:{ThemeManager.color('fg_muted')};'>Versión actual instalada: v{__version__}</span>"
+        )
         lbl_title = QLabel(title_text)
         lbl_title.setStyleSheet("font-size: 13px;")
         header.addWidget(lbl_title)
@@ -73,7 +77,7 @@ class UpdateDialog(QDialog):
 
         self.lbl_status = QLabel("")
         self.lbl_status.setVisible(False)
-        self.lbl_status.setStyleSheet("font-size: 11px; color: #8e8e93;")
+        self.lbl_status.setStyleSheet(f"font-size: 11px; color: {c['fg_muted']};")
         layout.addWidget(self.lbl_status)
 
         # ── Botones de acción ────────────────────────────────────────
@@ -95,14 +99,14 @@ class UpdateDialog(QDialog):
         if installer_url:
             self.btn_download = QPushButton("Descargar e Instalar")
             self.btn_download.setStyleSheet(
-                "background-color: #30d158; color: white; font-weight: bold; padding: 6px 16px; font-size: 12px;"
+                f"background-color: {c['green']}; color: {c['fg_selected']}; font-weight: bold; padding: 6px 16px; font-size: 12px;"
             )
             self.btn_download.clicked.connect(self._start_download)
             btn_layout.addWidget(self.btn_download)
         else:
             self.btn_download = QPushButton("Ir a la descarga")
             self.btn_download.setStyleSheet(
-                "background-color: #0a84ff; color: white; font-weight: bold; padding: 6px 16px; font-size: 12px;"
+                f"background-color: {c['blue']}; color: {c['fg_selected']}; font-weight: bold; padding: 6px 16px; font-size: 12px;"
             )
             self.btn_download.clicked.connect(self._open_web)
             btn_layout.addWidget(self.btn_download)

@@ -104,12 +104,38 @@ class SecurityControllerMixin:
         codes_text.setFixedHeight(90)
         l.addWidget(codes_text)
 
+        from core.theme_manager import ThemeManager
+        c = ThemeManager.palette()
         btn_box = QHBoxLayout()
         btn_disable = QPushButton("Desactivar 2FA")
-        btn_disable.setStyleSheet(
-            "background-color: #ff453a; color: white; font-weight: bold; padding: 6px 14px;"
-        )
+        btn_disable.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_disable.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {c["red"]};
+                color: #ffffff;
+                font-weight: bold;
+                padding: 6px 14px;
+                border: none;
+                border-radius: 6px;
+            }}
+            QPushButton:hover {{
+                background-color: {c["red"]};
+            }}
+        """)
         btn_close = QPushButton("Cerrar")
+        btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_close.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {c["bg_button"]};
+                color: {c["fg_primary"]};
+                border: 1px solid {c["border_default"]};
+                border-radius: 6px;
+                padding: 6px 14px;
+            }}
+            QPushButton:hover {{
+                background-color: {c["bg_hover"]};
+            }}
+        """)
         btn_close.clicked.connect(dlg.accept)
         btn_box.addWidget(btn_disable)
         btn_box.addStretch()
@@ -143,12 +169,36 @@ class SecurityControllerMixin:
         from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout,
                                       QLabel, QLineEdit, QPushButton, QFrame)
         from PyQt6.QtCore import Qt
+        from core.theme_manager import ThemeManager
+
+        bg_dialog = ThemeManager.color("bg_surface")
+        bg_header = ThemeManager.color("bg_app")
+        fg_title = ThemeManager.color("fg_primary")
+        fg_desc = ThemeManager.color("fg_muted")
+        border_subtle = ThemeManager.color("border_default")
+        
+        bg_field = ThemeManager.color("bg_input")
+        border_field = ThemeManager.color("border_default")
+        fg_field = ThemeManager.color("fg_primary")
+        lbl_field_fg = ThemeManager.color("fg_muted")
+        
+        btn_cancel_bg = ThemeManager.color("bg_button")
+        btn_cancel_fg = ThemeManager.color("fg_primary")
+        btn_cancel_border = ThemeManager.color("border_default")
+        btn_cancel_hover = ThemeManager.color("bg_hover")
+        
+        btn_save_bg = ThemeManager.color("accent")
+        btn_save_fg = ThemeManager.color("fg_selected")
+        btn_save_hover = ThemeManager.color("accent_hover")
+        
+        err_red = ThemeManager.color("red")
 
         dlg = QDialog(self)
         dlg.setWindowTitle("Cambiar Contraseña del Proyecto")
         dlg.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         dlg.setMinimumWidth(440)
         dlg.setModal(True)
+        dlg.setStyleSheet(f"QDialog {{ background: {bg_dialog}; }}")
 
         root = QVBoxLayout(dlg)
         root.setContentsMargins(0, 0, 0, 0)
@@ -158,32 +208,32 @@ class SecurityControllerMixin:
         header = QLabel()
         header.setTextFormat(Qt.TextFormat.RichText)
         header.setText(
-            "<b style='font-size:15px;color:#f2f2f7;'>Cambiar contraseña</b><br>"
-            "<span style='font-size:11px;color:#8e8e93;'>"
+            f"<b style='font-size:15px;color:{fg_title};'>Cambiar contraseña</b><br>"
+            f"<span style='font-size:11px;color:{fg_desc};'>"
             f"La nueva contraseña debe tener al menos {MIN_LEN} caracteres.</span>"
         )
         header.setContentsMargins(24, 20, 24, 16)
-        header.setStyleSheet("background:#2c2c2e;")
+        header.setStyleSheet(f"background:{bg_header};")
         header.setWordWrap(True)
         root.addWidget(header)
 
         sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet("background:#3a3a3c; max-height:1px; border:none;")
+        sep.setStyleSheet(f"background:{border_subtle}; max-height:1px; border:none;")
         root.addWidget(sep)
 
         # ── Formulario ────────────────────────────────────────────────────
-        form_w = QLabel(); form_w.setStyleSheet("background:#1c1c1e;")
+        form_w = QLabel(); form_w.setStyleSheet(f"background:{bg_dialog};")
         form = QVBoxLayout()
         form.setContentsMargins(24, 20, 24, 24)
         form.setSpacing(12)
 
         field_style = (
-            "background:#2c2c2e; border:1.5px solid #3a3a3c; border-radius:9px;"
-            "color:#f2f2f7; font-size:13px; padding:0 12px; font-family:'Segoe UI',sans-serif;"
+            f"background:{bg_field}; border:1.5px solid {border_field}; border-radius:9px;"
+            f"color:{fg_field}; font-size:13px; padding:0 12px; font-family:'Segoe UI',sans-serif;"
         )
         label_style = (
-            "font-size:11px;font-weight:700;color:#636366;"
-            "letter-spacing:0.05em;font-family:'Segoe UI',sans-serif;"
+            f"font-size:11px;font-weight:700;color:{lbl_field_fg};"
+            f"letter-spacing:0.05em;font-family:'Segoe UI',sans-serif;"
         )
 
         def make_field(placeholder):
@@ -202,7 +252,7 @@ class SecurityControllerMixin:
             wrapper = QWidget()
             wrapper.setMinimumHeight(42)
             wrapper.setStyleSheet(
-                "background:#2c2c2e; border:1.5px solid #3a3a3c; border-radius:9px;"
+                f"background:{bg_field}; border:1.5px solid {border_field}; border-radius:9px;"
             )
             hl = QHBoxLayout(wrapper)
             hl.setContentsMargins(0, 0, 4, 0)
@@ -212,9 +262,9 @@ class SecurityControllerMixin:
             field.setEchoMode(QLineEdit.EchoMode.Password)
             field.setPlaceholderText(placeholder)
             field.setStyleSheet(
-                "background:transparent; border:none; border-radius:9px;"
-                "color:#f2f2f7; font-size:13px; padding:0 10px;"
-                "font-family:'Segoe UI',sans-serif;"
+                f"background:transparent; border:none; border-radius:9px;"
+                f"color:{fg_field}; font-size:13px; padding:0 10px;"
+                f"font-family:'Segoe UI',sans-serif;"
             )
             hl.addWidget(field)
 
@@ -223,19 +273,19 @@ class SecurityControllerMixin:
             eye_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             eye_btn.setCheckable(True)
             eye_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)  # Tab no aterriza aquí
-            eye_btn.setIcon(qta.icon("fa5s.eye", color="#636366"))
-            eye_btn.setStyleSheet(
-                "QPushButton { background:transparent; border:none; border-radius:6px; outline:none; }"
-                "QPushButton:hover { background:#3a3a3c; }"
-            )
+            eye_btn.setIcon(qta.icon("fa5s.eye", color=lbl_field_fg))
+            eye_btn.setStyleSheet(f"""
+                QPushButton {{ background:transparent; border:none; border-radius:6px; outline:none; }}
+                QPushButton:hover {{ background:{btn_cancel_hover}; }}
+            """)
 
             def _toggle(checked, f=field, b=eye_btn):
                 if checked:
                     f.setEchoMode(QLineEdit.EchoMode.Normal)
-                    b.setIcon(qta.icon("fa5s.eye-slash", color="#ffd60a"))
+                    b.setIcon(qta.icon("fa5s.eye-slash", color=btn_save_bg))
                 else:
                     f.setEchoMode(QLineEdit.EchoMode.Password)
-                    b.setIcon(qta.icon("fa5s.eye", color="#636366"))
+                    b.setIcon(qta.icon("fa5s.eye", color=lbl_field_fg))
 
             eye_btn.toggled.connect(_toggle)
             hl.addWidget(eye_btn)
@@ -262,8 +312,8 @@ class SecurityControllerMixin:
         # Feedback inline
         feedback = QLabel(" ")
         feedback.setStyleSheet(
-            "font-size:12px;color:#ff453a;font-family:'Segoe UI',sans-serif;"
-            "padding:6px 10px;background:rgba(255,69,58,0);border-radius:7px;"
+            f"font-size:12px;color:{err_red};font-family:'Segoe UI',sans-serif;"
+            f"padding:6px 10px;background:transparent;border-radius:7px;"
         )
         feedback.setWordWrap(True)
         feedback.setMinimumHeight(32)
@@ -273,18 +323,41 @@ class SecurityControllerMixin:
         btn_row = QHBoxLayout(); btn_row.setSpacing(10)
         btn_cancel = QPushButton("Cancelar")
         btn_cancel.setMinimumHeight(40)
-        btn_cancel.setStyleSheet(
-            "background:#3a3a3c;color:#e5e5ea;border:none;border-radius:9px;"
-            "font-size:13px;padding:0 18px;font-family:'Segoe UI',sans-serif;"
-        )
+        btn_cancel.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_cancel.setStyleSheet(f"""
+            QPushButton {{
+                background:{btn_cancel_bg};
+                color:{btn_cancel_fg};
+                border:1px solid {btn_cancel_border};
+                border-radius:9px;
+                font-size:13px;
+                padding:0 18px;
+                font-family:'Segoe UI',sans-serif;
+            }}
+            QPushButton:hover {{
+                background:{btn_cancel_hover};
+            }}
+        """)
         btn_cancel.clicked.connect(dlg.reject)
 
         btn_save = QPushButton("Guardar contraseña")
         btn_save.setMinimumHeight(40)
-        btn_save.setStyleSheet(
-            "background:#ffd60a;color:#1c1c1e;border:none;border-radius:9px;"
-            "font-size:13px;font-weight:700;padding:0 18px;font-family:'Segoe UI',sans-serif;"
-        )
+        btn_save.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_save.setStyleSheet(f"""
+            QPushButton {{
+                background:{btn_save_bg};
+                color:{btn_save_fg};
+                border:none;
+                border-radius:9px;
+                font-size:13px;
+                font-weight:700;
+                padding:0 18px;
+                font-family:'Segoe UI',sans-serif;
+            }}
+            QPushButton:hover {{
+                background:{btn_save_hover};
+            }}
+        """)
         btn_row.addStretch()
         btn_row.addWidget(btn_cancel)
         btn_row.addWidget(btn_save)
@@ -292,7 +365,7 @@ class SecurityControllerMixin:
 
         # Montar formulario en widget de fondo
         body = QFrame()
-        body.setStyleSheet("background:#1c1c1e;")
+        body.setStyleSheet(f"background:{bg_dialog};")
         body.setLayout(form)
         root.addWidget(body)
 
@@ -300,8 +373,8 @@ class SecurityControllerMixin:
         def _show_err(msg):
             feedback.setText(f"⚠  {msg}")
             feedback.setStyleSheet(
-                "font-size:12px;color:#ff453a;font-family:'Segoe UI',sans-serif;"
-                "padding:6px 10px;background:rgba(255,69,58,0.12);border-radius:7px;"
+                f"font-size:12px;color:{err_red};font-family:'Segoe UI',sans-serif;"
+                f"padding:6px 10px;background:rgba(255,69,58,0.12);border-radius:7px;"
             )
 
         def _clear_err():

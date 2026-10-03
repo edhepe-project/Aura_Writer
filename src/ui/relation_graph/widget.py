@@ -86,16 +86,21 @@ class RelationGraphWidget(QWidget):
     def _build_legend_bar(self) -> QWidget:
         from PyQt6.QtWidgets import QLabel, QFrame
         from core.models import RELATION_ICONS
+        from core.theme_manager import ThemeManager
         from .models import RELATION_STYLES
 
         bar = QFrame(self)
         bar.setFixedHeight(34)
-        is_dark = self._is_dark_theme
-        bg_bar = "#161618" if is_dark else "#ede8e1"
-        b_border = "#2c2c2e" if is_dark else "#d4cfc8"
-        tip_bg = "#2c2c2e" if is_dark else "#faf7f3"
-        tip_fg = "#f2f2f7" if is_dark else "#1a1a2e"
-        tip_b = "#3a3a3c" if is_dark else "#c4bfb8"
+        is_dark = ThemeManager.is_dark()
+        c = ThemeManager.palette()
+        bg_bar = c["bg_app"]
+        b_border = c["border_default"]
+        tip_bg = c["bg_overlay"]
+        tip_fg = c["fg_primary"]
+        tip_b = c["border_default"]
+        fg_title = c["fg_muted"]
+        fg_item = c["fg_secondary"]
+        g_lbl_col = c["fg_secondary"]
 
         bar.setStyleSheet(f"""
             QToolTip {{
@@ -117,7 +122,6 @@ class RelationGraphWidget(QWidget):
         layout.setSpacing(10)
 
         title = QLabel("LÍNEAS:")
-        fg_title = "#8e8e93" if is_dark else "#7a7a8a"
         title.setStyleSheet(f"color: {fg_title}; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;")
         layout.addWidget(title)
 
@@ -149,7 +153,6 @@ class RelationGraphWidget(QWidget):
             item_layout.addWidget(line_sample)
 
             lbl = QLabel(f"{icon} {r_name}", item_widget)
-            fg_item = "#d1d1d6" if is_dark else "#2c2c2e"
             lbl.setStyleSheet(f"color: {fg_item}; font-size: 10.5px; font-weight: 600;")
             item_layout.addWidget(lbl)
             layout.addWidget(item_widget)
@@ -184,7 +187,7 @@ class RelationGraphWidget(QWidget):
         ]
         for symbol, g_label in geom_chips:
             g_lbl = QLabel(f"{symbol} {g_label}", bar)
-            g_lbl.setStyleSheet(f"color: {'#a1a1a6' if is_dark else '#48484a'}; font-size: 10.5px; font-weight: 600;")
+            g_lbl.setStyleSheet(f"color: {g_lbl_col}; font-size: 10.5px; font-weight: 600;")
             g_lbl.setToolTip("Pasa el cursor sobre JERARQUÍA para ver todos los niveles detallados.")
             layout.addWidget(g_lbl)
 

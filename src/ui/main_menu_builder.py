@@ -352,11 +352,11 @@ class MainMenuBuilderMixin:
 
         try:
             from core.theme_manager import ThemeManager
-            is_dark = ThemeManager.is_dark()
-            _ic = "#aeaeb2" if is_dark else "#4a4a5a"
-            _accent = "#ffd60a" if is_dark else "#d97706"
+            c = ThemeManager.palette()
+            _ic = c["fg_secondary"]
+            _accent = c["accent"]
 
-            self._act_save = self._main_toolbar.addAction(qta.icon("fa5s.save", color="#30d158" if is_dark else "#16a34a"), "Guardar", self.save_project)
+            self._act_save = self._main_toolbar.addAction(qta.icon("fa5s.save", color=c["green"]), "Guardar", self.save_project)
             self._main_toolbar.addSeparator()
 
             self._bold_act.setIcon(qta.icon("fa5s.bold", color=_ic))
@@ -389,25 +389,25 @@ class MainMenuBuilderMixin:
             self._act_dot = self._main_toolbar.addAction(qta.icon("fa5s.circle", color=_accent), "Punto Medio · (Ctrl+.)", self.editor.insert_middle_dot)
             self._act_dash = self._main_toolbar.addAction(qta.icon("fa5s.minus", color=_accent), "Raya — (Ctrl+- o escribir --)", self.editor.insert_em_dash)
             self._act_sep = self._main_toolbar.addAction(qta.icon("fa5s.asterisk", color=_accent), "Separador * * *", self.editor.insert_scene_separator)
-            self._act_pb = self._main_toolbar.addAction(qta.icon("fa5s.cut", color="#ff453a" if is_dark else "#dc2626"), "Salto de Pág", self.editor.insert_page_break)
+            self._act_pb = self._main_toolbar.addAction(qta.icon("fa5s.cut", color=c["red"]), "Salto de Pág", self.editor.insert_page_break)
             self._act_blank = self._main_toolbar.addAction(qta.icon("fa5s.file-alt", color=_ic), "Pág en Blanco", self.editor.insert_blank_page)
-            self._act_img = self._main_toolbar.addAction(qta.icon("fa5s.image", color="#32ade6" if is_dark else "#0284c7"), "Imagen", self.insert_media)
+            self._act_img = self._main_toolbar.addAction(qta.icon("fa5s.image", color=c["blue"]), "Imagen", self.insert_media)
 
             self._main_toolbar.addSeparator()
             self._act_search = self._main_toolbar.addAction(qta.icon("fa5s.search", color=_ic), "Buscador Global", self.open_search)
-            self._act_lock = self._main_toolbar.addAction(qta.icon("fa5s.lock", color="#ff9f0a" if is_dark else "#ea580c"), "Bloqueo Rápido", self.quick_lock)
+            self._act_lock = self._main_toolbar.addAction(qta.icon("fa5s.lock", color=c["amber"]), "Bloqueo Rápido", self.quick_lock)
 
             self._main_toolbar.addSeparator()
-            self._act_map = self._main_toolbar.addAction(qta.icon("fa5s.globe", color="#bf5af2" if is_dark else "#9333ea"), "Mapa Mental", self.open_universe_map)
-            self._act_graph = self._main_toolbar.addAction(qta.icon("fa5s.project-diagram", color="#5e5ce6" if is_dark else "#4f46e5"), "Relaciones", self.open_relation_graph)
-            self._act_place_graph = self._main_toolbar.addAction(qta.icon("fa5s.map-marked-alt", color="#ffd60a" if is_dark else "#d97706"), "Atlas de Lugares", self.open_place_graph_dialog)
-            self._act_story_graph = self._main_toolbar.addAction(qta.icon("fa5s.stream", color="#ff9f0a" if is_dark else "#ea580c"), "Cronograma Narrativo", self.open_story_graph_dialog)
+            self._act_map = self._main_toolbar.addAction(qta.icon("fa5s.globe", color=c["purple"]), "Mapa Mental", self.open_universe_map)
+            self._act_graph = self._main_toolbar.addAction(qta.icon("fa5s.project-diagram", color=c["indigo"]), "Relaciones", self.open_relation_graph)
+            self._act_place_graph = self._main_toolbar.addAction(qta.icon("fa5s.map-marked-alt", color=c["amber"]), "Atlas de Lugares", self.open_place_graph_dialog)
+            self._act_story_graph = self._main_toolbar.addAction(qta.icon("fa5s.stream", color=c["amber"]), "Cronograma Narrativo", self.open_story_graph_dialog)
             self._main_toolbar.addSeparator()
-            self._act_export = self._main_toolbar.addAction(qta.icon("fa5s.file-export", color="#30d158" if is_dark else "#16a34a"), "Exportar", self.open_exporter)
-            self._act_trash = self._main_toolbar.addAction(qta.icon("fa5s.trash-alt", color="#ff453a" if is_dark else "#dc2626"), "Papelera", self.open_trash_dialog)
+            self._act_export = self._main_toolbar.addAction(qta.icon("fa5s.file-export", color=c["green"]), "Exportar", self.open_exporter)
+            self._act_trash = self._main_toolbar.addAction(qta.icon("fa5s.trash-alt", color=c["red"]), "Papelera", self.open_trash_dialog)
 
             self._appearance_tb_act = self._main_toolbar.addAction(
-                qta.icon("fa5s.paint-brush", color="#bf5af2" if is_dark else "#9333ea"),
+                qta.icon("fa5s.paint-brush", color=c["purple"]),
                 "Apariencia", self.open_editor_appearance_dialog
             )
 

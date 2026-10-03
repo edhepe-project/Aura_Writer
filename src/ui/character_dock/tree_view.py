@@ -45,9 +45,9 @@ class CharacterTreeView(QWidget):
         tree_header.addStretch()
 
         # Botones colapsar / expandir árbol
-        self._btn_collapse = self._icon_btn("fa5s.minus", "#aeaeb2", "Colapsar un nivel")
+        self._btn_collapse = self._icon_btn("fa5s.minus", ThemeManager.color("fg_muted"), "Colapsar un nivel")
         self._btn_collapse.clicked.connect(self._on_collapse_level)
-        self._btn_expand = self._icon_btn("fa5s.plus", "#aeaeb2", "Expandir un nivel")
+        self._btn_expand = self._icon_btn("fa5s.plus", ThemeManager.color("fg_muted"), "Expandir un nivel")
         self._btn_expand.clicked.connect(self._on_expand_level)
         tree_header.addWidget(self._btn_collapse)
         tree_header.addWidget(self._btn_expand)
@@ -56,11 +56,11 @@ class CharacterTreeView(QWidget):
         sep_lbl = QLabel("│")
         tree_header.addWidget(sep_lbl)
 
-        self._btn_add_char = self._icon_btn("fa5s.user-plus", "#30d158", "Nuevo personaje")
+        self._btn_add_char = self._icon_btn("fa5s.user-plus", ThemeManager.color("green"), "Nuevo personaje")
         self._btn_add_char.clicked.connect(self._on_add_character)
-        self._btn_edit_char = self._icon_btn("fa5s.pen", "#5e5ce6", "Editar personaje")
+        self._btn_edit_char = self._icon_btn("fa5s.pen", ThemeManager.color("indigo"), "Editar personaje")
         self._btn_edit_char.clicked.connect(self._on_edit_character)
-        self._btn_del_char = self._icon_btn("fa5s.user-minus", "#ff453a", "Eliminar personaje")
+        self._btn_del_char = self._icon_btn("fa5s.user-minus", ThemeManager.color("red"), "Eliminar personaje")
         self._btn_del_char.clicked.connect(self._on_del_character)
         tree_header.addWidget(self._btn_add_char)
         tree_header.addWidget(self._btn_edit_char)
@@ -160,22 +160,16 @@ class CharacterTreeView(QWidget):
             root_item.setData(0, Qt.ItemDataRole.UserRole, char.id)
             root_item.setData(0, Qt.ItemDataRole.UserRole + 1, "character")
 
-            if is_dark:
-                role_color = {
-                    "Protagonista": "#ffd60a", "Antagonista": "#ff453a",
-                    "Misterioso":   "#bf5af2", "Secundario": "#f2f2f7",
-                    "Otro":         "#8e8e93"
-                }.get(char.role, "#f2f2f7")
-                sub_role_color = "#636366"
-                rel_detail_color = "#8e8e93"
-            else:
-                role_color = {
-                    "Protagonista": "#b45309", "Antagonista": "#dc2626",
-                    "Misterioso":   "#7c3aed", "Secundario": "#1f2937",
-                    "Otro":         "#6b7280"
-                }.get(char.role, "#1f2937")
-                sub_role_color = "#78716c"
-                rel_detail_color = "#57534e"
+            c = ThemeManager.palette()
+            role_color = {
+                "Protagonista": c["amber"],
+                "Antagonista":  c["red"],
+                "Misterioso":   c["purple"],
+                "Secundario":   c["fg_primary"],
+                "Otro":         c["fg_secondary"]
+            }.get(char.role, c["fg_primary"])
+            sub_role_color = c["fg_muted"]
+            rel_detail_color = c["fg_secondary"]
 
             root_item.setForeground(0, QColor(role_color))
             fnt = QFont()

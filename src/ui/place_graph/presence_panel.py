@@ -55,11 +55,11 @@ class PresencePanel(QWidget):
     # -- Construccion de la UI -----------------------------------------------
 
     def _setup_ui(self) -> None:
-        is_dark = ThemeManager.is_dark()
-        fg_accent = "#ffd60a" if is_dark else "#d97706"
-        fg_sec    = "#8e8e93" if is_dark else "#64748b"
-        ctx_bg    = "rgba(255, 214, 10, 0.08)" if is_dark else "rgba(217, 119, 6, 0.08)"
-        ctx_bord  = "rgba(255, 214, 10, 0.3)" if is_dark else "rgba(217, 119, 6, 0.3)"
+        c = ThemeManager.palette()
+        fg_accent = c["accent"]
+        fg_sec    = c["fg_muted"]
+        ctx_bg    = c["bg_hover"]
+        ctx_bord  = c["border_default"]
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 6, 0, 4)
@@ -90,10 +90,10 @@ class PresencePanel(QWidget):
         root.addWidget(ctx_frame)
 
         # -- Hint: seleccionar capitulo primero ------------------------------
-        hint_bg   = "rgba(10, 132, 255, 0.08)" if is_dark else "rgba(37, 99, 235, 0.08)"
-        hint_bord = "rgba(10, 132, 255, 0.3)" if is_dark else "rgba(37, 99, 235, 0.3)"
-        hint_fg   = "#0a84ff" if is_dark else "#2563eb"
-        hint_sub  = "#8e8e93" if is_dark else "#64748b"
+        hint_bg   = c["bg_app"]
+        hint_bord = c["border_default"]
+        hint_fg   = c["blue"]
+        hint_sub  = c["fg_muted"]
 
         self._chapter_hint = QFrame()
         self._chapter_hint.setStyleSheet(f"""
@@ -140,12 +140,12 @@ class PresencePanel(QWidget):
             self.combo_status.addItem(label, data)
         form_lay.addWidget(self.combo_status)
 
-        btn_bg     = "#ffd60a" if is_dark else "#d97706"
-        btn_fg     = "#000000" if is_dark else "#ffffff"
-        btn_hover  = "#ffe033" if is_dark else "#b45309"
-        btn_press  = "#e6c009" if is_dark else "#92400e"
-        btn_dis_bg = "#2c2c2e" if is_dark else "#e5e7eb"
-        btn_dis_fg = "#636366" if is_dark else "#9ca3af"
+        btn_bg     = c["accent"]
+        btn_fg     = c["fg_selected"]
+        btn_hover  = c["accent_hover"]
+        btn_press  = c["accent_hover"]
+        btn_dis_bg = c["bg_disabled"]
+        btn_dis_fg = c["fg_disabled"]
 
         self.btn_add = QPushButton("  Colocar personaje aquí")
         self.btn_add.setFixedHeight(34)
@@ -165,8 +165,8 @@ class PresencePanel(QWidget):
         root.addWidget(self._form_frame)
 
         # -- Separador y titulo de lista ------------------------------------
-        sep_col = "#3a3a3c" if is_dark else "#e2e8f0"
-        title_col = "#636366" if is_dark else "#64748b"
+        sep_col = c["border_default"]
+        title_col = c["fg_muted"]
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
         sep.setStyleSheet(f"color: {sep_col}; margin: 2px 0;")

@@ -18,14 +18,14 @@ class ChapterBranchDialog(QDialog):
         self.setFixedWidth(560)
         self.chosen_action: Literal["branch", "readonly", "cancel"] = "cancel"
 
-        is_dark = ThemeManager.is_dark()
+        c = ThemeManager.palette()
 
         dlg_layout = QVBoxLayout(self)
         dlg_layout.setContentsMargins(20, 20, 20, 20)
         dlg_layout.setSpacing(16)
 
         title_msg = QLabel(f"<b>Has seleccionado «{chapter_title}» en ambos lados de la mesa de cotejo.</b>")
-        title_msg.setStyleSheet(f"font-size: 13px; color: {'#f2f2f7' if is_dark else '#1a1a2e'};")
+        title_msg.setStyleSheet(f"font-size: 13px; color: {c['fg_primary']};")
         dlg_layout.addWidget(title_msg)
 
         info_msg = QLabel(
@@ -33,49 +33,49 @@ class ChapterBranchDialog(QDialog):
             "alternativa para experimentar libremente o abrirlo en modo lectura:"
         )
         info_msg.setWordWrap(True)
-        info_msg.setStyleSheet(f"font-size: 12px; color: {'#8e8e93' if is_dark else '#646470'}; line-height: 1.4;")
+        info_msg.setStyleSheet(f"font-size: 12px; color: {c['fg_muted']}; line-height: 1.4;")
         dlg_layout.addWidget(info_msg)
 
         btn_box = QHBoxLayout()
         btn_box.setSpacing(10)
 
         btn_branch = QPushButton("🌿 Crear Borrador Alternativo")
-        btn_branch.setStyleSheet("""
-            QPushButton {
-                background-color: #30d158;
-                color: white;
+        btn_branch.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {c['green']};
+                color: {c['fg_selected']};
                 font-weight: bold;
                 padding: 8px 14px;
                 border-radius: 6px;
                 font-size: 12px;
-            }
-            QPushButton:hover { background-color: #28b84c; }
+            }}
+            QPushButton:hover {{ background-color: {c['accent']}; }}
         """)
 
         btn_readonly = QPushButton("👀 Solo Lectura")
         btn_readonly.setStyleSheet(f"""
             QPushButton {{
-                background-color: {'#2c2c2e' if is_dark else '#ede8e1'};
-                color: {'#f2f2f7' if is_dark else '#1a1a2e'};
-                border: 1px solid {'#3a3a3c' if is_dark else '#c4bfb8'};
+                background-color: {c['bg_hover']};
+                color: {c['fg_primary']};
+                border: 1px solid {c['border_default']};
                 padding: 8px 14px;
                 border-radius: 6px;
                 font-size: 12px;
             }}
-            QPushButton:hover {{ background-color: {'#3a3a3c' if is_dark else '#dedad2'}; }}
+            QPushButton:hover {{ background-color: {c['bg_selected']}; }}
         """)
 
         btn_cancel = QPushButton("Cancelar")
         btn_cancel.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
-                color: {'#8e8e93' if is_dark else '#7a7a8a'};
-                border: 1px solid {'#3a3a3c' if is_dark else '#c4bfb8'};
+                color: {c['fg_muted']};
+                border: 1px solid {c['border_default']};
                 padding: 8px 14px;
                 border-radius: 6px;
                 font-size: 12px;
             }}
-            QPushButton:hover {{ background-color: {'#2c2c2e' if is_dark else '#dedad2'}; }}
+            QPushButton:hover {{ background-color: {c['bg_hover']}; }}
         """)
 
         def _choose_branch():

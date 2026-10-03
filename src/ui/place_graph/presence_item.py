@@ -51,10 +51,14 @@ class _MoveCharacterDialog(QDialog):
         self.setFixedSize(340, 260)
         self.selected_place_id: str | None = None
 
-        bg   = "#1c1c1e" if is_dark else "#f5f0ea"
-        fg   = "#f2f2f7" if is_dark else "#1c1c1e"
-        card = "#2c2c2e" if is_dark else "#ffffff"
-        bord = "#3a3a3c" if is_dark else "#d4cfc8"
+        c    = ThemeManager.palette()
+        bg   = c["bg_surface"]
+        fg   = c["fg_primary"]
+        card = c["bg_app"]
+        bord = c["border_default"]
+        accent = c["accent"]
+        accent_hover = c["accent_hover"]
+        fg_selected = c["fg_selected"]
 
         self.setStyleSheet(f"""
             QDialog  {{ background: {bg}; }}
@@ -64,12 +68,12 @@ class _MoveCharacterDialog(QDialog):
                 border-radius: 6px; color: {fg}; font-size: 11px; outline: none;
             }}
             QListWidget::item {{ padding: 6px 10px; border-bottom: 1px solid {bord}; }}
-            QListWidget::item:selected {{ background: #0a84ff; color: #fff; border-radius: 4px; }}
+            QListWidget::item:selected {{ background: {accent}; color: {fg_selected}; border-radius: 4px; }}
             QPushButton {{
-                background: #0a84ff; color: #fff; border: none;
+                background: {accent}; color: {fg_selected}; border: none;
                 border-radius: 6px; padding: 6px 14px; font-weight: bold;
             }}
-            QPushButton:hover {{ background: #3399ff; }}
+            QPushButton:hover {{ background: {accent_hover}; }}
         """)
 
         layout = QVBoxLayout(self)
@@ -142,14 +146,19 @@ class PresenceItemWidget(QFrame):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        is_dark = ThemeManager.is_dark()
-        bg   = "#2c2c2e" if is_dark else "#ffffff"
-        bord = "#3a3a3c" if is_dark else "#e0dbd3"
-        fg   = "#f2f2f7" if is_dark else "#1c1c1e"
+        c    = ThemeManager.palette()
+        bg   = c["bg_app"]
+        bord = c["border_default"]
+        fg   = c["fg_primary"]
 
         p_type = self.presence.presence_type
-        info   = _TYPE_INFO.get(p_type, ("?", "#8e8e93", "?"))
-        color  = info[1]
+        type_colors = {
+            "present":    c["green"],
+            "transit":    c["blue"],
+            "departed":   c["red"],
+            "referenced": c["fg_muted"]
+        }
+        color = type_colors.get(p_type, c["fg_muted"])
 
         self.setStyleSheet(f"""
             PresenceItemWidget {{

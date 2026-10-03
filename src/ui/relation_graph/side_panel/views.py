@@ -22,10 +22,10 @@ def build_compact_view(
     on_jump_to: Callable[[str], None]
 ) -> QWidget:
     """Construye la vista compacta (280px) del panel lateral."""
-    is_dark = ThemeManager.is_dark()
-    fg_desc = "rgba(242,242,247,0.85)" if is_dark else "#4a4a5a"
-    fg_title = "#aeaeb2" if is_dark else "#7a7a8a"
-    b_sep = "#3a3a3c" if is_dark else "#d4cfc8"
+    c = ThemeManager.palette()
+    fg_desc = c["fg_secondary"]
+    fg_title = c["fg_muted"]
+    b_sep = c["border_default"]
 
     new_body = QWidget()
     new_body.setStyleSheet("background: transparent;")
@@ -37,17 +37,17 @@ def build_compact_view(
     btn_sheet.setCursor(Qt.CursorShape.PointingHandCursor)
     btn_sheet.setStyleSheet(f"""
         QPushButton {{
-            background: {'rgba(255, 214, 10, 0.12)' if is_dark else 'rgba(154, 92, 0, 0.08)'};
-            color: {'#ffd60a' if is_dark else '#9a5c00'};
-            border: 1px solid {'rgba(255, 214, 10, 0.35)' if is_dark else 'rgba(154, 92, 0, 0.25)'};
+            background: {c['bg_hover']};
+            color: {c['accent']};
+            border: 1px solid {c['border_default']};
             border-radius: 6px;
             padding: 8px 12px;
             font-size: 11px;
             font-weight: 700;
         }}
         QPushButton:hover {{
-            background: {'rgba(255, 214, 10, 0.24)' if is_dark else 'rgba(154, 92, 0, 0.16)'};
-            border-color: {'#ffd60a' if is_dark else '#9a5c00'};
+            background: {c['bg_selected']};
+            border-color: {c['accent']};
         }}
     """)
     btn_sheet.clicked.connect(on_open_full_sheet)
@@ -101,10 +101,10 @@ def build_full_sheet_view(
     on_jump_to: Callable[[str], None]
 ) -> QWidget:
     """Construye la vista de ficha completa integrada (430px con pestañas) del panel lateral."""
-    is_dark = ThemeManager.is_dark()
-    fg_desc = "rgba(242,242,247,0.85)" if is_dark else "#4a4a5a"
-    fg_title = "#aeaeb2" if is_dark else "#7a7a8a"
-    b_sep = "#3a3a3c" if is_dark else "#d4cfc8"
+    c = ThemeManager.palette()
+    fg_desc = c["fg_secondary"]
+    fg_title = c["fg_muted"]
+    b_sep = c["border_default"]
 
     new_body = QWidget()
     new_body.setStyleSheet("background: transparent;")
@@ -112,8 +112,8 @@ def build_full_sheet_view(
     body_layout.setContentsMargins(12, 10, 12, 12)
     body_layout.setSpacing(8)
 
-    tab_pane_bg = "rgba(0,0,0,0.15)" if is_dark else "rgba(255,255,255,0.4)"
-    accent = "#ffd60a" if is_dark else "#9a5c00"
+    tab_pane_bg = c["bg_app"]
+    accent = c["accent"]
     tabs = QTabWidget()
     tabs.setStyleSheet(f"""
         QTabWidget::pane {{

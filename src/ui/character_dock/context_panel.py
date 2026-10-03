@@ -117,8 +117,7 @@ class CharacterContextPanel(QWidget):
         self._context_sublabel.show()
         if not characters_in_libro:
             item = QListWidgetItem("  (ningún personaje detectado)")
-            is_dark = ThemeManager.is_dark()
-            item.setForeground(QColor("#8e8e93" if is_dark else "#6b7280"))
+            item.setForeground(QColor(ThemeManager.color("fg_muted")))
             self._list_appear.addItem(item)
             return
         self._populate_character_list_items(characters_in_libro)
@@ -138,24 +137,19 @@ class CharacterContextPanel(QWidget):
         self._populate_character_list_items(all_characters)
 
     def _populate_character_list_items(self, char_list: list[Character]):
-        is_dark = ThemeManager.is_dark()
+        c = ThemeManager.palette()
         role_icons = {
             "Protagonista": "★", "Antagonista": "▲",
             "Secundario": "●", "Misterioso": "◆", "Otro": "○"
         }
-        if is_dark:
-            role_colors = {
-                "Protagonista": "#ffd60a", "Antagonista": "#ff453a",
-                "Misterioso":   "#bf5af2", "Secundario":   "#f2f2f7",
-                "Otro":         "#aeaeb2"
-            }
-        else:
-            role_colors = {
-                "Protagonista": "#b45309", "Antagonista": "#dc2626",
-                "Misterioso":   "#7c3aed", "Secundario":   "#111827",
-                "Otro":         "#4b5563"
-            }
-        default_color = "#f2f2f7" if is_dark else "#111827"
+        role_colors = {
+            "Protagonista": c["amber"],
+            "Antagonista":  c["red"],
+            "Misterioso":   c["purple"],
+            "Secundario":   c["fg_primary"],
+            "Otro":         c["fg_secondary"]
+        }
+        default_color = c["fg_primary"]
 
         for char in char_list:
             icon = role_icons.get(char.role, "○")

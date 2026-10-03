@@ -15,18 +15,20 @@ class UsbControllerMixin:
 
     def _update_usb_indicator(self):
         """Actualiza el indicador visual de estado USB en la barra de estado."""
+        from core.theme_manager import ThemeManager
+        c = ThemeManager.palette()
         usb = self.project_manager.usb_sync
         if not usb.is_configured():
             self._usb_indicator.setText("USB: No configurada")
-            self._usb_indicator.setStyleSheet("color: #636366; font-size: 11px; padding: 0 8px;")
+            self._usb_indicator.setStyleSheet(f"color: {c['fg_muted']}; font-size: 11px; padding: 0 8px;")
             return
         drive = usb.find_configured_drive()
         if drive:
             self._usb_indicator.setText(f"USB: {drive.label} ({drive.path.rstrip(os.sep)})")
-            self._usb_indicator.setStyleSheet("color: #30d158; font-size: 11px; padding: 0 8px;")
+            self._usb_indicator.setStyleSheet(f"color: {c['green']}; font-size: 11px; padding: 0 8px;")
         else:
             self._usb_indicator.setText(f"USB: {usb.volume_label} (no conectada)")
-            self._usb_indicator.setStyleSheet("color: #ff453a; font-size: 11px; padding: 0 8px;")
+            self._usb_indicator.setStyleSheet(f"color: {c['red']}; font-size: 11px; padding: 0 8px;")
 
     def open_usb_config(self):
         """Abre el dialogo de configuracion USB."""

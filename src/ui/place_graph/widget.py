@@ -11,13 +11,12 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QLineEdit, QFrame, QComboBox, QMessageBox, QStackedWidget
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QThread, pyqtSlot
+from PyQt6.QtCore import Qt, pyqtSignal, QThread, pyqtSlot, QTimer
 
 from core.models import Place, PlaceLink
 from core.theme_manager import ThemeManager
 from .models import PLACE_CATEGORY_COLORS, CONNECTION_STYLES
 from .items import PlaceNodeItem, PlaceLinkItem
-from .physics import compute_places_layout
 from .scene import PlaceGraphScene, PlaceGraphView
 from .layout_worker import _LayoutWorker
 
@@ -37,7 +36,9 @@ class PlaceGraphWidget(QWidget):
         self._links: list[PlaceLink] = []
         self._node_map: dict[str, PlaceNodeItem] = {}
         self._project_manager = None
-        self._layout_worker: "_LayoutWorker | None" = None  # hilo de fisica activo
+        self._layout_worker: "_LayoutWorker | None" = None
+        self._batch_timer: QTimer | None = None    # timer de inserción por lotes
+        self._batch_queue: list = []               # cola de callables pendientes
         self._setup_ui()
         self._apply_theme()
         ThemeManager.signals.theme_changed.connect(self._apply_theme)
@@ -213,13 +214,13 @@ class PlaceGraphWidget(QWidget):
 
     def _apply_theme(self):
         import qtawesome as qta
-        tc = ThemeManager.theme_colors()
-        bg_bar = tc["bg_card"]
-        border_col = tc["border"]
-        fg_col = tc["fg_text"]
-        input_bg = tc["bg_input"]
-        accent = tc["accent"]
-        lbl_col = tc["sub_text"]
+        c = ThemeManager.palette()
+        bg_bar = c["bg_surface"]
+        border_col = c["border_default"]
+        fg_col = c["fg_primary"]
+        input_bg = c["bg_hover"]
+        accent = c["accent"]
+        lbl_col = c["fg_muted"]
 
         # 1) Toolbar general
         self.setStyleSheet(f"""
@@ -250,18 +251,18 @@ class PlaceGraphWidget(QWidget):
                 color: {fg_col};
             }}
             QPushButton {{
-                background-color: {tc["bg_card"]};
+                background-color: {bg_bar};
                 color: {fg_col};
                 border: 1px solid {border_col};
                 border-radius: 4px;
                 padding: 4px 8px;
             }}
             QPushButton:hover {{
-                background-color: {tc["border"]};
+                background-color: {c['bg_selected']};
             }}
         """)
         
-        self._overlay.setStyleSheet(f"background-color: {tc['bg_main']};")
+        self._overlay.setStyleSheet(f"background-color: {c['bg_app']};")
         self._loading_lbl.setStyleSheet(f"color: {accent}; font-weight: bold; font-size: 14px;")
         
         if hasattr(self, "act_zoom_in"):
@@ -278,10 +279,18 @@ class PlaceGraphWidget(QWidget):
             self.hier_lbl.setStyleSheet(f"color: {lbl_col}; font-size: 10px;")
             
         for lbl in getattr(self, "_legend_labels", []):
+            lbl.setStyleSheet(f"color: {lbl_col}; font-size: 10px;")
             lbl.setStyleSheet(f"color: {lbl_col}; font-size: 10px; padding-right: 10px;")
 
         if hasattr(self._scene, "update_theme"):
             self._scene.update_theme()
+
+        # Refrescar caché de colores en todos los nodos del grafo
+        for node in self._node_map.values():
+            if hasattr(node, "_refresh_theme_cache"):
+                node._refresh_theme_cache()
+        if self._node_map:
+            self._scene.update()
 
     # ── Datos ───────────────────────────────────────────────────────────────
 
@@ -452,13 +461,11 @@ class PlaceGraphWidget(QWidget):
 
     def _rebuild_graph(self):
         """
-        Inicia la reconstruccion del grafo en dos fases:
-          1. Limpia la escena y muestra el overlay de carga (instantaneo, en el hilo principal).
-          2. Lanza un QThread que calcula compute_places_layout() en background.
+        Construye el grafo en dos fases para no bloquear nunca la UI:
+          1. Limpia la escena y muestra el overlay de carga (instantáneo, hilo principal).
+          2. Lanza _LayoutWorker en QThread para compute_places_layout() en background.
           3. Al terminar el hilo, _on_layout_ready() construye nodos/edges y oculta el overlay.
-        Esto evita que la UI se congele durante el calculo de fisica orbital.
         """
-        # Limpiar estado anterior
         # IMPORTANTE: limpiar _presence_badges ANTES de scene.clear().
         # scene.clear() destruye los QGraphicsItem en C++, pero las referencias
         # Python en _presence_badges siguen vivas y causarian RuntimeError
@@ -475,14 +482,7 @@ class PlaceGraphWidget(QWidget):
             self._stack.setCurrentIndex(1)  # mostrar grafo vacio
             return
 
-        # Para un rendimiento instantáneo (0ms de retardo), si hay un número estándar de lugares
-        # calculamos las posiciones directamente en el hilo principal sin pasar por el overlay ni el QThread.
-        if len(self._places) <= 120:
-            positions = compute_places_layout(self._places, self._links)
-            self._on_layout_ready(positions)
-            return
-
-        # Mostrar overlay únicamente para grafos gigantescos (>120 lugares)
+        # Mostrar overlay de carga SIEMPRE — el layout nunca bloquea el hilo principal.
         self._stack.setCurrentIndex(0)
 
         # Cancelar hilo previo si sigue vivo
@@ -496,7 +496,10 @@ class PlaceGraphWidget(QWidget):
 
     @pyqtSlot(dict)
     def _on_layout_ready(self, positions: dict):
-        """Recibe las posiciones calculadas por el hilo y construye el grafo en el hilo principal."""
+        """
+        Recibe las posiciones calculadas por el hilo y construye el grafo
+        en el hilo principal mediante inserción por lotes (chunks de ~60 items/tick).
+        """
         parent_map = {p.id: p.parent_place_id for p in self._places}
         children_map: dict[str, list[str]] = {p.id: [] for p in self._places}
         for p in self._places:
@@ -510,63 +513,107 @@ class PlaceGraphWidget(QWidget):
                 seen.add(cur); d += 1; cur = parent_map.get(cur, "")
             depth_map[p.id] = d
 
+        # Construir lista de callables a ejecutar en lotes
+        batch: list = []
+
+        # — Paso 1: crear nodos —
         for place in self._places:
             pos = positions.get(place.id, (0.0, 0.0))
             depth = depth_map.get(place.id, 0)
             child_count = len(children_map.get(place.id, []))
-            node = PlaceNodeItem(place, pos[0], pos[1], depth=depth, child_count=child_count)
-            self._scene.addItem(node)
-            self._node_map[place.id] = node
-            self._scene._nodes[place.id] = node
-            self._scene._adj[place.id] = set()
 
-        # 1. Enlaces orbitales (Planeta Padre -> Luna/Estancia)
-        edge_idx: dict[frozenset, int] = {}
-        for p in self._places:
-            if p.parent_place_id and p.parent_place_id in self._node_map and p.id in self._node_map:
-                na = self._node_map[p.parent_place_id]
-                nb = self._node_map[p.id]
-                h_link = PlaceLink(
-                    place_id_a=p.parent_place_id,
-                    place_id_b=p.id,
-                    label="orbita",
-                    connection_type="contiene",
-                    bidirectional=False
-                )
-                pair = frozenset([p.parent_place_id, p.id])
-                edge_idx[pair] = edge_idx.get(pair, 0) + 1
-                curv = 0.12 * (1 if edge_idx[pair] % 2 == 1 else -1)
-                item = PlaceLinkItem(h_link, na, nb, curvature=curv)
-                self._scene.addItem(item)
-                self._scene._all_edges.append(item)
-                self._scene._adj.setdefault(p.parent_place_id, set()).add(p.id)
-                self._scene._adj.setdefault(p.id, set()).add(p.parent_place_id)
+            def _add_node(pl=place, px=pos[0], py=pos[1], d=depth, cc=child_count):
+                node = PlaceNodeItem(pl, px, py, depth=d, child_count=cc)
+                self._scene.addItem(node)
+                self._node_map[pl.id] = node
+                self._scene._nodes[pl.id] = node
+                self._scene._adj[pl.id] = set()
+            batch.append(_add_node)
 
-        # 2. Enlaces de Rutas Geograficas manuales
-        seen_pairs: set[frozenset] = set()
-        for link in self._links:
-            pair = frozenset([link.place_id_a, link.place_id_b])
-            if pair in seen_pairs:
-                continue
-            seen_pairs.add(pair)
-            na = self._node_map.get(link.place_id_a)
-            nb = self._node_map.get(link.place_id_b)
-            if na and nb:
-                edge_idx[pair] = edge_idx.get(pair, 0) + 1
-                curv = 0.16 * (1 if edge_idx[pair] % 2 == 1 else -1)
-                item = PlaceLinkItem(link, na, nb, curvature=curv)
-                self._scene.addItem(item)
-                self._scene._all_edges.append(item)
-                self._scene._adj.setdefault(link.place_id_a, set()).add(link.place_id_b)
-                self._scene._adj.setdefault(link.place_id_b, set()).add(link.place_id_a)
+        # — Paso 2: crear edges (dependen de que los nodos existan) —
+        def _build_edges():
+            edge_idx: dict[frozenset, int] = {}
+            for p in self._places:
+                if p.parent_place_id and p.parent_place_id in self._node_map and p.id in self._node_map:
+                    na = self._node_map[p.parent_place_id]
+                    nb = self._node_map[p.id]
+                    h_link = PlaceLink(
+                        place_id_a=p.parent_place_id,
+                        place_id_b=p.id,
+                        label="orbita",
+                        connection_type="contiene",
+                        bidirectional=False
+                    )
+                    pair = frozenset([p.parent_place_id, p.id])
+                    edge_idx[pair] = edge_idx.get(pair, 0) + 1
+                    curv = 0.12 * (1 if edge_idx[pair] % 2 == 1 else -1)
+                    item = PlaceLinkItem(h_link, na, nb, curvature=curv)
+                    self._scene.addItem(item)
+                    self._scene._all_edges.append(item)
+                    self._scene._adj.setdefault(p.parent_place_id, set()).add(p.id)
+                    self._scene._adj.setdefault(p.id, set()).add(p.parent_place_id)
 
-        # Mostrar el grafo y ajustar camara
-        self._stack.setCurrentIndex(1)
-        self._fit_to_view()
-        # Cargar presencias con el capitulo activo (si hay proyecto)
-        if self._project_manager:
-            chapter_id = self._chapter_combo.currentData()
-            self.load_presences(chapter_id)
+            seen_pairs: set[frozenset] = set()
+            for link in self._links:
+                pair = frozenset([link.place_id_a, link.place_id_b])
+                if pair in seen_pairs:
+                    continue
+                seen_pairs.add(pair)
+                na = self._node_map.get(link.place_id_a)
+                nb = self._node_map.get(link.place_id_b)
+                if na and nb:
+                    edge_idx[pair] = edge_idx.get(pair, 0) + 1
+                    curv = 0.16 * (1 if edge_idx[pair] % 2 == 1 else -1)
+                    item = PlaceLinkItem(link, na, nb, curvature=curv)
+                    self._scene.addItem(item)
+                    self._scene._all_edges.append(item)
+                    self._scene._adj.setdefault(link.place_id_a, set()).add(link.place_id_b)
+                    self._scene._adj.setdefault(link.place_id_b, set()).add(link.place_id_a)
+
+        batch.append(_build_edges)
+
+        # — Paso 3: finalizar (mostrar grafo, fit, presencias) —
+        def _finalize():
+            self._stack.setCurrentIndex(1)
+            self._fit_to_view()
+            if self._project_manager:
+                chapter_id = self._chapter_combo.currentData()
+                self.load_presences(chapter_id)
+        batch.append(_finalize)
+
+        # Iniciar ejecución por lotes
+        self._batch_queue = batch
+        self._execute_batch_chunk()
+
+    def _execute_batch_chunk(self):
+        """
+        Ejecuta hasta CHUNK_SIZE callables de la cola por tick del event loop.
+        Para grafos pequeños (≤1 chunk) es instantáneo.
+        Para grafos grandes (1000+ nodos) mantiene la UI responsiva.
+        """
+        CHUNK_SIZE = 60  # callables por tick (nodos por frame)
+        executed = 0
+        while self._batch_queue and executed < CHUNK_SIZE:
+            fn = self._batch_queue.pop(0)
+            fn()
+            executed += 1
+
+        if self._batch_queue:
+            # Aún quedan items: actualizar overlay y programar siguiente tick
+            total = len(self._places) + 2  # +2 por _build_edges y _finalize
+            remaining = len(self._batch_queue)
+            done = total - remaining
+            pct = int(done / max(total, 1) * 100)
+            self._loading_lbl.setText(f"Construyendo mapa... {pct}%")
+            if self._batch_timer is None:
+                self._batch_timer = QTimer(self)
+                self._batch_timer.setSingleShot(True)
+                self._batch_timer.timeout.connect(self._execute_batch_chunk)
+            self._batch_timer.start(0)  # 0ms = siguiente iter del event loop
+        else:
+            # Lote terminado: resetear estado
+            self._loading_lbl.setText("Calculando mapa orbital...")
+            self._batch_timer = None
 
 
     # ── Reorganización y Búsqueda ───────────────────────────────────────────

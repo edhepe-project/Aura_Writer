@@ -62,18 +62,19 @@ class _PanelHeader(QFrame):
 
         self.update_theme(ThemeManager.is_dark())
 
-    def update_theme(self, is_dark: bool):
-        fg_main = "#f2f2f7" if is_dark else "#1a1a2e"
-        fg_sub  = "rgba(212,160,23,0.95)" if is_dark else "#9a5c00"
-        fg_meta = "#8e8e93" if is_dark else "#7a7a8a"
-        bg_hdr  = "#242426" if is_dark else "#ede8e1"
-        b_border= "#3a3a3c" if is_dark else "#d4cfc8"
-        tip_bg  = "#2c2c2e" if is_dark else "#faf7f3"
-        tip_fg  = "#f2f2f7" if is_dark else "#1a1a2e"
-        tip_b   = "#3a3a3c" if is_dark else "#c4bfb8"
-        btn_e_bg = "rgba(255, 214, 10, 0.12)" if is_dark else "rgba(154, 92, 0, 0.08)"
-        btn_e_hbg = "rgba(255, 214, 10, 0.25)" if is_dark else "rgba(154, 92, 0, 0.16)"
-        btn_e_b = "rgba(255, 214, 10, 0.3)" if is_dark else "rgba(154, 92, 0, 0.25)"
+    def update_theme(self, is_dark: bool = True):
+        c = ThemeManager.palette()
+        fg_main = c["fg_primary"]
+        fg_sub  = c["accent"]
+        fg_meta = c["fg_muted"]
+        bg_hdr  = c["bg_surface"]
+        b_border= c["border_default"]
+        tip_bg  = c["bg_hover"]
+        tip_fg  = c["fg_primary"]
+        tip_b   = c["border_default"]
+        btn_e_bg = c["bg_hover"]
+        btn_e_hbg = c["bg_selected"]
+        btn_e_b = c["border_default"]
 
         self.setStyleSheet(f"""
             QToolTip {{
@@ -99,7 +100,7 @@ class _PanelHeader(QFrame):
             f"color: {fg_meta}; font-size: 10px; background:transparent;"
         )
 
-        self._btn_edit.setIcon(qta.icon("fa5s.edit", color="#ffd60a" if is_dark else "#9a5c00"))
+        self._btn_edit.setIcon(qta.icon("fa5s.edit", color=c["accent"]))
         self._btn_edit.setStyleSheet(f"""
             QToolTip {{
                 background-color: {tip_bg};
@@ -119,7 +120,7 @@ class _PanelHeader(QFrame):
             }}
         """)
 
-        self._btn_close_full.setIcon(qta.icon("fa5s.times", color="#f2f2f7" if is_dark else "#1a1a2e"))
+        self._btn_close_full.setIcon(qta.icon("fa5s.times", color=c["fg_primary"]))
         self._btn_close_full.setStyleSheet(f"""
             QToolTip {{
                 background-color: {tip_bg};
@@ -130,13 +131,13 @@ class _PanelHeader(QFrame):
                 font-size: 11px;
             }}
             QPushButton {{
-                background: {'rgba(255, 255, 255, 0.08)' if is_dark else 'rgba(0, 0, 0, 0.06)'};
+                background: {c['bg_hover']};
                 border: 1px solid {b_border};
                 border-radius: 6px;
             }}
             QPushButton:hover {{
-                background: rgba(239, 68, 68, 0.3);
-                border-color: #ef4444;
+                background: {c['red']};
+                border-color: {c['red']};
             }}
         """)
 
@@ -175,19 +176,19 @@ class _RelationCard(QFrame):
         style = RELATION_STYLES.get(rtype, RELATION_STYLES["otro"])
         color = style["color"]
         icon = RELATION_ICONS.get(rtype, "👥")
-        is_dark = ThemeManager.is_dark()
+        c = ThemeManager.palette()
 
-        bg_card = "rgba(255,255,255,0.06)" if is_dark else "rgba(0,0,0,0.04)"
-        bg_card_h = "rgba(255,255,255,0.12)" if is_dark else "rgba(0,0,0,0.08)"
-        fg_name = "#f2f2f7" if is_dark else "#1a1a2e"
-        btn_bg = "rgba(212,160,23,0.18)" if is_dark else "rgba(154,92,0,0.12)"
-        btn_border = "rgba(212,160,23,0.35)" if is_dark else "rgba(154,92,0,0.30)"
-        btn_fg = "#ffd60a" if is_dark else "#9a5c00"
-        tip_bg = "#2c2c2e" if is_dark else "#faf7f3"
-        tip_fg = "#f2f2f7" if is_dark else "#1a1a2e"
-        tip_border = "#3a3a3c" if is_dark else "#c4bfb8"
+        bg_card = c["bg_hover"]
+        bg_card_h = c["bg_selected"]
+        fg_name = c["fg_primary"]
+        btn_bg = c["bg_hover"]
+        btn_border = c["border_default"]
+        btn_fg = c["accent"]
+        tip_bg = c["bg_hover"]
+        tip_fg = c["fg_primary"]
+        tip_border = c["border_default"]
 
-        self.setFixedHeight(48)
+        self.setMinimumHeight(52)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setToolTip(f"Ver a {other.name} en el grafo y destacar sus conexiones")
         self.setStyleSheet(f"""
@@ -211,7 +212,7 @@ class _RelationCard(QFrame):
         """)
 
         row = QHBoxLayout(self)
-        row.setContentsMargins(10, 5, 8, 5)
+        row.setContentsMargins(10, 6, 8, 6)
         row.setSpacing(6)
 
         info = QVBoxLayout()
@@ -252,6 +253,7 @@ class _RelationCard(QFrame):
 
         display_text = f"{icon} {label_text}".strip() if icon else label_text
         rel_lbl = QLabel(display_text)
+        rel_lbl.setWordWrap(True)
         rel_lbl.setStyleSheet(
             f"color: {color}; font-size: 10px; font-weight:600; background:transparent;"
         )
@@ -279,8 +281,8 @@ class _RelationCard(QFrame):
                 padding: 0px;
             }}
             QPushButton:hover {{
-                background-color: {'rgba(212,160,23,0.45)' if is_dark else 'rgba(154,92,0,0.25)'};
-                border-color: {'#ffd60a' if is_dark else '#9a5c00'};
+                background-color: {c['bg_selected']};
+                border-color: {c['accent']};
             }}
         """)
         _oid = other_id

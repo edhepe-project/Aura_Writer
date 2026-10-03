@@ -38,3 +38,5 @@ installer_output/
 .backups/
 temp_test/
 *.png
+_layout_cache/
+**/_layout_cache/
