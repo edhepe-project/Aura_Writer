@@ -163,7 +163,7 @@ class ThemeManager:
 
     @classmethod
     def is_dark(cls) -> bool:
-        return cls._current in (DARK, NORDIC)
+        return cls._current in (DARK, NORDIC, DRACULA, FOREST)
 
     @classmethod
     def is_sepia(cls) -> bool:

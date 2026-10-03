@@ -155,10 +155,12 @@ class AppLifecycleMixin:
             bg_col = ThemeManager.color("bg_surface")
             self._graph_dialog.setStyleSheet(f"QDialog {{ background-color: {bg_col}; }}")
         labels = {
-            "dark": "Oscuro (Dark Slate)",
-            "nordic": "Noche Nórdica (Midnight Blue)",
-            "light": "Claro (Lienzo Papel)",
-            "sepia": "Sepia (Pergamino)"
+            "dark":    "Oscuro (Dark Slate)",
+            "nordic":  "Noche Nórdica (Midnight Blue)",
+            "light":   "Claro (Lienzo Papel)",
+            "sepia":   "Sepia (Pergamino)",
+            "dracula": "Drácula / Amatista (Deep Purple)",
+            "forest":  "Bosque Profundo (Pine & Sage)",
         }
         self.statusBar().showMessage(f"Tema activo: {labels.get(theme_name, theme_name)}", 3000)
 
@@ -175,10 +177,12 @@ class AppLifecycleMixin:
             bg_col = ThemeManager.color("bg_surface")
             self._graph_dialog.setStyleSheet(f"QDialog {{ background-color: {bg_col}; }}")
         labels = {
-            "dark": "Oscuro (Dark Slate)",
-            "nordic": "Noche Nórdica (Midnight Blue)",
-            "light": "Claro (Lienzo Papel)",
-            "sepia": "Sepia (Pergamino)"
+            "dark":    "Oscuro (Dark Slate)",
+            "nordic":  "Noche Nórdica (Midnight Blue)",
+            "light":   "Claro (Lienzo Papel)",
+            "sepia":   "Sepia (Pergamino)",
+            "dracula": "Drácula / Amatista (Deep Purple)",
+            "forest":  "Bosque Profundo (Pine & Sage)",
         }
         self.statusBar().showMessage(f"Tema cambiado a {labels.get(new_theme, new_theme)}", 3000)
 
@@ -190,15 +194,19 @@ class AppLifecycleMixin:
         if hasattr(self, "_act_theme_nordic"): self._act_theme_nordic.setChecked(cur == "nordic")
         if hasattr(self, "_act_theme_light"): self._act_theme_light.setChecked(cur == "light")
         if hasattr(self, "_act_theme_sepia"): self._act_theme_sepia.setChecked(cur == "sepia")
+        if hasattr(self, "_act_theme_dracula"): self._act_theme_dracula.setChecked(cur == "dracula")
+        if hasattr(self, "_act_theme_forest"): self._act_theme_forest.setChecked(cur == "forest")
 
-        if cur == "dark":
-            self._theme_act.setText("Alternar a Tema Noche Nórdica")
-        elif cur == "nordic":
-            self._theme_act.setText("Alternar a Tema Claro")
-        elif cur == "light":
-            self._theme_act.setText("Alternar a Tema Sepia")
-        else:
-            self._theme_act.setText("Alternar a Tema Oscuro")
+        # Etiqueta del botón de alternancia: anuncia el siguiente tema en TOGGLE_ORDER
+        toggle_labels = {
+            "dark":    "Alternar a Tema Bosque Profundo",
+            "forest":  "Alternar a Tema Drácula / Amatista",
+            "dracula": "Alternar a Tema Claro",
+            "light":   "Alternar a Tema Sepia",
+            "sepia":   "Alternar a Tema Noche Nórdica",
+            "nordic":  "Alternar a Tema Oscuro",
+        }
+        self._theme_act.setText(toggle_labels.get(cur, "Alternar Tema"))
 
     def toggle_zen_mode(self: "AuraMainWindow"):
         """Alterna el modo concentración (Zen Mode): oculta los paneles laterales para escribir sin distracciones."""
