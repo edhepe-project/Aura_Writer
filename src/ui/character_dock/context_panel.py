@@ -77,8 +77,7 @@ class CharacterContextPanel(QWidget):
         self._context_sublabel.show()
         if not characters_in_chapter:
             item = QListWidgetItem("  (ningún personaje detectado)")
-            is_dark = ThemeManager.is_dark()
-            item.setForeground(QColor("#8e8e93" if is_dark else "#6b7280"))
+            item.setForeground(QColor(ThemeManager.color("fg_muted")))
             self._list_appear.addItem(item)
             return
         self._populate_character_list_items(characters_in_chapter)
@@ -97,8 +96,7 @@ class CharacterContextPanel(QWidget):
         self._context_sublabel.show()
         if not characters_in_obra:
             item = QListWidgetItem("  (ningún personaje detectado)")
-            is_dark = ThemeManager.is_dark()
-            item.setForeground(QColor("#8e8e93" if is_dark else "#6b7280"))
+            item.setForeground(QColor(ThemeManager.color("fg_muted")))
             self._list_appear.addItem(item)
             return
         self._populate_character_list_items(characters_in_obra)

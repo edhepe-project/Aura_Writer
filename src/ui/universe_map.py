@@ -28,11 +28,10 @@ class UniverseMapScene(QGraphicsScene):
         super().drawBackground(painter, rect)
         
         from core.theme_manager import ThemeManager
-        is_dark = ThemeManager.is_dark()
+        c = ThemeManager.palette()
         
         # ---- Grid dots ----
-        grid_color = "#252527" if is_dark else "#d1d5db"
-        painter.setPen(QPen(QColor(grid_color), 1.2))
+        painter.setPen(QPen(QColor(c["border_subtle"]), 1.2))
         grid_size = 40
         left = int(rect.left()) - (int(rect.left()) % grid_size)
         top  = int(rect.top())  - (int(rect.top())  % grid_size)
@@ -45,8 +44,8 @@ class UniverseMapScene(QGraphicsScene):
         
         # ---- Anillos orbitales de cada sistema ----
         if self.orbital_rings:
-            ring_col = QColor("#ffffff" if is_dark else "#000000")
-            ring_col.setAlphaF(0.12)  # visible pero sutil
+            ring_col = QColor(c["border_strong"])
+            ring_col.setAlphaF(0.40)
             pen = QPen(ring_col, 1.2, Qt.PenStyle.DashLine)
             pen.setDashPattern([4, 6])
             painter.setPen(pen)
@@ -217,13 +216,13 @@ class BranchEdge(QGraphicsPathItem):
             line_w, line_alpha = 1.2, 0.45
 
         from core.theme_manager import ThemeManager
-        is_dark = ThemeManager.is_dark()
+        c = ThemeManager.palette()
         
         if self._is_link:
-            color = QColor("#ff375f" if is_dark else "#ff2d55") # Neón
+            color = QColor(c["red"])
             pen = QPen(color, 2.0, Qt.PenStyle.DashLine)
         else:
-            base = QColor("#ffffff" if is_dark else "#000000")
+            base = QColor(c["fg_muted"])
             base.setAlphaF(line_alpha)
             pen = QPen(base, line_w, Qt.PenStyle.SolidLine)
             
@@ -235,7 +234,7 @@ class BranchEdge(QGraphicsPathItem):
         self._label_item = None
         if label:
             self._label_item = QGraphicsTextItem(label, self)
-            self._label_item.setDefaultTextColor(QColor("#ff375f" if is_dark else "#ff2d55"))
+            self._label_item.setDefaultTextColor(QColor(c["red"]))
             self._label_item.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
 
         source.edges.append(self)
@@ -293,8 +292,7 @@ class UniverseMapView(QGraphicsView):
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
-        bg_col = "#1c1c1e" if ThemeManager.is_dark() else "#f5f0ea"
-        self.setBackgroundBrush(QBrush(QColor(bg_col)))
+        self.setBackgroundBrush(QBrush(QColor(ThemeManager.color("bg_app"))))
         self._zoom = 1.0
 
     def wheelEvent(self, event):
@@ -392,13 +390,16 @@ class UniverseMapWidget(QWidget):
         self._search_bar = QLineEdit()
         self._search_bar.setPlaceholderText("Buscar capítulo, libro u obra...")
         self._search_bar.setMaximumWidth(250)
-        self._search_bar.setStyleSheet("""
-            QLineEdit {
-                background: rgba(0, 0, 0, 0.1);
-                border: 1px solid rgba(128, 128, 128, 0.3);
+        from core.theme_manager import ThemeManager
+        _c = ThemeManager.palette()
+        self._search_bar.setStyleSheet(f"""
+            QLineEdit {{
+                background: {_c['bg_input']};
+                border: 1px solid {_c['border_default']};
+                color: {_c['fg_primary']};
                 border-radius: 4px;
                 padding: 4px 8px;
-            }
+            }}
         """)
         self._completer_model = QStringListModel()
         self._completer = QCompleter(self._completer_model, self)
@@ -623,8 +624,7 @@ class UniverseMapWidget(QWidget):
         self._node_names.clear()
 
         from core.theme_manager import ThemeManager
-        bg_col = "#1c1c1e" if ThemeManager.is_dark() else "#f5f0ea"
-        self._view.setBackgroundBrush(QBrush(QColor(bg_col)))
+        self._view.setBackgroundBrush(QBrush(QColor(ThemeManager.color("bg_app"))))
 
         uid = "universe_root"
         pos:         dict[str, tuple[float, float]] = {uid: (0.0, 0.0)}

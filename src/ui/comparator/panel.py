@@ -19,17 +19,17 @@ class ChapterEditorPanel(QFrame):
         self.content_file = None
         self._dirty = False
 
-        is_dark = ThemeManager.is_dark()
+        c = ThemeManager.palette()
 
-        panel_bg = "#1c1c1e" if is_dark else "#faf7f3"
-        panel_border = "#2c2c2e" if is_dark else "#d4cfc8"
-        combo_bg = "#2c2c2e" if is_dark else "#ede8e1"
-        combo_fg = "#f2f2f7" if is_dark else "#1a1a2e"
-        combo_border = "#3a3a3c" if is_dark else "#c4bfb8"
-        editor_bg = "#141416" if is_dark else "#ffffff"
-        editor_fg = "#e5e5ea" if is_dark else "#1a1a2e"
-        editor_border = "#2c2c2e" if is_dark else "#d4cfc8"
-        subtext_color = "#8e8e93" if is_dark else "#7a7a8a"
+        panel_bg = c["bg_surface"]
+        panel_border = c["border_subtle"]
+        combo_bg = c["bg_input"]
+        combo_fg = c["fg_primary"]
+        combo_border = c["border_default"]
+        editor_bg = c["bg_app"]
+        editor_fg = c["fg_primary"]
+        editor_border = c["border_default"]
+        subtext_color = c["fg_muted"]
 
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setStyleSheet(f"""
@@ -49,7 +49,7 @@ class ChapterEditorPanel(QFrame):
         header_layout.setSpacing(8)
 
         lbl = QLabel(f"<b>{title_prefix}:</b>")
-        lbl.setStyleSheet(f"color: {'#9b59b6' if is_dark else '#6b21a8'}; font-size: 13px;")
+        lbl.setStyleSheet(f"color: {c['accent']}; font-size: 13px;")
         header_layout.addWidget(lbl)
 
         self.combo = QComboBox()
@@ -68,8 +68,8 @@ class ChapterEditorPanel(QFrame):
             QComboBox QAbstractItemView {{
                 background-color: {combo_bg};
                 color: {combo_fg};
-                selection-background-color: {'#5e5ce6' if is_dark else '#d4a017'};
-                selection-color: {'#ffffff' if is_dark else '#000000'};
+                selection-background-color: {c['bg_selected']};
+                selection-color: {c['fg_selected']};
             }}
         """)
         header_layout.addWidget(self.combo, 1)
@@ -91,7 +91,7 @@ class ChapterEditorPanel(QFrame):
                 border-radius: 6px;
                 padding: 12px;
                 line-height: 1.6;
-                selection-background-color: {'#5e5ce6' if is_dark else '#c8c0b8'};
+                selection-background-color: {c['selection_bg']};
             }}
         """)
         self.editor.textChanged.connect(self._on_text_changed)

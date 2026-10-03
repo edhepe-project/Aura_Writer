@@ -60,9 +60,9 @@ class _PanelHeader(QFrame):
         self._metric_lbl = QLabel("")
         self._layout.addWidget(self._metric_lbl)
 
-        self.update_theme(ThemeManager.is_dark())
+        self.update_theme()
 
-    def update_theme(self, is_dark: bool = True):
+    def update_theme(self):
         c = ThemeManager.palette()
         fg_main = c["fg_primary"]
         fg_sub  = c["accent"]

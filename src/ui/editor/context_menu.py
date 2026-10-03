@@ -21,14 +21,14 @@ class EditorContextMenu:
         char_fmt = cursor.charFormat()
 
         menu = QMenu(editor)
-        is_dark = ThemeManager.is_dark()
+        c = ThemeManager.palette()
 
-        _ic = "#d1d1d6" if is_dark else "#4a4a5a"
-        _accent = "#ffd60a" if is_dark else "#d97706"
-        _danger = "#ff453a" if is_dark else "#dc2626"
-        _blue = "#32ade6" if is_dark else "#0284c7"
-        _clean_ic = "#ff9f0a" if is_dark else "#d97706"
-        _spell_c = "#ff453a"
+        _ic = c["fg_secondary"]
+        _accent = c["accent"]
+        _danger = c["red"]
+        _blue = c["blue"]
+        _clean_ic = c["amber"]
+        _spell_c = c["red"]
 
         # ── Sugerencias ortográficas (si la palabra bajo el cursor tiene error) ──
         spell_error = None

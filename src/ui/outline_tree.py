@@ -43,13 +43,14 @@ class OutlineTree(QTreeView):
         self.doubleClicked.connect(self._on_double_clicked)
 
         self._reload_icons()
+        ThemeManager.signals.theme_changed.connect(self._on_theme_changed)
 
     def _reload_icons(self):
         c = ThemeManager.palette()
         try:
             self.icons = {
-                "universe":    qta.icon("fa5s.globe",        color=c["fg_muted"]),
-                "obra":        qta.icon("fa5s.book-open",    color=c["accent"]),
+                "universe":    qta.icon("fa5s.globe",        color=c["fg_primary"]),
+                "obra":        qta.icon("fa5s.book-open",    color=c["fg_primary"]),
                 "libro":       qta.icon("fa5s.book",         color=c["fg_secondary"]),
                 "chapter":     qta.icon("fa5s.bookmark",     color=c["fg_muted"]),
                 "media":       qta.icon("fa5s.image",        color=c["fg_secondary"]),
@@ -57,6 +58,20 @@ class OutlineTree(QTreeView):
             }
         except Exception:
             pass
+
+    def _on_theme_changed(self, theme_name: str):
+        self._reload_icons()
+        self._refresh_icons_recursive(self._model.invisibleRootItem())
+
+    def _refresh_icons_recursive(self, parent: QStandardItem):
+        for row in range(parent.rowCount()):
+            child = parent.child(row)
+            if child is None:
+                continue
+            item_type = child.data(Qt.ItemDataRole.UserRole + 1)
+            if item_type in self.icons:
+                child.setIcon(self.icons[item_type])
+            self._refresh_icons_recursive(child)
 
     # ------------------------------------------------------------------
     # Población
@@ -199,11 +214,12 @@ class OutlineTree(QTreeView):
         menu = QMenu(self)
 
         import qtawesome as qta
-        is_dark = ThemeManager.is_dark()
-        ic_col = "#f2f2f7" if is_dark else "#1c1c1e"
+        ic_col = ThemeManager.color("fg_primary")
+        green_col = ThemeManager.color("green")
+        red_col = ThemeManager.color("red")
 
         # ── Sección: Añadir (opciones contextuales según el tipo de nodo) ───────
-        add_menu = menu.addMenu(qta.icon("fa5s.plus", color="#30d158" if is_dark else "#16a34a"), "Añadir…")
+        add_menu = menu.addMenu(qta.icon("fa5s.plus", color=green_col), "Añadir…")
 
         if item_type == "universe":
             add_menu.addAction(qta.icon("fa5s.book", color=ic_col), "Nueva Obra / Saga", lambda: self.node_add_requested.emit(
@@ -228,7 +244,7 @@ class OutlineTree(QTreeView):
 
         # ── Eliminar (no se puede eliminar el nodo universo raíz) ──────────
         if item_type != "universe":
-            menu.addAction(qta.icon("fa5s.trash-alt", color="#ff453a" if is_dark else "#dc2626"), "Eliminar\tSupr", lambda: self._request_delete(item_id, item_type, item.text()))
+            menu.addAction(qta.icon("fa5s.trash-alt", color=red_col), "Eliminar\tSupr", lambda: self._request_delete(item_id, item_type, item.text()))
 
         menu.exec(self.viewport().mapToGlobal(position))
 

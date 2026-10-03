@@ -24,16 +24,16 @@ class SearchResultCard(QFrame):
         self._query = query
         self._is_regex = is_regex
 
-        tc = ThemeManager.theme_colors()
-        self._even_bg = tc["bg_card"]
-        self._odd_bg = tc["bg_main"]
-        self._hover_bg = tc["hover"]
-        self._border_col = tc["border"]
-        self._hover_border = tc["accent"]
-        self._hover_bar = tc["accent"]
-        text_col = tc["fg_text"]
-        sub_col = tc["sub_text"]
-        loc_col = tc["sub_text"]
+        c = ThemeManager.palette()
+        self._even_bg = c["bg_surface"]
+        self._odd_bg = c["bg_app"]
+        self._hover_bg = c["bg_hover"]
+        self._border_col = c["border_default"]
+        self._hover_border = c["accent"]
+        self._hover_bar = c["accent"]
+        text_col = c["fg_primary"]
+        sub_col = c["fg_secondary"]
+        loc_col = c["fg_secondary"]
 
         self._bg = self._even_bg if SearchResultCard._count % 2 == 0 else self._odd_bg
 

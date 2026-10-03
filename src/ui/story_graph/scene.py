@@ -40,7 +40,7 @@ class StoryGraphScene(QGraphicsScene):
         super().drawBackground(painter, rect)
 
         # Rejilla suave de fondo (grid dots optimizada por lotes)
-        grid_color = "#2a2a2c" if ThemeManager.is_dark() else "#d1d5db"
+        grid_color = ThemeManager.color("border_subtle")
         painter.setPen(QPen(QColor(grid_color), 1.2))
         grid_size = 30
         left = int(rect.left()) - (int(rect.left()) % grid_size)

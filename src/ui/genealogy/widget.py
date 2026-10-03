@@ -102,14 +102,13 @@ class GenealogyWidget(QWidget):
         layout.addLayout(header)
 
         # Escena y vista gráfica
-        is_dark = ThemeManager.is_dark()
         self._gen_scene = QGraphicsScene(self)
         self._gen_view = QGraphicsView(self._gen_scene)
         self._gen_view.setRenderHint(QPainter.RenderHint.Antialiasing)
         self._gen_view.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self._gen_view.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self._gen_view.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
-        bg_col = "#141416" if is_dark else "#f8f9fa"
+        bg_col = ThemeManager.color("bg_app")
         self._gen_view.setBackgroundBrush(QBrush(QColor(bg_col)))
         self._gen_view.wheelEvent = self._gen_wheel_event
         self._gen_scene.mousePressEvent = self._on_scene_mouse_press
@@ -224,8 +223,7 @@ class GenealogyWidget(QWidget):
         self._selected_lineage_char_id = None
         self._btn_reset_highlight.setVisible(False)
 
-        is_dark = ThemeManager.is_dark()
-        bg_col = "#141416" if is_dark else "#f8f9fa"
+        bg_col = ThemeManager.color("bg_app")
         self._gen_view.setBackgroundBrush(QBrush(QColor(bg_col)))
         char_map = {c.id: c for c in self._characters}
 
@@ -398,7 +396,6 @@ class GenealogyWidget(QWidget):
 
         mid_x = (x1 + x2) / 2
         mid_y = (y1 + y2) / 2
-        is_dark = ThemeManager.is_dark()
 
         ring_r = 9.0
         ring_rect = QRectF(mid_x - ring_r, mid_y - ring_r, ring_r * 2, ring_r * 2)
@@ -406,7 +403,7 @@ class GenealogyWidget(QWidget):
         ring_path.addEllipse(ring_rect)
 
         ring_bg = QGraphicsPathItem(ring_path)
-        ring_bg.setBrush(QBrush(QColor("#18181b" if is_dark else "#ffffff")))
+        ring_bg.setBrush(QBrush(QColor(ThemeManager.color("bg_surface"))))
         ring_bg.setPen(QPen(QColor(color), 1.6))
         ring_bg.setZValue(25)
         ring_bg.setToolTip("Pareja / Matrimonio")

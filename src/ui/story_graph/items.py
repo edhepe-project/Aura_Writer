@@ -18,6 +18,16 @@ from ui.story_graph.models import STATUS_CONFIG, TONE_CONFIG, ARC_TYPE_CONFIG
 from core.theme_manager import ThemeManager
 
 
+def _cfg_color(cfg: dict, key: str) -> str:
+    """Selecciona la variante de color correcta según el tema activo.
+    Para temas oscuros (dark, nordic) usa la clave base; para claros (light, sepia)
+    busca 'light_{key}' y cae en la clave base si no existe.
+    """
+    if ThemeManager.is_dark():
+        return cfg[key]
+    return cfg.get(f"light_{key}", cfg[key])
+
+
 class StoryNodeSignals(QObject):
     moved = Signal(str, float, float)     # block_id, x, y
     selected = Signal(str)               # block_id
@@ -111,19 +121,19 @@ class StoryNodeItem(QGraphicsRectItem):
         cfg = STATUS_CONFIG.get(self.block.status, STATUS_CONFIG["idea"])
         tone_cfg = TONE_CONFIG.get(self.block.tone, TONE_CONFIG["neutro"])
         
-        is_dark = ThemeManager.is_dark()
-        
-        bg_col = QColor(cfg["bg_color"] if is_dark else cfg.get("light_bg_color", cfg["bg_color"]))
-        border_col = QColor(tone_cfg["color"] if is_dark else tone_cfg.get("light_color", tone_cfg["color"])) # El borde indica el tono
+        p = ThemeManager.palette()
+
+        bg_col     = QColor(_cfg_color(cfg,      "bg_color"))
+        border_col = QColor(_cfg_color(tone_cfg, "color"))  # El borde indica el tono
 
         if self.isSelected():
-            border_col = QColor("#ffffff" if is_dark else "#000000")
+            border_col = QColor(p["story_border_selected"])
             pen_width = 2.5
         elif self._hovered:
-            border_col = border_col.lighter(130) if is_dark else border_col.darker(130)
+            border_col = border_col.lighter(130) if p["story_label_lighter"] else border_col.darker(130)
             pen_width = 1.5
         else:
-            border_col = QColor("#3a3a3c" if is_dark else "#d1d5db") # Borde sutil por defecto
+            border_col = QColor(p["story_border_subtle"])  # Borde sutil por defecto
             pen_width = 1.0
 
         r = self.rect()
@@ -134,15 +144,15 @@ class StoryNodeItem(QGraphicsRectItem):
             dash_rect = QRectF(r.x(), r.y() + (r.height() - dash_height) / 2.0, r.width(), dash_height)
             
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QBrush(QColor(tone_cfg["color"] if is_dark else tone_cfg.get("light_color", tone_cfg["color"])).darker(150)))
-            
+            painter.setBrush(QBrush(QColor(_cfg_color(tone_cfg, "color")).darker(150)))
+
             path = QPainterPath()
             path.addRoundedRect(dash_rect, 4.0, 4.0)
             painter.drawPath(path)
-            
+
             # Dibujamos un círculo central del color del estado
             painter.setBrush(QBrush(bg_col))
-            painter.setPen(QPen(QColor(tone_cfg["color"] if is_dark else tone_cfg.get("light_color", tone_cfg["color"])), 2.0))
+            painter.setPen(QPen(QColor(_cfg_color(tone_cfg, "color")), 2.0))
             center_x = r.x() + r.width() / 2.0
             center_y = r.y() + r.height() / 2.0
             painter.drawEllipse(QPointF(center_x, center_y), 16, 16)
@@ -166,7 +176,7 @@ class StoryNodeItem(QGraphicsRectItem):
             painter.drawPath(path)
 
             painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-            painter.setPen(QColor(cfg["text_color"] if is_dark else cfg.get("light_text_color", cfg["text_color"])))
+            painter.setPen(QColor(_cfg_color(cfg, "text_color")))
             
             header_text = f"{cfg['badge']} {self.block.title}"
             metrics = QFontMetrics(painter.font())
@@ -195,11 +205,12 @@ class StoryNodeItem(QGraphicsRectItem):
         painter.setBrush(QBrush(grad))
         painter.drawPath(path)
 
-        text_primary   = QColor(cfg["text_color"] if is_dark else cfg.get("light_text_color", cfg["text_color"]))
-        text_secondary = QColor("#d1d1d6" if is_dark else "#4b5563")
-        text_muted     = QColor("#8e8e93" if is_dark else "#6b7280")
-        divider_color  = QColor(255, 255, 255, 25) if is_dark else QColor(0, 0, 0, 20)
-        tone_color     = QColor(tone_cfg["color"] if is_dark else tone_cfg.get("light_color", tone_cfg["color"]))
+        c = ThemeManager.palette()
+        text_primary   = QColor(c["fg_primary"])
+        text_secondary = QColor(c["fg_secondary"])
+        text_muted     = QColor(c["fg_muted"])
+        divider_color  = QColor(c["border_subtle"])
+        tone_color     = QColor(_cfg_color(tone_cfg, "color"))
 
         # ── 1. Cabecera ──────────────────────────────────────────────
         painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
@@ -213,7 +224,8 @@ class StoryNodeItem(QGraphicsRectItem):
         # Etiqueta de estado pequeña (esquina superior derecha)
         status_label = cfg["label"].upper()
         painter.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
-        painter.setPen(text_primary.lighter(140) if is_dark else text_primary.darker(110))
+        lbl_factor = p["story_label_factor"]
+        painter.setPen(text_primary.lighter(lbl_factor) if p["story_label_lighter"] else text_primary.darker(lbl_factor))
         painter.drawText(QRectF(0, 8, r.width() - 10, 20),
                          Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop, status_label)
 
@@ -238,7 +250,8 @@ class StoryNodeItem(QGraphicsRectItem):
         painter.drawEllipse(QPointF(18, 126), 4, 4)
 
         painter.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
-        painter.setPen(tone_color.darker(120) if not is_dark else tone_color.lighter(120))
+        tone_factor = p["story_tone_factor"]
+        painter.setPen(tone_color.lighter(tone_factor) if p["story_tone_lighter"] else tone_color.darker(tone_factor))
         painter.drawText(QRectF(28, 116, 110, 20),
                          Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
                          tone_cfg["label"].upper())
@@ -256,18 +269,19 @@ class StoryNodeItem(QGraphicsRectItem):
         if self._has_chapter:
             chapter_y = 160.0  # top de la franja de capítulo
 
-            # Franja de fondo dorado translúcido
+            # Franja de fondo de acento translúcido
             painter.setPen(Qt.PenStyle.NoPen)
-            chapter_bg_color = QColor(255, 214, 10, 30) if is_dark else QColor(180, 83, 9, 20)
-            painter.setBrush(QBrush(chapter_bg_color))
+            accent_col = QColor(c["accent"])
+            accent_bg = QColor(accent_col)
+            accent_bg.setAlpha(35)
+            painter.setBrush(QBrush(accent_bg))
             ch_path = QPainterPath()
             ch_path.addRoundedRect(QRectF(0, chapter_y - 2, r.width(), 24), 0, 0)
             painter.drawPath(ch_path)
 
             # Icono + título capítulo
             painter.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
-            ch_color = QColor("#ffd60a" if is_dark else "#b45309")
-            painter.setPen(ch_color)
+            painter.setPen(accent_col)
             metrics = QFontMetrics(painter.font())
             elided_ch = metrics.elidedText(
                 f"📖 {self.chapter_title}", Qt.TextElideMode.ElideRight, int(r.width() - 80))

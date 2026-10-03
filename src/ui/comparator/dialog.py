@@ -32,15 +32,15 @@ class ChapterComparatorDialog(QDialog):
         self._load_chapters_into_combos()
 
     def _setup_ui(self):
-        is_dark = ThemeManager.is_dark()
+        c = ThemeManager.palette()
 
-        title_color = "#f2f2f7" if is_dark else "#1a1a2e"
-        desc_color = "#8e8e93" if is_dark else "#646470"
-        chk_color = "#e5e5ea" if is_dark else "#1a1a2e"
-        tip_color = "#8e8e93" if is_dark else "#7a7a8a"
-        btn_close_bg = "#2c2c2e" if is_dark else "#ede8e1"
-        btn_close_fg = "#e5e5ea" if is_dark else "#1a1a2e"
-        btn_close_border = "#3a3a3c" if is_dark else "#c4bfb8"
+        title_color = c["fg_primary"]
+        desc_color = c["fg_secondary"]
+        chk_color = c["fg_primary"]
+        tip_color = c["fg_muted"]
+        btn_close_bg = c["bg_button"]
+        btn_close_fg = c["fg_primary"]
+        btn_close_border = c["border_default"]
 
         root = QVBoxLayout(self)
         root.setContentsMargins(16, 16, 16, 16)
@@ -51,8 +51,7 @@ class ChapterComparatorDialog(QDialog):
         top_bar.setSpacing(14)
 
         icon_lbl = QLabel()
-        icon_color = "#9b59b6" if is_dark else "#6b21a8"
-        icon_lbl.setPixmap(qta.icon("fa5s.columns", color=icon_color).pixmap(20, 20))
+        icon_lbl.setPixmap(qta.icon("fa5s.columns", color=c["purple"]).pixmap(20, 20))
         top_bar.addWidget(icon_lbl)
 
         title_lbl = QLabel("<b>Mesa de Cotejo & Armonización de Tono</b>")
@@ -113,18 +112,18 @@ class ChapterComparatorDialog(QDialog):
         bottom_bar.addStretch()
 
         btn_save = QPushButton("Guardar Cambios")
-        btn_save.setStyleSheet("""
-            QPushButton {
-                background-color: #30d158;
-                color: #ffffff;
+        btn_save.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {c['green']};
+                color: {c['fg_selected']};
                 font-weight: bold;
                 border-radius: 5px;
                 padding: 6px 16px;
                 font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #28b84c;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {c['green']};
+            }}
         """)
         btn_save.clicked.connect(self._save_all)
         bottom_bar.addWidget(btn_save)
@@ -140,7 +139,7 @@ class ChapterComparatorDialog(QDialog):
                 font-size: 12px;
             }}
             QPushButton:hover {{
-                background-color: {'#3a3a3c' if is_dark else '#dedad2'};
+                background-color: {c['bg_hover']};
             }}
         """)
         btn_close.clicked.connect(self.close)

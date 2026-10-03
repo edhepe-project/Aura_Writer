@@ -195,6 +195,7 @@ class NotesControllerMixin:
             # Forzar scroll al inicio de forma silenciosa antes de mostrar
             self.editor.verticalScrollBar().setValue(0)
             self.editor.document().setModified(False)
+            self._dirty = False
         finally:
             self.editor.setUpdatesEnabled(True)
 
@@ -274,9 +275,9 @@ class NotesControllerMixin:
                 content_html = '<p class="placeholder">Escribe aquí la sinopsis, premisa o notas generales...</p>'
 
         # Obtener tema y papel activo para ajustar los colores del HTML estático
-        from core.theme_manager import ThemeManager
+        from core.theme_manager import ThemeManager, DARK, NORDIC, SEPIA, LIGHT
         paper = getattr(self.editor, "_paper_style", "auto")
-        is_dark_theme = ThemeManager.is_dark()
+        cur_theme = ThemeManager.current()
         
         # Determinar si la vista del editor es oscura según el papel o el tema
         if paper == "oled":
@@ -286,7 +287,14 @@ class NotesControllerMixin:
         elif paper in ("blanco", "sepia", "verde"):
             paper_type = paper
         else: # auto
-            paper_type = "dark" if is_dark_theme else "light"
+            if cur_theme == SEPIA:
+                paper_type = "sepia"
+            elif cur_theme == NORDIC:
+                paper_type = "noche"
+            elif cur_theme == LIGHT:
+                paper_type = "blanco"
+            else:
+                paper_type = "dark"
 
         if paper_type == "oled":
             text_color = "#f4f4f5"
@@ -365,6 +373,7 @@ class NotesControllerMixin:
                 self.editor._apply_appearance()
             self.editor.verticalScrollBar().setValue(0)
             self.editor.document().setModified(False)
+            self._dirty = False
         finally:
             self.editor.setUpdatesEnabled(True)
 

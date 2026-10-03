@@ -40,6 +40,8 @@ class PlaceDock(QWidget):
         self._chapters_data: list[tuple] = []  # [(chapter, obra_title, libro_title), ...]
 
         self._build_ui()
+        self.update_theme()
+        ThemeManager.signals.theme_changed.connect(lambda _: self.update_theme())
 
     def _build_ui(self):
         root = QVBoxLayout(self)
@@ -327,12 +329,12 @@ class PlaceDock(QWidget):
 
 
     def update_theme(self):
-        tc = ThemeManager.theme_colors()
-        bg = tc["bg_main"]
-        fg = tc["fg_text"]
-        sub_fg = tc["sub_text"]
-        border = tc["border"]
-        input_bg = tc["bg_input"]
+        c = ThemeManager.palette()
+        bg = c["bg_surface"]
+        fg = c["fg_primary"]
+        sub_fg = c["fg_secondary"]
+        border = c["border_default"]
+        input_bg = c["bg_input"]
 
         self.setStyleSheet(f"""
             PlaceDock {{
@@ -347,7 +349,7 @@ class PlaceDock(QWidget):
                 font-size: 11px;
             }}
             QPushButton {{
-                background-color: {tc['hover']};
+                background-color: {c['bg_hover']};
                 color: {fg};
                 border: 1px solid {border};
                 border-radius: 6px;
@@ -356,13 +358,13 @@ class PlaceDock(QWidget):
                 font-weight: bold;
             }}
             QPushButton:hover {{
-                background-color: {tc['border']};
+                background-color: {c['bg_selected']};
             }}
         """)
         self._detail_title.setStyleSheet(f"color: {sub_fg};")
         self._detail_info.setStyleSheet(f"color: {fg}; font-size: 11px;")
         
-        self._btn_add.setIcon(qta.icon("fa5s.plus-circle", color=tc["accent"]))
+        self._btn_add.setIcon(qta.icon("fa5s.plus-circle", color=c["accent"]))
         
         for card in self._cards.values():
             if hasattr(card, '_apply_style'):

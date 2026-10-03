@@ -28,7 +28,6 @@ class NexusSidePanel(QFrame):
         self.setFixedWidth(380)
         self.setObjectName("NexusSidePanel")
 
-        is_dark = ThemeManager.is_dark()
         c = ThemeManager.palette()
         bg_panel = c["bg_surface"]
         b_border = c["border_default"]
@@ -52,8 +51,8 @@ class NexusSidePanel(QFrame):
         self._scroll.setWidgetResizable(True)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        scroll_handle = "rgba(255,255,255,0.2)" if is_dark else "rgba(0,0,0,0.15)"
-        scroll_handle_hover = "rgba(255,255,255,0.35)" if is_dark else "rgba(0,0,0,0.3)"
+        scroll_handle = c["border_subtle"]
+        scroll_handle_hover = c["border_default"]
         self._scroll.setStyleSheet(f"""
             QScrollArea {{
                 background: transparent;
@@ -187,8 +186,7 @@ class NexusSidePanel(QFrame):
         self.setFixedWidth(380)
         self._header.clear()
 
-        is_dark = ThemeManager.is_dark()
-        fg_ph = "#636366" if is_dark else "#a8a29e"
+        fg_ph = ThemeManager.color("fg_muted")
 
         empty_body = QWidget()
         empty_body.setStyleSheet("background: transparent;")
@@ -210,7 +208,7 @@ class NexusSidePanel(QFrame):
             old_body.deleteLater()
         self._scroll.setWidget(empty_body)
 
-    def update_theme(self, is_dark: bool = True):
+    def update_theme(self):
         c = ThemeManager.palette()
         bg_panel = c["bg_surface"]
         b_border = c["border_default"]
@@ -232,7 +230,7 @@ class NexusSidePanel(QFrame):
                 border-left: 1px solid {b_border};
             }}
         """)
-        self._header.update_theme(is_dark)
+        self._header.update_theme()
         if self._current_char:
             self.show_character(self._current_char, self._current_relations, self._char_map)
         else:

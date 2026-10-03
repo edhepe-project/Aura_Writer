@@ -35,12 +35,11 @@ class TimelineDialog(QDialog):
         self._load_data()
 
     def _setup_ui(self):
-        is_dark = ThemeManager.is_dark()
-        tc = ThemeManager.theme_colors()
-        bg_main = tc["bg_main"]
-        bg_header = tc["bg_card"]
-        fg_title = tc["fg_text"]
-        b_border = tc["border"]
+        c = ThemeManager.palette()
+        bg_main = c["bg_app"]
+        bg_header = c["bg_surface"]
+        fg_title = c["fg_primary"]
+        b_border = c["border_default"]
 
         self.setStyleSheet(f"""
             QDialog {{
@@ -51,7 +50,7 @@ class TimelineDialog(QDialog):
                 border-bottom: 1px solid {b_border};
             }}
             QLineEdit, QComboBox {{
-                background-color: {'#3a3a3c' if is_dark else '#fbf9f5'};
+                background-color: {c['bg_input']};
                 color: {fg_title};
                 border: 1px solid {b_border};
                 border-radius: 6px;
@@ -59,7 +58,7 @@ class TimelineDialog(QDialog):
                 font-size: 12px;
             }}
             QPushButton {{
-                background-color: {'#3a3a3c' if is_dark else '#e8e4dc'};
+                background-color: {c['bg_button']};
                 color: {fg_title};
                 border: 1px solid {b_border};
                 border-radius: 6px;
@@ -68,7 +67,7 @@ class TimelineDialog(QDialog):
                 font-size: 11px;
             }}
             QPushButton:hover {{
-                background-color: {'#48484a' if is_dark else '#ded8ce'};
+                background-color: {c['bg_hover']};
             }}
         """)
 
@@ -136,7 +135,7 @@ class TimelineDialog(QDialog):
         fl = QHBoxLayout(footer)
         fl.setContentsMargins(16, 8, 16, 8)
         self._status_label = QLabel("Doble clic en una tarjeta para abrir el capítulo en el editor.")
-        self._status_label.setStyleSheet("color: #8e8e93; font-size: 11px;")
+        self._status_label.setStyleSheet(f"color: {c['fg_muted']}; font-size: 11px;")
         fl.addWidget(self._status_label)
         fl.addStretch()
 

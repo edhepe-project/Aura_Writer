@@ -3,7 +3,7 @@ Tests unitarios para ThemeManager.
 Valida la paleta de colores, el toggle de temas y que los stylesheets no estén vacíos.
 """
 import pytest
-from core.theme_manager import ThemeManager, DARK, LIGHT, SEPIA
+from core.theme_manager import ThemeManager, DARK, LIGHT, SEPIA, NORDIC
 
 
 def setup_function():
@@ -17,20 +17,30 @@ def test_default_theme_is_dark():
 
 
 def test_stylesheets_are_not_empty():
-    dark_ss = ThemeManager.STYLESHEETS[DARK]
-    light_ss = ThemeManager.STYLESHEETS[LIGHT]
+    themes = ThemeManager._get_themes()
+    dark_ss = themes[DARK]["stylesheet"]
+    light_ss = themes[LIGHT]["stylesheet"]
+    sepia_ss = themes[SEPIA]["stylesheet"]
+    nordic_ss = themes[NORDIC]["stylesheet"]
     assert isinstance(dark_ss, str) and len(dark_ss) > 100
     assert isinstance(light_ss, str) and len(light_ss) > 100
+    assert isinstance(sepia_ss, str) and len(sepia_ss) > 100
+    assert isinstance(nordic_ss, str) and len(nordic_ss) > 100
 
 
 def test_stylesheets_contain_basic_css_selectors():
-    for name, ss in ThemeManager.STYLESHEETS.items():
+    themes = ThemeManager._get_themes()
+    for name, data in themes.items():
+        ss = data["stylesheet"]
         assert "QWidget" in ss or "QMainWindow" in ss or "background" in ss, \
             f"Stylesheet '{name}' parece no contener CSS válido"
 
 
 def test_is_dark_returns_correct_value():
     ThemeManager._current = DARK
+    assert ThemeManager.is_dark() is True
+
+    ThemeManager._current = NORDIC
     assert ThemeManager.is_dark() is True
 
     ThemeManager._current = LIGHT
@@ -51,12 +61,24 @@ def test_toggle_switches_theme(qtbot):
 
     ThemeManager._current = DARK
     result = ThemeManager.toggle(app)
+    assert result == "forest"
+    assert ThemeManager.current() == "forest"
+
+    result = ThemeManager.toggle(app)
+    assert result == "dracula"
+    assert ThemeManager.current() == "dracula"
+
+    result = ThemeManager.toggle(app)
     assert result == LIGHT
     assert ThemeManager.current() == LIGHT
 
     result = ThemeManager.toggle(app)
     assert result == SEPIA
     assert ThemeManager.current() == SEPIA
+
+    result = ThemeManager.toggle(app)
+    assert result == NORDIC
+    assert ThemeManager.current() == NORDIC
 
     result = ThemeManager.toggle(app)
     assert result == DARK
@@ -90,6 +112,8 @@ def test_apply_dark_theme(qtbot):
     assert ThemeManager.is_dark() is True
 
 
-def test_both_stylesheets_are_different():
-    """Dark y Light deben ser hojas de estilo distintas."""
-    assert ThemeManager.STYLESHEETS[DARK] != ThemeManager.STYLESHEETS[LIGHT]
+def test_all_stylesheets_are_different():
+    """Dark, Light, Sepia y Nordic deben ser hojas de estilo distintas."""
+    themes = ThemeManager._get_themes()
+    stylesheets = [themes[t]["stylesheet"] for t in [DARK, LIGHT, SEPIA, NORDIC]]
+    assert len(set(stylesheets)) == 4

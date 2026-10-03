@@ -120,25 +120,18 @@ class ThesaurusDialog(QDialog):
         layout.addLayout(btn_layout)
 
     def _apply_theme(self):
-        tc = ThemeManager.theme_colors()
-        bg_main = tc["bg_main"]
-        bg_card = tc["bg_card"]
-        bg_input = tc["bg_input"]
-        border = tc["border"]
-        fg = tc["fg_text"]
-        sub_text = ThemeManager.color("fg_muted")
-        accent = tc["accent"]
-        hover = ThemeManager.color("bg_hover")
-
-        # En temas claros/sepia, el texto seleccionado debe contrastar nítidamente
-        if ThemeManager.is_dark():
-            sel_bg = accent
-            sel_fg = "#000000"
-            btn_primary_fg = "#000000"
-        else:
-            sel_bg = accent
-            sel_fg = "#ffffff"
-            btn_primary_fg = "#ffffff"
+        c = ThemeManager.palette()
+        bg_main = c["bg_app"]
+        bg_card = c["bg_surface"]
+        bg_input = c["bg_input"]
+        border = c["border_default"]
+        fg = c["fg_primary"]
+        sub_text = c["fg_muted"]
+        accent = c["accent"]
+        hover = c["bg_hover"]
+        sel_bg = c["accent"]
+        sel_fg = c["fg_selected"]
+        btn_primary_fg = c["fg_selected"]
 
         # Actualizar iconos dinámicamente con la paleta activa
         self._icon_lbl.setPixmap(qta.icon("fa5s.book-open", color=accent).pixmap(24, 24))

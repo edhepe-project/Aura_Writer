@@ -9,6 +9,7 @@ Gestiona:
 """
 from __future__ import annotations
 
+import re
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import (
     QTextCharFormat, QTextFormat, QFont, QTextCursor, QImage,
@@ -29,6 +30,45 @@ class AuraEditor(QTextEdit):
 
     # Paso de zoom por clic / rueda de ratón (en puntos porcentuales)
     ZOOM_STEP: int = 10
+
+    # ──────────────────────────────────────────────────────────────────
+    # Carga de HTML
+    # ──────────────────────────────────────────────────────────────────
+
+    def setHtml(self, html: str) -> None:  # noqa: N802
+        """Carga HTML saneando los colores que Qt embebe en el tag <body>.
+
+        Cuando Qt genera HTML con toHtml(), escribe los colores del widget en el
+        atributo style del <body> (ej. ``<body style=" color:#e0e0e0;">``).  Al
+        recargar ese HTML, Qt restaura esos colores como color de texto por
+        defecto del documento — ignorando por completo el stylesheet del widget.
+        Esto es la causa raíz de que el texto aparezca con un color incorrecto
+        al cambiar de tema o de papel.
+
+        Este override elimina color y background-color EXCLUSIVAMENTE del tag
+        <body>, preservando cualquier color que el usuario haya aplicado
+        intencionalmente en elementos individuales (span, p, etc.).
+        """
+        def _strip_body_colors(match: re.Match) -> str:
+            before = match.group(1)          # '<body ... style="'
+            style  = match.group(2)          # contenido del atributo style
+            after  = match.group(3)          # '"'
+            # Eliminar solo las propiedades color y background-color
+            cleaned = re.sub(
+                r'\b(background-color|color)\s*:[^;]+;?\s*',
+                '',
+                style,
+                flags=re.IGNORECASE
+            )
+            return before + cleaned + after
+
+        clean = re.sub(
+            r'(<body\b[^>]*?\bstyle\s*=\s*")([^"]*?)(")',
+            _strip_body_colors,
+            html,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        super().setHtml(clean)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -65,12 +105,142 @@ class AuraEditor(QTextEdit):
         self._spell_timer.timeout.connect(self._trigger_spell_check)
         self.textChanged.connect(self._on_text_changed_for_spell)
 
+        # ── Conectar al gestor de temas para refrescar el lienzo silenciosamente ─
+        ThemeManager.signals.theme_changed.connect(self._on_theme_changed)
+
+    def _on_theme_changed(self, theme_name: str = ""):
+        """Refresca la apariencia del editor al cambiar el tema sin re-escalar zoom innecesariamente."""
+        style    = self._build_paper_style(self._paper_style)
+        font_css = f"font-family: '{self._work_font_family}', serif; font-size: 12pt;"
+        # Siempre incluimos color: explícito para evitar el quirk de herencia de Qt.
+        self.setStyleSheet(
+            f"AuraEditor {{ {style} {font_css} border: none; border-radius: 6px; padding: 12px; }}"
+        )
+
+        # Eliminar colores de texto embebidos en los fragmentos del documento
+        # para que el stylesheet sea la única fuente de verdad del color del texto.
+        self._clear_document_text_colors()
+
         # ── Sinónimos (Thesaurus) ──────────────────────────────────────────
         try:
             from core.thesaurus import AuraThesaurus
             AuraThesaurus.get_instance().preload_async()
         except Exception:
             pass
+
+    # ──────────────────────────────────────────────────────────────────
+    # Estilo de Papel
+    # ──────────────────────────────────────────────────────────────────
+
+    # Colores de fondo de cada estilo de papel.
+    # Única fuente de verdad: SOLO fondos, sin colores de texto.
+    # Los colores de texto se calculan dinámicamente por luminosidad en _build_paper_style().
+    PAPER_BACKGROUNDS = {
+        "blanco": "#ffffff",
+        "sepia":  "#f4ecd8",
+        "verde":  "#e8f0e6",
+        "noche":  "#1e1e20",
+        "oled":   "#000000",
+        "auto":   None,
+    }
+
+    @staticmethod
+    def _luminance(hex_color: str) -> float:
+        """Calcula la luminancia relativa (0.0–1.0) de un color hexadecimal.
+
+        Usa la fórmula perceptual sRGB según WCAG 2.1 para determinar
+        si un fondo es oscuro o claro y elegir el texto con máximo contraste.
+        """
+        hex_color = hex_color.lstrip("#")
+        r, g, b = (int(hex_color[i:i+2], 16) / 255.0 for i in (0, 2, 4))
+        def lin(c: float) -> float:
+            return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+        return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+
+    def _build_paper_style(self, paper_id: str) -> str:
+        """Genera el fragmento CSS para el estilo de papel solicitado.
+
+        Siempre devuelve un string CSS completo con color, background-color y
+        selection-background-color — nunca vacío.  Esto es crítico para evitar
+        el quirk de Qt en el que un widget con setStyleSheet() propio bloquea
+        la herencia del color del stylesheet global aunque no lo especifique.
+
+        Fuentes de color sin hardcoding:
+        - "auto"         → tokens del tema activo vía ThemeManager.color()
+        - Papel claro    → fg_primary / selection_bg del tema light
+        - Papel oscuro   → fg_primary / selection_bg del tema dark
+        """
+        bg_hex = self.PAPER_BACKGROUNDS.get(paper_id)
+
+        if not bg_hex:   # paper_id == "auto" o desconocido
+            # Modo automático: tomar colores del tema ACTIVO en tiempo real
+            bg  = ThemeManager.color("bg_input")
+            fg  = ThemeManager.color("fg_primary")
+            sel = ThemeManager.color("selection_bg")
+        else:
+            bg  = bg_hex
+            lum = self._luminance(bg_hex)
+            if lum < 0.18:   # Papel oscuro
+                fg  = ThemeManager._theme_data("dark")["palette"]["fg_primary"]
+                sel = ThemeManager._theme_data("dark")["palette"]["selection_bg"]
+            else:            # Papel claro
+                fg  = ThemeManager._theme_data("light")["palette"]["fg_primary"]
+                sel = ThemeManager._theme_data("light")["palette"]["selection_bg"]
+
+        return (
+            f"background-color: {bg}; "
+            f"color: {fg}; "
+            f"selection-background-color: {sel};"
+        )
+
+    def _clear_document_text_colors(self):
+        """Elimina los colores de texto (ForegroundBrush) embebidos en los fragmentos del documento.
+
+        Esto evita que colores hardcodeados de temas/papeles anteriores (guardados
+        dentro del HTML de los capítulos) interfieran con el color definido por el
+        stylesheet activo del widget.
+
+        NOTA: No toca negritas, cursivas, subrayados ni tamaños de fuente — solo el color.
+        Preserva los colores en marcadores estructurales (Salto de Página, Página en Blanco).
+        Restaura el estado de modificación del documento para no generar guardados falsos.
+        """
+        doc = self.document()
+        if doc.isEmpty():
+            return
+
+        if getattr(self, '_color_clear_in_progress', False):
+            return
+        self._color_clear_in_progress = True
+        # Preservar el estado de modificación para no disparar guardados innecesarios
+        was_modified = doc.isModified()
+        try:
+            block = doc.begin()
+            while block.isValid():
+                block_text = block.text()
+                # Preservar los colores de los marcadores estructurales del editor
+                is_marker = ("— Salto de Página —" in block_text or
+                             "[ Página en Blanco ]" in block_text)
+                if not is_marker:
+                    it = block.begin()
+                    while not it.atEnd():
+                        frag = it.fragment()
+                        if frag.isValid():
+                            char_fmt = frag.charFormat()
+                            if char_fmt.hasProperty(QTextFormat.Property.ForegroundBrush):
+                                c = QTextCursor(doc)
+                                c.setPosition(frag.position())
+                                c.setPosition(
+                                    frag.position() + frag.length(),
+                                    QTextCursor.MoveMode.KeepAnchor
+                                )
+                                clear_fmt = QTextCharFormat()
+                                clear_fmt.clearProperty(QTextFormat.Property.ForegroundBrush)
+                                c.mergeCharFormat(clear_fmt)
+                        it += 1
+                block = block.next()
+        finally:
+            self._color_clear_in_progress = False
+            doc.setModified(was_modified)
 
     # ------------------------------------------------------------------
     # Apariencia, Zoom y Accesibilidad
@@ -95,20 +265,16 @@ class AuraEditor(QTextEdit):
         self.setFont(font)
         self.document().setDefaultFont(font)
 
-        paper_styles = {
-            "blanco": "background-color: #ffffff; color: #1a1a1a; selection-background-color: #c7d2fe;",
-            "sepia":  "background-color: #f4ecd8; color: #2d241e; selection-background-color: #e2d2b6;",
-            "verde":  "background-color: #e8f0e6; color: #1c2e1c; selection-background-color: #c8dec4;",
-            "noche":  "background-color: #1e1e20; color: #e0e0e0; selection-background-color: #4a4a4e;",
-            "oled":   "background-color: #000000; color: #e6e6e6; selection-background-color: #333333;",
-            "auto":   ""
-        }
-        style = paper_styles.get(self._paper_style, "")
-        font_css = f"font-family: '{self._work_font_family}', serif;"
-        if style:
-            self.setStyleSheet(f"AuraEditor {{ {style} {font_css} border: none; border-radius: 6px; padding: 12px; }}")
-        else:
-            self.setStyleSheet(f"AuraEditor {{ {font_css} border: none; border-radius: 6px; padding: 12px; }}")
+        style    = self._build_paper_style(self._paper_style)
+        font_css = f"font-family: '{self._work_font_family}', serif; font-size: 12pt;"
+        # Siempre color: explícito — evita el quirk de herencia de stylesheet en Qt.
+        self.setStyleSheet(
+            f"AuraEditor {{ {style} {font_css} border: none; border-radius: 6px; padding: 12px; }}"
+        )
+
+        # Limpiar colores de texto embebidos para evitar conflictos entre el
+        # papel activo y colores residuales de temas/papeles anteriores.
+        self._clear_document_text_colors()
 
         self._apply_zoom()
 
@@ -916,8 +1082,7 @@ class AuraEditor(QTextEdit):
             self.ensureCursorVisible()
 
             # 2. Aplicar halo visual con ExtraSelection
-            is_dark = ThemeManager.is_dark()
-            hl_bg = QColor("#ffd60a") if is_dark else QColor("#d97706")
+            hl_bg = QColor(ThemeManager.color("accent"))
             hl_bg.setAlpha(120)
 
             selection = QTextEdit.ExtraSelection()

@@ -61,8 +61,7 @@ class CharacterRelationsTab(QWidget):
         self._rel_list.customContextMenuRequested.connect(self._on_rel_context_menu)
         layout.addWidget(self._rel_list, 1)
 
-        is_dark = ThemeManager.is_dark()
-        info_col = "#8e8e93" if is_dark else "#78716c"
+        info_col = ThemeManager.color("fg_muted")
         info = QLabel("ℹ️  Clic derecho en una relación para editar o eliminar")
         info.setStyleSheet(f"color: {info_col}; font-size: 11px; padding: 2px 4px; background: transparent;")
         layout.addWidget(info)
@@ -185,8 +184,7 @@ class CharacterRelationsTab(QWidget):
 
     @staticmethod
     def _section_label(text: str) -> QLabel:
-        is_dark = ThemeManager.is_dark()
-        color = "#8e8e93" if is_dark else "#5a554e"
+        color = ThemeManager.color("fg_muted")
         lbl = QLabel(text.upper())
         lbl.setStyleSheet(
             f"color: {color}; font-size: 11px; font-weight: 700; "

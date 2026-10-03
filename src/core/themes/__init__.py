@@ -13,12 +13,15 @@ Para agregar un tema nuevo:
   ¡Eso es todo! No hay que tocar el template ni el código de la UI.
 """
 
-from core.themes.dark  import DARK_STYLESHEET,  DARK_PALETTE
-from core.themes.light import LIGHT_STYLESHEET, LIGHT_PALETTE
-from core.themes.sepia import SEPIA_STYLESHEET, SEPIA_PALETTE
+from core.themes.dark   import DARK_STYLESHEET,   DARK_PALETTE
+from core.themes.light  import LIGHT_STYLESHEET,  LIGHT_PALETTE
+from core.themes.sepia  import SEPIA_STYLESHEET,  SEPIA_PALETTE
+from core.themes.nordic import NORDIC_STYLESHEET, NORDIC_PALETTE
 
 __all__ = [
-    "DARK_STYLESHEET",  "DARK_PALETTE",
-    "LIGHT_STYLESHEET", "LIGHT_PALETTE",
-    "SEPIA_STYLESHEET", "SEPIA_PALETTE",
+    "DARK_STYLESHEET",   "DARK_PALETTE",
+    "LIGHT_STYLESHEET",  "LIGHT_PALETTE",
+    "SEPIA_STYLESHEET",  "SEPIA_PALETTE",
+    "NORDIC_STYLESHEET", "NORDIC_PALETTE",
 ]
+

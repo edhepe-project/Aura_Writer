@@ -40,14 +40,14 @@ class ChapterHistoryDiffDialog(QDialog):
         self._load_revisions()
 
     def _apply_theme(self):
-        tc = ThemeManager.theme_colors()
-        bg_main = tc["bg_main"]
-        bg_card = tc["bg_card"]
-        fg_title = tc["fg_text"]
-        fg_muted = tc["sub_text"]
-        b_border = tc["border"]
-        accent = tc["accent"]
-        hover = tc["hover"]
+        c = ThemeManager.palette()
+        bg_main = c["bg_app"]
+        bg_card = c["bg_surface"]
+        fg_title = c["fg_primary"]
+        fg_muted = c["fg_muted"]
+        b_border = c["border_default"]
+        accent = c["accent"]
+        hover = c["bg_hover"]
 
         self.setStyleSheet(f"""
             QDialog {{ background-color: {bg_main}; }}
@@ -66,6 +66,7 @@ class ChapterHistoryDiffDialog(QDialog):
             self.lbl_diff_info.setStyleSheet(f"font-size: 12px; color: {fg_title};")
             
         if hasattr(self, 'btn_snapshot'):
+            self.btn_snapshot.setIcon(qta.icon("fa5s.camera", color=c["fg_primary"]))
             self.btn_snapshot.setStyleSheet(f"""
                 QPushButton {{
                     background-color: transparent;
@@ -79,6 +80,7 @@ class ChapterHistoryDiffDialog(QDialog):
             """)
             
         if hasattr(self, 'btn_restore'):
+            self.btn_restore.setIcon(qta.icon("fa5s.undo-alt", color=c["fg_primary"]))
             self.btn_restore.setStyleSheet(f"""
                 QPushButton {{
                     background-color: transparent;
@@ -100,7 +102,7 @@ class ChapterHistoryDiffDialog(QDialog):
         # ── Barra superior ───────────────────────────────────────────
         top_bar = QHBoxLayout()
         icon_lbl = QLabel()
-        icon_lbl.setPixmap(qta.icon("fa5s.history", color="#007aff").pixmap(22, 22))
+        icon_lbl.setPixmap(qta.icon("fa5s.history", color=ThemeManager.color("blue")).pixmap(22, 22))
         top_bar.addWidget(icon_lbl)
 
         self.title_lbl = QLabel(f"<b>Historial de Revisiones:</b> {self.chapter.title}")
@@ -108,7 +110,7 @@ class ChapterHistoryDiffDialog(QDialog):
         top_bar.addStretch()
 
         self.btn_snapshot = QPushButton("Crear Instantánea Manual")
-        self.btn_snapshot.setIcon(qta.icon("fa5s.camera", color="#ffffff"))
+        self.btn_snapshot.setIcon(qta.icon("fa5s.camera", color=ThemeManager.color("fg_primary")))
         self.btn_snapshot.clicked.connect(self._create_manual_snapshot)
         top_bar.addWidget(self.btn_snapshot)
 
@@ -160,7 +162,7 @@ class ChapterHistoryDiffDialog(QDialog):
         bottom_right.addStretch()
 
         self.btn_restore = QPushButton("Restaurar esta Versión")
-        self.btn_restore.setIcon(qta.icon("fa5s.undo-alt", color="#ffffff"))
+        self.btn_restore.setIcon(qta.icon("fa5s.undo-alt", color=ThemeManager.color("fg_primary")))
         self.btn_restore.setEnabled(False)
         self.btn_restore.clicked.connect(self._restore_selected_revision)
         bottom_right.addWidget(self.btn_restore)
@@ -231,11 +233,11 @@ class ChapterHistoryDiffDialog(QDialog):
         # Formatear estadísticas
         stat_parts = []
         if stats.words_added > 0:
-            stat_parts.append(f"<span style='color:#30d158;'>+{stats.words_added} palabras</span>")
+            stat_parts.append(f"<span style='color:{ThemeManager.color('green')};'>+{stats.words_added} palabras</span>")
         if stats.words_deleted > 0:
-            stat_parts.append(f"<span style='color:#ff453a;'>-{stats.words_deleted} palabras</span>")
+            stat_parts.append(f"<span style='color:{ThemeManager.color('red')};'>-{stats.words_deleted} palabras</span>")
         if not stat_parts:
-            stat_parts.append("<span style='color:#8e8e93;'>Sin cambios de texto</span>")
+            stat_parts.append(f"<span style='color:{ThemeManager.color('fg_muted')};'>Sin cambios de texto</span>")
 
         self.lbl_stats.setText(" | ".join(stat_parts))
 

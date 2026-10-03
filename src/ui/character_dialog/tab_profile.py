@@ -175,8 +175,7 @@ class CharacterProfileTab(QWidget):
         layout.addWidget(self._attr_container)
 
         self._lbl_empty_attrs = QLabel("Sin atributos adicionales. Haz clic en el botón inferior para añadir uno.")
-        is_dark = ThemeManager.is_dark()
-        empty_col = "#8e8e93" if is_dark else "#78716c"
+        empty_col = ThemeManager.color("fg_muted")
         self._lbl_empty_attrs.setStyleSheet(
             f"color: {empty_col}; font-size: 11px; padding: 4px 2px; background: transparent;"
         )
@@ -263,8 +262,7 @@ class CharacterProfileTab(QWidget):
         key_edit.setCompleter(key_completer)
 
         # Separador visual
-        is_dark = ThemeManager.is_dark()
-        arrow_col = "#636366" if is_dark else "#a8a29e"
+        arrow_col = ThemeManager.color("fg_muted")
         sep_lbl = QLabel(":")
         sep_lbl.setStyleSheet(f"color: {arrow_col}; font-weight: bold; font-size: 14px; background: transparent;")
 
@@ -291,9 +289,10 @@ class CharacterProfileTab(QWidget):
         btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_del.setToolTip("Eliminar este atributo")
         btn_del.setFixedSize(28, 28)
-        del_bg = "rgba(255, 69, 58, 0.12)" if is_dark else "rgba(220, 38, 38, 0.1)"
-        del_hover = "rgba(255, 69, 58, 0.3)" if is_dark else "rgba(220, 38, 38, 0.25)"
-        del_color = "#ff453a" if is_dark else "#dc2626"
+        p = ThemeManager.palette()
+        del_bg    = f"rgba({int(p['red'][1:3], 16)}, {int(p['red'][3:5], 16)}, {int(p['red'][5:7], 16)}, 0.12)"
+        del_hover = f"rgba({int(p['red'][1:3], 16)}, {int(p['red'][3:5], 16)}, {int(p['red'][5:7], 16)}, 0.30)"
+        del_color = p["red"]
         btn_del.setStyleSheet(f"""
             QPushButton {{
                 background-color: {del_bg};
@@ -401,8 +400,7 @@ class CharacterProfileTab(QWidget):
 
     @staticmethod
     def _section_label(text: str) -> QLabel:
-        is_dark = ThemeManager.is_dark()
-        color = "#8e8e93" if is_dark else "#5a554e"
+        color = ThemeManager.color("fg_muted")
         lbl = QLabel(text.upper())
         lbl.setStyleSheet(
             f"color: {color}; font-size: 11px; font-weight: 700; "
@@ -412,21 +410,21 @@ class CharacterProfileTab(QWidget):
 
     @staticmethod
     def _section_header(text: str) -> QLabel:
-        is_dark = ThemeManager.is_dark()
-        color = "#f2f2f7" if is_dark else "#1a1a2e"
-        bg_bar = "rgba(255, 255, 255, 0.04)" if is_dark else "rgba(0, 0, 0, 0.04)"
+        c = ThemeManager.palette()
+        color = c["fg_primary"]
+        bg_bar = c["bg_hover"]
+        accent = c["indigo"]
         lbl = QLabel(text)
         lbl.setStyleSheet(
             f"color: {color}; font-size: 13px; font-weight: 800; "
-            f"background: {bg_bar}; border-left: 3px solid #5e5ce6; "
+            f"background: {bg_bar}; border-left: 3px solid {accent}; "
             f"padding: 6px 10px; border-radius: 4px; margin-top: 6px;"
         )
         return lbl
 
     @staticmethod
     def _separator() -> QFrame:
-        is_dark = ThemeManager.is_dark()
-        sep_color = "#3a3a3c" if is_dark else "#d4cfc8"
+        sep_color = ThemeManager.color("border_subtle")
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
         sep.setStyleSheet(f"background: {sep_color}; height: 1px; border: none; margin: 8px 0;")

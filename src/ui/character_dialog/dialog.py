@@ -54,8 +54,7 @@ class CharacterEditDialog(QDialog):
         root.setSpacing(14)
 
         # Header
-        is_dark = ThemeManager.is_dark()
-        header_color = "#f2f2f7" if is_dark else "#1a1a2e"
+        header_color = ThemeManager.color("fg_primary")
         header_lbl = QLabel("👤  FICHA DE PERSONAJE")
         header_lbl.setStyleSheet(
             f"font-size: 13px; font-weight: 800; color: {header_color}; "

@@ -113,7 +113,7 @@ class CharacterDock(QWidget):
         self.character_deleted.emit(char_id)
 
     def update_theme(self):
-        self._tree_view._update_search_style(ThemeManager.is_dark())
+        self._tree_view._update_search_style()
         self._tree_view.rebuild_tree()
         self._context_panel.update_theme()
 

@@ -46,12 +46,15 @@ class TimelineCanvas(QWidget):
 
         while self._layout.count() > 0:
             item = self._layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            w = item.widget()
+            if w:
+                w.hide()
+                w.setParent(None)
+                w.deleteLater()
 
         if not self._events_data:
             empty = QLabel("No hay capítulos o eventos con los filtros seleccionados.")
-            empty.setStyleSheet("color: #8e8e93; font-style: italic; font-size: 13px; margin: 40px;")
+            empty.setStyleSheet(f"color: {ThemeManager.color('fg_muted')}; font-style: italic; font-size: 13px; margin: 40px;")
             self._layout.addWidget(empty)
             self.update()
             return
@@ -91,9 +94,8 @@ class TimelineCanvas(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        is_dark = ThemeManager.is_dark()
-        line_color = QColor("#ff9f0a" if is_dark else "#d97706")
-        dot_bg = QColor("#1c1c1e" if is_dark else "#ffffff")
+        line_color = QColor(ThemeManager.color("accent"))
+        dot_bg = QColor(ThemeManager.color("bg_surface"))
 
         # Dibujar la línea de tiempo principal arriba de las tarjetas
         rail_y = 35

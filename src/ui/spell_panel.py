@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QListWidget, QListWidgetItem, QSizePolicy, QFrame, QComboBox
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QColor, QFont
 import qtawesome as qta
 
@@ -51,66 +51,77 @@ class SpellPanel(QWidget):
         self._errors: list[SpellError] = []
         self._setup_ui()
         self._apply_theme()
+        ThemeManager.signals.theme_changed.connect(lambda _: self._apply_theme())
 
     # ------------------------------------------------------------------
     # Construcción de la UI
     # ------------------------------------------------------------------
 
     def _setup_ui(self):
-        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
-        self.setMinimumWidth(220)
-        self.setMaximumWidth(320)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.setMinimumWidth(200)
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(8, 8, 8, 8)
+        root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(6)
 
-        # ── Encabezado ────────────────────────────────────────────────
+        # ── Encabezado compacto ───────────────────────────────────────
         header = QHBoxLayout()
-        icon_lbl = QLabel()
-        icon_lbl.setPixmap(qta.icon("fa5s.spell-check", color=ThemeManager.color("red")).pixmap(18, 18))
-        self._title_lbl = QLabel("Corrector Ortográfico")
-        self._title_lbl.setFont(QFont("", 11, QFont.Weight.Bold))
-        header.addWidget(icon_lbl)
+        header.setContentsMargins(0, 2, 0, 2)
+        header.setSpacing(6)
+
+        self._icon_lbl = QLabel()
+        self._title_lbl = QLabel("CORRECTOR")
+        font_title = QFont()
+        font_title.setBold(True)
+        font_title.setPointSize(9)
+        self._title_lbl.setFont(font_title)
+        
+        header.addWidget(self._icon_lbl)
         header.addWidget(self._title_lbl)
         header.addStretch()
 
-        # Toggle on/off
+        # Switch / Toggle on/off estilo pill cómodo
         self._btn_toggle = QPushButton()
+        self._btn_toggle.setObjectName("spellToggleBtn")
         self._btn_toggle.setCheckable(True)
-        self._btn_toggle.setChecked(False)  # Por defecto apagado visualmente
-        self._btn_toggle.setFixedSize(28, 28)
+        self._btn_toggle.setChecked(False)
+        self._btn_toggle.setFixedSize(42, 26)
         self._btn_toggle.setToolTip("Activar / Desactivar corrector")
         self._btn_toggle.clicked.connect(self._on_toggle)
         header.addWidget(self._btn_toggle)
         root.addLayout(header)
 
-        # Separador
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        root.addWidget(sep)
+        # ── Barra de control: Idioma y Estado ─────────────────────────
+        ctrl_bar = QFrame()
+        cbl = QHBoxLayout(ctrl_bar)
+        cbl.setContentsMargins(0, 0, 0, 0)
+        cbl.setSpacing(6)
 
-        # ── Selector de idioma ────────────────────────────────────────
-        lang_row = QHBoxLayout()
-        lang_row.addWidget(QLabel("Idioma:"))
         self._combo_lang = QComboBox()
         for code, name in SUPPORTED_LANGUAGES:
             self._combo_lang.addItem(name, code)
-        # Seleccionar español por defecto
         idx = self._combo_lang.findData(self._checker.language)
         if idx >= 0:
             self._combo_lang.setCurrentIndex(idx)
         self._combo_lang.currentIndexChanged.connect(self._on_language_changed)
-        lang_row.addWidget(self._combo_lang, 1)
-        root.addLayout(lang_row)
+        cbl.addWidget(self._combo_lang, 1)
 
-        # ── Contador de errores ───────────────────────────────────────
-        self._count_lbl = QLabel("Corrector desactivado")
-        self._count_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        font_sm = QFont()
-        font_sm.setPointSize(9)
-        self._count_lbl.setFont(font_sm)
-        root.addWidget(self._count_lbl)
+        self._count_badge = QLabel("Desactivado")
+        self._count_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        font_badge = QFont()
+        font_badge.setPointSize(9)
+        font_badge.setBold(True)
+        self._count_badge.setFont(font_badge)
+        self._count_badge.setFixedHeight(26)
+        cbl.addWidget(self._count_badge)
+
+        root.addWidget(ctrl_bar)
+
+        # Separador horizontal sutil
+        self._sep = QFrame()
+        self._sep.setFrameShape(QFrame.Shape.HLine)
+        root.addWidget(self._sep)
 
         # ── Lista de errores ──────────────────────────────────────────
         self._list = QListWidget()
@@ -123,60 +134,95 @@ class SpellPanel(QWidget):
         # ── Botones de acción ─────────────────────────────────────────
         btn_layout = QVBoxLayout()
         btn_layout.setSpacing(4)
+        btn_layout.setContentsMargins(0, 2, 0, 0)
 
-        self._btn_goto = QPushButton(
-            qta.icon("fa5s.search", color=ThemeManager.color("blue")), "  Ir al error")
+        # Fila 1: [ Ir al error ] | [ Ignorar ]
+        btn_row1 = QHBoxLayout()
+        btn_row1.setSpacing(4)
+        btn_row1.setContentsMargins(0, 0, 0, 0)
+
+        self._btn_goto = QPushButton(" Ir al error")
         self._btn_goto.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._btn_goto.clicked.connect(self._on_goto)
-        btn_layout.addWidget(self._btn_goto)
+        btn_row1.addWidget(self._btn_goto, 1)
 
-        self._btn_ignore = QPushButton(
-            qta.icon("fa5s.eye-slash", color=ThemeManager.color("fg_muted")), "  Ignorar esta vez")
+        self._btn_ignore = QPushButton(" Ignorar")
         self._btn_ignore.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._btn_ignore.clicked.connect(self._on_ignore)
-        btn_layout.addWidget(self._btn_ignore)
+        btn_row1.addWidget(self._btn_ignore, 1)
 
-        self._btn_add = QPushButton(
-            qta.icon("fa5s.plus-circle", color=ThemeManager.color("green")), "  Añadir al diccionario")
+        btn_layout.addLayout(btn_row1)
+
+        # Fila 2: [ + Añadir al diccionario ]
+        self._btn_add = QPushButton(" Añadir al diccionario")
         self._btn_add.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._btn_add.clicked.connect(self._on_add_to_dict)
         btn_layout.addWidget(self._btn_add)
 
         root.addLayout(btn_layout)
 
-        # ── Pie ───────────────────────────────────────────────────────
-        self._footer_lbl = QLabel("Doble clic para ir al error")
+        # ── Pie de ayuda ──────────────────────────────────────────────
+        self._footer_lbl = QLabel("Doble clic en un error para localizarlo")
         self._footer_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         font_xs = QFont()
         font_xs.setPointSize(8)
         self._footer_lbl.setFont(font_xs)
         root.addWidget(self._footer_lbl)
 
+        self._count_lbl = self._count_badge  # Alias para compatibilidad
         self._update_buttons()
 
     def _apply_theme(self):
         c = ThemeManager.palette()
         bg = c["bg_surface"]
         fg = c["fg_primary"]
+        sub_fg = c["fg_secondary"]
+        muted_fg = c["fg_muted"]
         border = c["border_default"]
         item_alt = c["bg_app"]
-        btn_bg = c["bg_hover"]
-        btn_hover = c["bg_selected"]
+        btn_bg = c["bg_button"]
+        btn_hover = c["bg_hover"]
+        btn_selected = c["bg_selected"]
         accent = c["accent"]
         accent_hover = c["accent_hover"]
 
-        toggle_icon = "fa5s.toggle-on" if self._btn_toggle.isChecked() else "fa5s.toggle-off"
-        toggle_color = c["green"] if self._btn_toggle.isChecked() else c["fg_muted"]
-        self._btn_toggle.setIcon(qta.icon(toggle_icon, color=toggle_color))
+        is_enabled = self._btn_toggle.isChecked()
+        toggle_icon = "fa5s.toggle-on" if is_enabled else "fa5s.toggle-off"
+        toggle_color = c["green"] if is_enabled else muted_fg
+        try:
+            self._btn_toggle.setIcon(qta.icon(toggle_icon, color=toggle_color))
+            self._btn_toggle.setIconSize(QSize(26, 20))
+        except Exception:
+            pass
+
+        try:
+            self._icon_lbl.setPixmap(qta.icon("fa5s.spell-check", color=c["red"]).pixmap(16, 16))
+            self._btn_goto.setIcon(qta.icon("fa5s.search", color=c["blue"]))
+            self._btn_ignore.setIcon(qta.icon("fa5s.eye-slash", color=muted_fg))
+            self._btn_add.setIcon(qta.icon("fa5s.plus-circle", color=c["green"]))
+        except Exception:
+            pass
+
+        badge_bg = c["bg_hover"] if not is_enabled else (c["bg_selected"] if self._errors else c["bg_hover"])
+        badge_fg = muted_fg if not is_enabled else (c["red"] if self._errors else c["green"])
 
         self.setStyleSheet(f"""
             SpellPanel {{
                 background-color: {bg};
                 color: {fg};
-                border-left: 1px solid {border};
             }}
             QLabel {{
                 color: {fg};
+            }}
+            QPushButton#spellToggleBtn {{
+                background-color: {c['bg_hover'] if not is_enabled else c['bg_selected']};
+                border: 1px solid {c['accent'] if is_enabled else border};
+                border-radius: 13px;
+                padding: 0px;
+            }}
+            QPushButton#spellToggleBtn:hover {{
+                background-color: {c['bg_selected']};
+                border-color: {accent};
             }}
             QListWidget {{
                 background-color: {bg};
@@ -185,13 +231,16 @@ class SpellPanel(QWidget):
                 border-radius: 6px;
                 alternate-background-color: {item_alt};
             }}
+            QListWidget::item {{
+                padding: 5px 8px;
+                border-radius: 4px;
+            }}
             QListWidget::item:selected {{
                 background-color: {accent};
                 color: {c['fg_selected']};
-                border-radius: 4px;
             }}
             QListWidget::item:hover {{
-                background-color: {btn_hover};
+                background-color: {btn_selected};
             }}
             QListWidget::item:selected:hover {{
                 background-color: {accent_hover};
@@ -201,28 +250,46 @@ class SpellPanel(QWidget):
                 color: {fg};
                 border: 1px solid {border};
                 border-radius: 6px;
-                padding: 5px 10px;
-                text-align: left;
+                padding: 5px 8px;
                 font-size: 11px;
+                font-weight: 500;
             }}
             QPushButton:hover {{
                 background-color: {btn_hover};
+                border-color: {accent};
             }}
             QPushButton:disabled {{
                 color: {c['fg_disabled']};
+                background-color: {c['bg_disabled']};
+                border-color: {border};
             }}
             QComboBox {{
-                background-color: {btn_bg};
+                background-color: {c['bg_input']};
                 color: {fg};
                 border: 1px solid {border};
-                border-radius: 5px;
-                padding: 3px 6px;
+                border-radius: 6px;
+                padding: 3px 8px;
                 font-size: 11px;
+                font-weight: 500;
+            }}
+            QComboBox:hover {{
+                border-color: {accent};
             }}
             QFrame[frameShape="4"] {{
                 color: {border};
             }}
         """)
+        self._count_badge.setStyleSheet(f"""
+            QLabel {{
+                background-color: {badge_bg};
+                color: {badge_fg};
+                border: 1px solid {border};
+                border-radius: 6px;
+                padding: 2px 8px;
+                font-size: 10px;
+            }}
+        """)
+        self._footer_lbl.setStyleSheet(f"color: {muted_fg};")
 
     # ------------------------------------------------------------------
     # API pública — llamada desde el controlador del editor
@@ -248,22 +315,24 @@ class SpellPanel(QWidget):
 
         if not errors:
             if not self._checker.show_errors:
-                self._count_lbl.setText("Corrector en segundo plano")
+                self._count_lbl.setText("En pausa")
             else:
-                self._count_lbl.setText("✅ Sin errores encontrados")
+                self._count_lbl.setText("0 errores")
             self._update_buttons()
+            self._apply_theme()
             return
 
         n = len(errors)
-        self._count_lbl.setText(f"⚠ {n} error{'es' if n != 1 else ''} encontrado{'s' if n != 1 else ''}")
+        self._count_lbl.setText(f"{n} error{'es' if n != 1 else ''}")
 
+        error_color = QColor(ThemeManager.color("red"))
         item_to_select = None
         for err in errors:
             # Mostrar: "palabra → sugerencia1, sugerencia2…"
-            sugs = ", ".join(err.suggestions[:3]) if err.suggestions else "—"
-            item = QListWidgetItem(f"  {err.word}  →  {sugs}")
+            sugs = ", ".join(err.suggestions[:2]) if err.suggestions else "sin sugerencias"
+            item = QListWidgetItem(f" {err.word}  →  {sugs}")
             item.setData(Qt.ItemDataRole.UserRole, err)
-            item.setForeground(QColor("#ff453a"))
+            item.setForeground(error_color)
             self._list.addItem(item)
             if prev_key and (err.start, err.end, err.word) == prev_key:
                 item_to_select = item
@@ -278,6 +347,7 @@ class SpellPanel(QWidget):
             _vbar.setValue(_scroll_pos)
 
         self._update_buttons()
+        self._apply_theme()
         # No llamar _apply_theme() aquí: resetear el stylesheet en cada revisión
         # causa parpadeo en los estados hover/active de los widgets.
 

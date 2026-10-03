@@ -43,7 +43,6 @@ class _MoveCharacterDialog(QDialog):
         char_name: str,
         places: list[Place],
         current_place_id: str,
-        is_dark: bool,
         parent=None,
     ):
         super().__init__(parent)
@@ -85,7 +84,7 @@ class _MoveCharacterDialog(QDialog):
         layout.addWidget(title)
 
         hint = QLabel("Selecciona el nuevo escenario y presiona Mover.")
-        hint.setStyleSheet("font-size: 10px; color: #8e8e93;")
+        hint.setStyleSheet(f"font-size: 10px; color: {c['fg_muted']};")
         layout.addWidget(hint)
 
         self._list = QListWidget()
@@ -261,9 +260,9 @@ class PresenceItemWidget(QFrame):
         new_type = self.type_combo.currentData()
         info  = _TYPE_INFO.get(new_type, ("?", "#8e8e93", "?"))
         color = info[1]
-        is_dark = ThemeManager.is_dark()
-        bg   = "#2c2c2e" if is_dark else "#ffffff"
-        bord = "#3a3a3c" if is_dark else "#e0dbd3"
+        c = ThemeManager.palette()
+        bg   = c["bg_surface"]
+        bord = c["border_default"]
         self.setStyleSheet(f"""
             PresenceItemWidget {{
                 background: {bg};
@@ -275,12 +274,10 @@ class PresenceItemWidget(QFrame):
         self.presence_updated.emit(self.presence.character_id, new_type)
 
     def _on_move_clicked(self) -> None:
-        is_dark = ThemeManager.is_dark()
         dlg = _MoveCharacterDialog(
             char_name=self.char_name,
             places=self.places,
             current_place_id=self.presence.place_id,
-            is_dark=is_dark,
             parent=self,
         )
         if dlg.exec() == QDialog.DialogCode.Accepted and dlg.selected_place_id:

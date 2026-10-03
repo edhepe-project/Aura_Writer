@@ -58,7 +58,12 @@ class DiffEngine:
         - Condensa el texto no modificado para facilitar la lectura.
         """
         if is_dark is not None:
+            # Compatibilidad hacia atrás: is_dark=True → dark, is_dark=False → light
             theme_name = "dark" if is_dark else "light"
+        elif theme_name == "dark":
+            # Sin override explícito: leer el tema activo del ThemeManager
+            from core.theme_manager import ThemeManager
+            theme_name = ThemeManager.current()
         # Extraer texto si es HTML
         old_raw = cls.html_to_plain_text(old_text) if "<" in old_text and ">" in old_text else old_text
         new_raw = cls.html_to_plain_text(new_text) if "<" in new_text and ">" in new_text else new_text
@@ -72,28 +77,19 @@ class DiffEngine:
 
         out_fragments: list[str] = []
 
-        # Paleta de colores elegante adaptada al tema
-        is_sepia = theme_name == "sepia"
-        is_light = theme_name == "light"
-        
-        if is_sepia:
-            ins_bg = "#ebdcb9"
-            ins_fg = "#5c4d41"
-            del_bg = "#d9b3a8"
-            del_fg = "#8c3123"
-            muted_fg = "#8c8273"
-        elif is_light:
-            ins_bg = "#d4edda"
-            ins_fg = "#155724"
-            del_bg = "#f8d7da"
-            del_fg = "#721c24"
-            muted_fg = "#6c757d"
-        else:
-            ins_bg = "#1a3d24"
-            ins_fg = "#4cd964"
-            del_bg = "#4d1919"
-            del_fg = "#ff453a"
-            muted_fg = "#8e8e93"
+        # Paleta de colores adaptada al tema — escalable a cualquier número de temas
+        _DIFF_PALETTES = {
+            "sepia":   dict(ins_bg="#ebdcb9", ins_fg="#5c4d41", del_bg="#d9b3a8", del_fg="#8c3123", muted_fg="#8c8273"),
+            "light":   dict(ins_bg="#d4edda", ins_fg="#155724", del_bg="#f8d7da", del_fg="#721c24", muted_fg="#6c757d"),
+            "nordic":  dict(ins_bg="#1e3a2f", ins_fg="#6fcf97", del_bg="#3d1f1f", del_fg="#eb5757", muted_fg="#8b9cad"),
+            "dark":    dict(ins_bg="#1a3d24", ins_fg="#4cd964", del_bg="#4d1919", del_fg="#ff453a", muted_fg="#8e8e93"),
+        }
+        _pal = _DIFF_PALETTES.get(theme_name, _DIFF_PALETTES["dark"])
+        ins_bg   = _pal["ins_bg"]
+        ins_fg   = _pal["ins_fg"]
+        del_bg   = _pal["del_bg"]
+        del_fg   = _pal["del_fg"]
+        muted_fg = _pal["muted_fg"]
 
         ins_style = f"background-color: {ins_bg}; color: {ins_fg}; text-decoration: none; border-radius: 3px; padding: 1px 3px; font-weight: bold;"
         del_style = f"background-color: {del_bg}; color: {del_fg}; text-decoration: line-through; border-radius: 3px; padding: 1px 3px;"
@@ -176,15 +172,13 @@ class DiffEngine:
                 stats.characters_deleted += len(text_del)
                 stats.characters_added += len(text_ins)
 
-        if is_sepia:
-            font_color = "#2d241e"
-            bg_color = "#f4ecd8"
-        elif is_light:
-            font_color = "#1c1c1e"
-            bg_color = "#fafafa"
-        else:
-            font_color = "#e5e5ea"
-            bg_color = "#18181b"
+        _HTML_PALETTES = {
+            "sepia":  ("#2d241e", "#f4ecd8"),
+            "light":  ("#1c1c1e", "#fafafa"),
+            "nordic": ("#d0dce8", "#1e2a38"),
+            "dark":   ("#e5e5ea", "#18181b"),
+        }
+        font_color, bg_color = _HTML_PALETTES.get(theme_name, _HTML_PALETTES["dark"])
 
         body_html = "".join(out_fragments)
         full_html = f"""<!DOCTYPE html>

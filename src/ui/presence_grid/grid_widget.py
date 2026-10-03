@@ -108,8 +108,7 @@ class _PresenceCell(QFrame):
 
     def _refresh_style(self) -> None:
         tc = self._tc
-        is_dark = ThemeManager.is_dark()
-        
+
         type_colors = {
             "present":    (tc["green"],  "rgba(34, 197, 94, 0.14)"),
             "transit":    (tc["blue"],   "rgba(59, 130, 246, 0.14)"),
@@ -119,7 +118,7 @@ class _PresenceCell(QFrame):
 
         if self._place_id:
             color, bg_pill = type_colors.get(self._pres_type, (tc["subtext"], "rgba(142, 142, 147, 0.12)"))
-            bord = f"{color}66" if is_dark else f"{color}99"
+            bord = f"{color}66"
             bg = bg_pill
             text_c = color
         else:
@@ -187,7 +186,6 @@ class _PresenceGridWidget(QWidget):
         self._places      = []
         self._characters  = []
         self._chapters    = []
-        self._is_dark     = ThemeManager.is_dark()
         self._build_layout()
 
     # -- Construccion del layout de 4 cuadrantes ------------------------------
@@ -451,7 +449,7 @@ class _PresenceGridWidget(QWidget):
         dlg = _PlacePickerDialog(
             char_name=char_name, cap_title=cap_title, places=self._places,
             current_place_id=cell.get_place_id(), current_type=cell.get_pres_type() or "present",
-            is_dark=self._is_dark, parent=self,
+            parent=self,
         )
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return

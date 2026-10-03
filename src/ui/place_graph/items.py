@@ -388,14 +388,13 @@ class PlaceLinkItem(QGraphicsPathItem):
         if self._is_active and self._label:
             painter.save()
             painter.setFont(self._label_font)
-            is_dark = ThemeManager.is_dark()
             fm = painter.fontMetrics()
             tw = fm.horizontalAdvance(self._label)
             th = fm.height()
             mid = path.pointAtPercent(0.5)
 
             rect = QRectF(mid.x() - tw / 2 - 8, mid.y() - th / 2 - 3, tw + 16, th + 6)
-            bg_col = QColor("#1c1c1e" if is_dark else "#faf7f3")
+            bg_col = QColor(ThemeManager.color("bg_app"))
             bg_col.setAlphaF(0.96)
             border_col = QColor(self._base_color)
             border_col.setAlphaF(0.90)
@@ -404,7 +403,8 @@ class PlaceLinkItem(QGraphicsPathItem):
             painter.setPen(QPen(border_col, 1.4))
             painter.drawRoundedRect(rect, 4, 4)
 
-            txt_col = self._base_color.lighter(160) if is_dark else self._base_color.darker(160)
+            txt_col = QColor(ThemeManager.color("fg_primary"))
+            txt_col.setAlphaF(0.90)
             painter.setPen(QPen(txt_col))
             painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, self._label)
             painter.restore()

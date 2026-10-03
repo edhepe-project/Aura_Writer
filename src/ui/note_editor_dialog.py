@@ -21,7 +21,6 @@ class NoteEditorDialog(QDialog):
         super().__init__(parent)
         from core.theme_manager import ThemeManager
         self._note     = note
-        self._is_dark  = ThemeManager.is_dark()
         self._deleted  = False
 
         self.setWindowTitle(f"Nota — {note.title}")
@@ -115,34 +114,20 @@ class NoteEditorDialog(QDialog):
         root.addWidget(hint)
 
     def _apply_style(self):
-        if self._is_dark:
-            bg          = "#1c1c1e"
-            surface     = "#2c2c2e"
-            surface2    = "#3a3a3c"
-            border      = "#3a3a3c"
-            accent      = "#9b59b6"
-            text        = "#f2f2f7"
-            sub         = "#8e8e93"
-            danger      = "#ff453a"
-            danger_hover= "#ff6961"
-            ok_bg       = "#30d158"
-            ok_hover    = "#32e05e"
-            ok_text     = "#000000"
-            sep_col     = "#3a3a3c"
-        else:
-            bg          = "#f5f0ea"
-            surface     = "#faf7f3"
-            surface2    = "#ede8e1"
-            border      = "#d4cfc8"
-            accent      = "#9b59b6"
-            text        = "#1a1a2e"
-            sub         = "#7a7a8a"
-            danger      = "#c0392b"
-            danger_hover= "#e74c3c"
-            ok_bg       = "#27ae60"
-            ok_hover    = "#2ecc71"
-            ok_text     = "#ffffff"
-            sep_col     = "#d4cfc8"
+        c = ThemeManager.palette()
+        bg          = c["bg_app"]
+        surface     = c["bg_surface"]
+        surface2    = c["bg_input"]
+        border      = c["border_default"]
+        accent      = c["indigo"]
+        text        = c["fg_primary"]
+        sub         = c["fg_muted"]
+        danger      = c["red"]
+        danger_hover= c["red"]
+        ok_bg       = c["green"]
+        ok_hover    = c["green"]
+        ok_text     = c["fg_selected"]
+        sep_col     = c["border_subtle"]
 
         self.setStyleSheet(f"""
             QDialog {{

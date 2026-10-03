@@ -153,12 +153,12 @@ class USBConfigDialog(QDialog):
 
     def _apply_theme(self, *args):
         import qtawesome as qta
-        tc = ThemeManager.theme_colors()
-        bg_main = tc["bg_main"]
-        bg_card = tc["bg_card"]
-        fg_title = tc["fg_text"]
-        border_col = tc["border"]
-        accent = tc["accent"]
+        c = ThemeManager.palette()
+        bg_main = c["bg_app"]
+        bg_card = c["bg_surface"]
+        fg_title = c["fg_primary"]
+        border_col = c["border_default"]
+        accent = c["accent"]
 
         self.setStyleSheet(f"""
             QDialog {{ background-color: {bg_main}; color: {fg_title}; }}
@@ -166,16 +166,15 @@ class USBConfigDialog(QDialog):
             QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 5px; }}
             QLabel {{ color: {fg_title}; }}
             QListWidget {{ background-color: {bg_card}; border: 1px solid {border_col}; color: {fg_title}; }}
-            QPushButton {{ background-color: {bg_card}; color: {fg_title}; border: 1px solid {border_col}; padding: 6px; border-radius: 4px; }}
-            QPushButton:hover {{ background-color: {border_col}; }}
-            QLineEdit {{ background-color: {bg_card}; color: {fg_title}; border: 1px solid {border_col}; padding: 4px; border-radius: 4px; }}
+            QPushButton {{ background-color: {c['bg_button']}; color: {fg_title}; border: 1px solid {border_col}; padding: 6px; border-radius: 4px; }}
+            QPushButton:hover {{ background-color: {c['bg_hover']}; }}
+            QLineEdit {{ background-color: {c['bg_input']}; color: {fg_title}; border: 1px solid {border_col}; padding: 4px; border-radius: 4px; }}
             QCheckBox {{ color: {fg_title}; }}
         """)
 
         self.btn_refresh.setIcon(qta.icon("fa5s.sync-alt", color=fg_title))
         self.btn_import.setIcon(qta.icon("fa5s.download", color=fg_title))
         
-        c = ThemeManager.palette()
         self.btn_save.setIcon(qta.icon("fa5s.check-circle", color=c["fg_selected"]))
         self.btn_save.setStyleSheet(f"background-color: {c['green']}; color: {c['fg_selected']}; font-weight: bold; padding: 6px 14px; border-radius: 6px;")
         

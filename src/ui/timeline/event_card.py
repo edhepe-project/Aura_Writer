@@ -57,7 +57,7 @@ class TimelineEventCard(QFrame):
 
         order_text = f"#{self.chapter.in_world_order}" if self.chapter.in_world_order else ""
         self._order_label = QLabel(order_text)
-        self._order_label.setStyleSheet("font-size: 10px; color: #8e8e93; font-weight: bold;")
+        self._order_label.setStyleSheet("font-size: 10px; font-weight: bold;")
         top_row.addWidget(self._order_label)
         layout.addLayout(top_row)
 
@@ -73,27 +73,29 @@ class TimelineEventCard(QFrame):
         # Fecha en el mundo (diegética)
         date_text = self.chapter.in_world_date.strip() or "Fecha sin definir"
         self._date_label = QLabel(f"⏳ {date_text}")
-        self._date_label.setStyleSheet("font-size: 11px; color: #e67e22; font-style: italic;")
+        self._date_label.setStyleSheet("font-size: 11px; font-style: italic;")
         self._date_label.setWordWrap(True)
         layout.addWidget(self._date_label)
 
         # Tags de Lugares presentes
+        self._places_label = None
         if self.places_names:
             places_txt = " • ".join(self.places_names[:3])
             if len(self.places_names) > 3:
                 places_txt += f" (+{len(self.places_names)-3})"
             self._places_label = QLabel(f"{places_txt}")
-            self._places_label.setStyleSheet("font-size: 10px; color: #30d158;")
+            self._places_label.setStyleSheet("font-size: 10px;")
             self._places_label.setWordWrap(True)
             layout.addWidget(self._places_label)
 
         # Tags de Personajes presentes
+        self._chars_label = None
         if self.characters_names:
             chars_txt = ", ".join(self.characters_names[:3])
             if len(self.characters_names) > 3:
                 chars_txt += f" (+{len(self.characters_names)-3})"
             self._chars_label = QLabel(f"👤 {chars_txt}")
-            self._chars_label.setStyleSheet("font-size: 10px; color: #8e8e93;")
+            self._chars_label.setStyleSheet("font-size: 10px;")
             self._chars_label.setWordWrap(True)
             layout.addWidget(self._chars_label)
 
@@ -104,10 +106,10 @@ class TimelineEventCard(QFrame):
         self._apply_theme()
 
     def _apply_theme(self):
-        tc = ThemeManager.theme_colors()
-        bg = tc["bg_card"]
-        fg = tc["fg_text"]
-        border_color = self.obra_color if self._selected else tc["border"]
+        c = ThemeManager.palette()
+        bg = c["bg_surface"]
+        fg = c["fg_primary"]
+        border_color = self.obra_color if self._selected else c["border_default"]
         border_width = "2px" if self._selected else "1px"
 
         self.setStyleSheet(f"""
@@ -123,6 +125,12 @@ class TimelineEventCard(QFrame):
             }}
         """)
         self._title_label.setStyleSheet(f"color: {fg}; font-weight: bold;")
+        self._order_label.setStyleSheet(f"font-size: 10px; color: {c['fg_muted']}; font-weight: bold;")
+        self._date_label.setStyleSheet(f"font-size: 11px; color: {c['amber']}; font-style: italic;")
+        if self._places_label:
+            self._places_label.setStyleSheet(f"font-size: 10px; color: {c['green']};")
+        if self._chars_label:
+            self._chars_label.setStyleSheet(f"font-size: 10px; color: {c['fg_muted']};")
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:

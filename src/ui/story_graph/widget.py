@@ -99,10 +99,10 @@ class StoryGraphWidget(QWidget):
         # Se remueve setStyleSheet para heredar los estilos del ThemeManager globales
 
         import qtawesome as qta
-        is_dark = ThemeManager.is_dark()
-        ic_col = "#f2f2f7" if is_dark else "#1c1c1e"
+        ic_col = ThemeManager.color("fg_primary")
+        green_col = ThemeManager.color("green")
 
-        act_add_node = QAction(qta.icon("fa5s.plus-circle", color="#30d158" if is_dark else "#16a34a"), "Nuevo Bloque", self)
+        act_add_node = QAction(qta.icon("fa5s.plus-circle", color=green_col), "Nuevo Bloque", self)
         act_add_node.triggered.connect(self._on_add_block_clicked)
         toolbar.addAction(act_add_node)
 

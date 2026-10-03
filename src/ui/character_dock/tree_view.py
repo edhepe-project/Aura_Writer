@@ -33,6 +33,7 @@ class CharacterTreeView(QWidget):
         self._loading = False
 
         self._build_ui()
+        ThemeManager.signals.theme_changed.connect(self._on_theme_changed)
 
     def _build_ui(self):
         tl = QVBoxLayout(self)
@@ -70,18 +71,8 @@ class CharacterTreeView(QWidget):
         # Barra de búsqueda rápida
         self._search_input = QLineEdit()
         self._search_input.setPlaceholderText("Buscar personaje...")
-
-# ...
-
-        menu = QMenu(self)
-        a_edit = menu.addAction("Editar Ficha Completa")
-        a_rel = menu.addAction("Gestionar Relaciones...")
-        menu.addSeparator()
-        a_alias = menu.addAction("Editar Alias de Detección...")
-        menu.addSeparator()
-        a_del = menu.addAction("Eliminar Personaje")
         self._search_input.setClearButtonEnabled(True)
-        self._update_search_style(ThemeManager.is_dark())
+        self._update_search_style()
         self._search_input.textChanged.connect(self._on_search_text_changed)
         tl.addWidget(self._search_input)
 
@@ -104,12 +95,12 @@ class CharacterTreeView(QWidget):
         btn.setFixedSize(QSize(28, 28))
         return btn
 
-    def _update_search_style(self, is_dark: bool = True):
-        tc = ThemeManager.theme_colors()
-        bg = tc["bg_input"]
-        fg = tc["fg_text"]
-        border = tc["border"]
-        focus_border = tc["accent"]
+    def _update_search_style(self):
+        c = ThemeManager.palette()
+        bg = c["bg_input"]
+        fg = c["fg_primary"]
+        border = c["border_default"]
+        focus_border = c["accent"]
         if hasattr(self, "_search_input"):
             self._search_input.setStyleSheet(f"""
                 QLineEdit {{
@@ -124,6 +115,18 @@ class CharacterTreeView(QWidget):
                     border: 1px solid {focus_border};
                 }}
             """)
+
+    def _on_theme_changed(self, theme_name: str = ""):
+        self._update_search_style()
+        try:
+            self._btn_collapse.setIcon(qta.icon("fa5s.minus", color=ThemeManager.color("fg_muted")))
+            self._btn_expand.setIcon(qta.icon("fa5s.plus", color=ThemeManager.color("fg_muted")))
+            self._btn_add_char.setIcon(qta.icon("fa5s.user-plus", color=ThemeManager.color("green")))
+            self._btn_edit_char.setIcon(qta.icon("fa5s.pen", color=ThemeManager.color("indigo")))
+            self._btn_del_char.setIcon(qta.icon("fa5s.user-minus", color=ThemeManager.color("red")))
+        except Exception:
+            pass
+        self.rebuild_tree()
 
     def set_data(self, characters: list[Character], relations: list[CharacterRelation], obras: list):
         self._loading = True
@@ -140,7 +143,6 @@ class CharacterTreeView(QWidget):
         self._tree.blockSignals(True)
         self._tree.clear()
         char_map = {c.id: c for c in self._characters}
-        is_dark = ThemeManager.is_dark()
 
         # Pre-indexar relaciones O(R)
         rels_by_char: dict[str, list[tuple[str, CharacterRelation, bool]]] = {}

@@ -23,18 +23,13 @@ def highlight_text(text: str, query: str, theme_name: str = "dark", is_regex: bo
     except re.error:
         pattern = re.compile(re.escape(query), re.IGNORECASE)
 
-    is_sepia = theme_name == "sepia"
-    is_light = theme_name == "light"
-    
-    if is_sepia:
-        hl_color = "#b45309"
-        hl_bg = "#ebdcb9"
-    elif is_light:
-        hl_color = "#d97706"
-        hl_bg = "#f3f0ea"
-    else:
-        hl_color = "#ffd60a"
-        hl_bg = "#3a3a3c"
+    _HL_PALETTES = {
+        "sepia":  ("#b45309", "#ebdcb9"),
+        "light":  ("#d97706", "#f3f0ea"),
+        "nordic": ("#56c8e0", "#1a2f3d"),
+        "dark":   ("#ffd60a", "#3a3a3c"),
+    }
+    hl_color, hl_bg = _HL_PALETTES.get(theme_name, _HL_PALETTES["dark"])
 
     return pattern.sub(
         lambda m: (

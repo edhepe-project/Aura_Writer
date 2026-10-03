@@ -379,12 +379,12 @@ class AuraMainWindow(
     def _update_segmented_switcher_style(self):
         """Aplica estilo moderno tipo iOS / macOS Segmented Control a los botones de personajes/lugares."""
         from core.theme_manager import ThemeManager
-        is_dark = ThemeManager.is_dark()
-        active_bg = "#3a3a3c" if is_dark else "#ffffff"
+        c = ThemeManager.palette()
+        active_bg = c["bg_surface"]
         inactive_bg = "transparent"
-        border = "#48484a" if is_dark else "#d1cdc7"
-        fg_active = "#ffd60a" if is_dark else "#d97706"
-        fg_inactive = "#8e8e93" if is_dark else "#6e6e73"
+        border = c["border_default"]
+        fg_active = c["accent"]
+        fg_inactive = c["fg_muted"]
 
         base_style = f"""
             QPushButton {{

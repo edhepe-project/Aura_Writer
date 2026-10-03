@@ -113,7 +113,7 @@ class SearchDialog(QDialog):
 
         count = len(results)
         if count == 0:
-            empty_col = "#8e8e93" if ThemeManager.is_dark() else "#78716c"
+            empty_col = ThemeManager.color("fg_muted")
             empty = QLabel(f"Sin resultados para «{query}»")
             empty.setStyleSheet(f"color:{empty_col}; font-size:13px; padding:24px; background:transparent;")
             empty.setAlignment(Qt.AlignmentFlag.AlignCenter)

@@ -35,7 +35,6 @@ class RelationGraphWidget(QWidget):
         self._metrics_map: dict[str, CharacterMetrics] = {}
         self._current_filter: str = "Todos"
         self._active_focus_id: str | None = None
-        self._is_dark_theme: bool = True
 
         self._build_ui()
 
@@ -91,7 +90,6 @@ class RelationGraphWidget(QWidget):
 
         bar = QFrame(self)
         bar.setFixedHeight(34)
-        is_dark = ThemeManager.is_dark()
         c = ThemeManager.palette()
         bg_bar = c["bg_app"]
         b_border = c["border_default"]
@@ -333,7 +331,6 @@ class RelationGraphWidget(QWidget):
             relations=filtered_relations,
             positions=positions,
             metrics_map=self._metrics_map,
-            is_dark=self._is_dark_theme
         )
 
         # Sincronizar estado de la casilla 'Mostrar todas las líneas'
@@ -443,7 +440,7 @@ class RelationGraphWidget(QWidget):
     # ------------------------------------------------------------------
     # Theme Support
     # ------------------------------------------------------------------
-    def _update_legend_bar_theme(self, is_dark: bool):
+    def _update_legend_bar_theme(self):
         if hasattr(self, "_legend_bar") and self._legend_bar is not None and hasattr(self, "_root_layout"):
             self._root_layout.removeWidget(self._legend_bar)
             self._legend_bar.setParent(None)
@@ -451,10 +448,9 @@ class RelationGraphWidget(QWidget):
             self._legend_bar = self._build_legend_bar()
             self._root_layout.addWidget(self._legend_bar)
 
-    def update_theme(self, is_dark: bool):
-        self._is_dark_theme = is_dark
-        self._toolbar.update_theme(is_dark)
-        self._side_panel.update_theme(is_dark)
-        self._scene.update_theme(is_dark)
-        self._update_legend_bar_theme(is_dark)
+    def update_theme(self):
+        self._toolbar.update_theme()
+        self._side_panel.update_theme()
+        self._scene.update_theme()
+        self._update_legend_bar_theme()
 

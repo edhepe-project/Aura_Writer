@@ -202,6 +202,17 @@ BASE_STYLESHEET = """
         border: 1px solid {border_focus};
     }}
 
+    /* Lienzo principal de escritura (AuraEditor): mantiene sus márgenes, padding y tamaño de fuente propios */
+    AuraEditor {{
+        border: none;
+        border-radius: 6px;
+        padding: 12px;
+        font-size: 12pt;
+    }}
+    AuraEditor:focus {{
+        border: none;
+    }}
+
     /* ─────────────────────────────────────────────────────────────
        COMBOBOX
        ───────────────────────────────────────────────────────────── */

@@ -66,7 +66,7 @@ class FlowchartCardItem(QGraphicsItem):
             return
 
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        is_dark = ThemeManager.is_dark()
+        p = ThemeManager.palette()
         card_rect = QRectF(-self.width / 2, -self.height / 2, self.width, self.height)
 
         # Atenuación si no forma parte del linaje seleccionado
@@ -85,39 +85,37 @@ class FlowchartCardItem(QGraphicsItem):
         }
         role_color = QColor(role_colors.get(self.character.role, "#64748b"))
 
-        # Configuración por tipo de nodo
+        # Configuración por tipo de nodo — colores vienen del tema
         if self.is_central:
-            bg_hex = ("#2e1065" if is_dark else "#ede9fe") if self._hovered else ("#1e1b4b" if is_dark else "#f5f3ff")
-            border_hex = (
-                ("#a5b4fc" if is_dark else "#4338ca") if self._hovered else ("#818cf8" if is_dark else "#4f46e5")
-            )
+            bg_hex     = p["genea_central_bg_hov"]  if self._hovered else p["genea_central_bg"]
+            border_hex = p["genea_central_brd_hov"] if self._hovered else p["genea_central_brd"]
             border_width = 3.5 if self._hovered else 2.5
             header_text = self.custom_tag or "★ PERSONAJE PRINCIPAL"
-            hdr_hex = ("#6366f1" if is_dark else "#4f46e5") if self._hovered else ("#4f46e5" if is_dark else "#6366f1")
+            hdr_hex    = p["genea_central_hdr_hov"] if self._hovered else p["genea_central_hdr"]
         elif self.generation_level < 0:
-            bg_hex = ("#14532d" if is_dark else "#dcfce7") if self._hovered else ("#142d1f" if is_dark else "#f0fdf4")
+            bg_hex     = p["genea_parent_bg_hov"]  if self._hovered else p["genea_parent_bg"]
             border_hex = "#16a34a" if self._hovered else "#22c55e"
             border_width = 2.5 if self._hovered else 1.8
             header_text = self.custom_tag or "PROGENITOR / PADRE"
-            hdr_hex = ("#15803d" if is_dark else "#16a34a") if self._hovered else ("#166534" if is_dark else "#22c55e")
+            hdr_hex    = p["genea_parent_hdr_hov"] if self._hovered else p["genea_parent_hdr"]
         elif self.node_type == "partner":
-            bg_hex = ("#701a75" if is_dark else "#fce7f3") if self._hovered else ("#311327" if is_dark else "#fdf2f8")
+            bg_hex     = p["genea_partner_bg_hov"]  if self._hovered else p["genea_partner_bg"]
             border_hex = "#db2777" if self._hovered else "#ec4899"
             border_width = 2.5 if self._hovered else 1.8
             header_text = self.custom_tag or "PAREJA / CÓNYUGE"
-            hdr_hex = ("#be185d" if is_dark else "#db2777") if self._hovered else ("#9d174d" if is_dark else "#ec4899")
+            hdr_hex    = p["genea_partner_hdr_hov"] if self._hovered else p["genea_partner_hdr"]
         elif self.node_type == "sibling":
-            bg_hex = ("#1e3a8a" if is_dark else "#dbeafe") if self._hovered else ("#172554" if is_dark else "#eff6ff")
+            bg_hex     = p["genea_sibling_bg_hov"]  if self._hovered else p["genea_sibling_bg"]
             border_hex = "#2563eb" if self._hovered else "#3b82f6"
             border_width = 2.5 if self._hovered else 1.8
             header_text = self.custom_tag or "HERMANO(A)"
-            hdr_hex = ("#1e40af" if is_dark else "#2563eb") if self._hovered else ("#1d4ed8" if is_dark else "#3b82f6")
+            hdr_hex    = p["genea_sibling_hdr_hov"] if self._hovered else p["genea_sibling_hdr"]
         else:  # descendant / child / grandchild
-            bg_hex = ("#134e4a" if is_dark else "#ccfbf1") if self._hovered else ("#142d27" if is_dark else "#f0fdfa")
+            bg_hex     = p["genea_descend_bg_hov"]  if self._hovered else p["genea_descend_bg"]
             border_hex = "#0d9488" if self._hovered else "#14b8a6"
             border_width = 2.5 if self._hovered else 1.8
             header_text = self.custom_tag or "DESCENDIENTE / HIJO"
-            hdr_hex = ("#115e59" if is_dark else "#0d9488") if self._hovered else ("#0f766e" if is_dark else "#14b8a6")
+            hdr_hex    = p["genea_descend_hdr_hov"] if self._hovered else p["genea_descend_hdr"]
 
         # Resplandor dorado de linaje activo / seleccionado
         if self._is_selected:
@@ -153,7 +151,7 @@ class FlowchartCardItem(QGraphicsItem):
             shadow_rect = card_rect.adjusted(2, 3, 2, 3)
             shadow_path = QPainterPath()
             shadow_path.addRoundedRect(shadow_rect, 8, 8)
-            painter.fillPath(shadow_path, QBrush(QColor(0, 0, 0, 45 if is_dark else 20)))
+            painter.fillPath(shadow_path, QBrush(QColor(0, 0, 0, p["genealogy_shadow_alpha"])))
 
         # Caja principal
         box_path = QPainterPath()
@@ -187,12 +185,17 @@ class FlowchartCardItem(QGraphicsItem):
         avatar_rect = QRectF(avatar_cx - avatar_r, avatar_cy - avatar_r, avatar_r * 2, avatar_r * 2)
 
         painter.setPen(QPen(role_color, 1.5))
-        painter.setBrush(QBrush(role_color.darker(160) if is_dark else role_color.lighter(170)))
+        av_factor = p["genealogy_avatar_factor"]
+        painter.setBrush(QBrush(role_color.darker(av_factor) if p["genealogy_avatar_darker"] else role_color.lighter(av_factor)))
         painter.drawEllipse(avatar_rect)
 
         initials = "".join(w[0].upper() for w in self.character.name.split()[:2]) if self.character.name else "?"
         painter.setFont(QFont("Segoe UI", 9 if not self.is_central else 10, QFont.Weight.Bold))
-        painter.setPen(QColor("#ffffff" if is_dark else role_color.darker(140)))
+        init_color = "#ffffff" if p["genealogy_initials_white"] else None
+        if init_color:
+            painter.setPen(QColor(init_color))
+        else:
+            painter.setPen(QColor(role_color.darker(140)))
         painter.drawText(avatar_rect, Qt.AlignmentFlag.AlignCenter, initials)
 
         # Nombre y Rol
@@ -204,7 +207,7 @@ class FlowchartCardItem(QGraphicsItem):
         role_rect = QRectF(text_x, content_y + 18, text_w, 16)
 
         painter.setFont(QFont("Segoe UI", 9 if not self.is_central else 10, QFont.Weight.Bold))
-        painter.setPen(QColor("#f4f4f5" if is_dark else "#18181b"))
+        painter.setPen(QColor(ThemeManager.color("fg_primary")))
         elided_name = painter.fontMetrics().elidedText(self.character.name, Qt.TextElideMode.ElideRight, int(text_w))
         painter.drawText(name_rect, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, elided_name)
 

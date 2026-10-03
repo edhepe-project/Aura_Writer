@@ -8,18 +8,18 @@ from PyQt6.QtGui import QColor, QCursor, QPixmap, QPainter, QPolygonF
 import qtawesome as qta
 
 
-def _get_arrow_icon_path(is_dark: bool) -> str:
-    color_name = "dark" if is_dark else "light"
+def _get_arrow_icon_path(color: str = "#8e8e93") -> str:
+    color_safe = color.replace("#", "")
     assets_dir = os.path.join(os.path.dirname(__file__), "assets")
     os.makedirs(assets_dir, exist_ok=True)
-    icon_path = os.path.join(assets_dir, f"combo_arrow_{color_name}.png")
+    icon_path = os.path.join(assets_dir, f"combo_arrow_{color_safe}.png")
     
     pixmap = QPixmap(16, 16)
     pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
     
-    arrow_color = QColor("#8e8e93" if is_dark else "#5c5c66")
+    arrow_color = QColor(color)
     painter.setBrush(arrow_color)
     painter.setPen(Qt.PenStyle.NoPen)
     
@@ -181,20 +181,24 @@ class _GraphToolbar(QWidget):
         self.btn_fit.clicked.connect(self.zoom_fit_requested.emit)
         layout.addWidget(self.btn_fit)
 
-    def _combo_style(self, is_dark: bool = True) -> str:
-        bg = "#2c2c2e" if is_dark else "#faf7f3"
-        hover_bg = "#3a3a3c" if is_dark else "#ede8e1"
-        fg = "#f5f5f7" if is_dark else "#1a1a2e"
-        border = "#3a3a3c" if is_dark else "#c4bfb8"
-        hover_border = "#ffd60a" if is_dark else "#9a5c00"
-        popup_bg = "#1c1c1e" if is_dark else "#faf7f3"
-        popup_border = "#3a3a3c" if is_dark else "#d4cfc8"
-        sel_bg = "#ffd60a" if is_dark else "#ede8e1"
-        sel_fg = "#000000" if is_dark else "#1a1a2e"
-        tip_bg = "#2c2c2e" if is_dark else "#faf7f3"
-        tip_fg = "#f2f2f7" if is_dark else "#1a1a2e"
-        tip_border = "#3a3a3c" if is_dark else "#c4bfb8"
-        arrow_icon = _get_arrow_icon_path(is_dark)
+
+    def _combo_style(self) -> str:
+        from core.theme_manager import ThemeManager
+        c = ThemeManager.palette()
+        arrow_icon = _get_arrow_icon_path(c["fg_secondary"])
+        
+        bg = c["bg_app"]
+        fg = c["fg_primary"]
+        border = c["border_default"]
+        hover_border = c["accent"]
+        hover_bg = c["bg_hover"]
+        popup_bg = c["bg_surface"]
+        popup_border = c["border_default"]
+        sel_bg = c["accent"]
+        sel_fg = c["fg_selected"]
+        tip_bg = c["bg_hover"]
+        tip_fg = c["fg_primary"]
+        tip_border = c["border_default"]
 
         return f"""
             QToolTip {{
@@ -277,30 +281,6 @@ class _GraphToolbar(QWidget):
         completer.activated.connect(self.search_submitted.emit)
         self.search_input.setCompleter(completer)
 
-    def _update_completer_style(self, completer: QCompleter | None = None):
-        if completer is None:
-            completer = self.search_input.completer()
-        if completer and completer.popup():
-            from core.theme_manager import ThemeManager
-            is_dark = ThemeManager.is_dark()
-            bg = "#1c1c1e" if is_dark else "#faf7f3"
-            fg = "#f5f5f7" if is_dark else "#1a1a2e"
-            border = "#3a3a3c" if is_dark else "#c4bfb8"
-            sel_bg = "#ffd60a" if is_dark else "#ede8e1"
-            sel_fg = "#000000" if is_dark else "#1a1a2e"
-            completer.popup().setStyleSheet(f"""
-                QListView {{
-                    background: {bg};
-                    color: {fg};
-                    border: 1px solid {border};
-                    border-radius: 6px;
-                    padding: 4px;
-                    selection-background-color: {sel_bg};
-                    selection-color: {sel_fg};
-                    font-size: 11px;
-                }}
-            """)
-
     def _on_search_enter(self):
         text = self.search_input.text().strip()
         if text:
@@ -309,7 +289,7 @@ class _GraphToolbar(QWidget):
     def _on_filter_changed(self, text: str):
         self.filter_changed.emit(text)
 
-    def update_theme(self, is_dark: bool = True):
+    def update_theme(self):
         from core.theme_manager import ThemeManager
         c = ThemeManager.palette()
         
@@ -428,69 +408,6 @@ class _GraphToolbar(QWidget):
 
         self._update_completer_style()
 
-    def _combo_style(self, is_dark: bool = True) -> str:
-        from core.theme_manager import ThemeManager
-        c = ThemeManager.palette()
-        arrow_icon = _get_arrow_icon_path(ThemeManager.is_dark())
-        
-        bg = c["bg_app"]
-        fg = c["fg_primary"]
-        border = c["border_default"]
-        hover_border = c["accent"]
-        hover_bg = c["bg_hover"]
-        popup_bg = c["bg_surface"]
-        popup_border = c["border_default"]
-        sel_bg = c["accent"]
-        sel_fg = c["fg_selected"]
-        tip_bg = c["bg_hover"]
-        tip_fg = c["fg_primary"]
-        tip_border = c["border_default"]
-
-        return f"""
-            QToolTip {{
-                background-color: {tip_bg};
-                color: {tip_fg};
-                border: 1px solid {tip_border};
-                border-radius: 4px;
-                padding: 4px 8px;
-                font-size: 11px;
-            }}
-            QComboBox {{
-                background: {bg};
-                color: {fg};
-                border: 1px solid {border};
-                border-radius: 6px;
-                padding: 0 24px 0 10px;
-                font-size: 11px;
-                font-weight: 500;
-            }}
-            QComboBox:hover {{
-                border-color: {hover_border};
-                background: {hover_bg};
-            }}
-            QComboBox::drop-down {{
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 22px;
-                border: none;
-            }}
-            QComboBox::down-arrow {{
-                image: url("{arrow_icon}");
-                width: 10px;
-                height: 10px;
-            }}
-            QComboBox QAbstractItemView {{
-                background: {popup_bg};
-                color: {fg};
-                border: 1px solid {popup_border};
-                border-radius: 6px;
-                selection-background-color: {sel_bg};
-                selection-color: {sel_fg};
-                padding: 4px;
-                outline: none;
-            }}
-        """
-
     def _update_completer_style(self, completer: QCompleter | None = None):
         if completer is None:
             completer = self.search_input.completer()
@@ -515,7 +432,7 @@ class _GraphToolbar(QWidget):
                 }}
             """)
 
-    def _btn_style(self, is_dark: bool = True) -> str:
+    def _btn_style(self) -> str:
         from core.theme_manager import ThemeManager
         c = ThemeManager.palette()
         bg = c["bg_app"]

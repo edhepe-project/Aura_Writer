@@ -39,7 +39,7 @@ class GraphScene(QGraphicsScene):
         self._all_edges: List[RelationEdge] = []
         self._show_all_edges_enabled: bool = False
 
-    def populate(self, characters: list, relations: list, positions: dict, metrics_map: dict, is_dark: bool = True):
+    def populate(self, characters: list, relations: list, positions: dict, metrics_map: dict):
         self.setItemIndexMethod(QGraphicsScene.ItemIndexMethod.NoIndex)
         self.clear()
         self._nodes.clear()
@@ -272,7 +272,7 @@ class GraphScene(QGraphicsScene):
                     else:
                         edge.setVisible(False)
 
-    def update_theme(self, is_dark: bool):
+    def update_theme(self):
         for node in self._nodes.values():
             node.update()
         for edge in self._edges:
@@ -295,7 +295,7 @@ class RelationGraphView(QGraphicsView):
     def __init__(self, scene, parent=None):
         super().__init__(scene, parent)
         
-        bg_color = "#1c1c1e" if ThemeManager.is_dark() else "#f5f0ea"
+        bg_color = ThemeManager.color("bg_app")
         self.setStyleSheet(f"QGraphicsView {{ background-color: {bg_color}; border: none; }}")
 
         self.setRenderHint(QPainter.RenderHint.Antialiasing, True)
@@ -323,7 +323,7 @@ class RelationGraphView(QGraphicsView):
     def drawBackground(self, painter: "QPainter | None", rect: QRectF):
         if painter is None:
             return
-        bg = "#1c1c1e" if ThemeManager.is_dark() else "#f5f0ea"
+        bg = ThemeManager.color("bg_app")
         painter.fillRect(rect, QColor(bg))
 
     def mousePressEvent(self, event):

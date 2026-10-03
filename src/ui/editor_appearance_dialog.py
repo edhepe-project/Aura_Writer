@@ -124,17 +124,17 @@ class EditorAppearanceDialog(QDialog):
 
         self.paper_btn_group = QButtonGroup(self)
         self.papers = [
-            ("blanco", "Blanco Clásico", "#ffffff", "#1a1a1a"),
-            ("sepia", "Sepia / Pergamino", "#f4ecd8", "#2d241e"),
-            ("verde", "Té Verde Lofi", "#e8f0e6", "#1c2e1c"),
-            ("noche", "Noche Carbón", "#1e1e20", "#e0e0e0"),
-            ("oled", "OLED Puro", "#000000", "#e6e6e6"),
-            ("auto", "Según Tema de App", "", ""),
+            ("blanco", "Blanco Clásico"),
+            ("sepia",  "Sepia / Pergamino"),
+            ("verde",  "Té Verde Lofi"),
+            ("noche",  "Noche Carbón"),
+            ("oled",   "OLED Puro"),
+            ("auto",   "Según Tema de App"),
         ]
 
         cur_paper = self.editor.get_paper_style()
 
-        for idx, (p_id, p_name, _, _) in enumerate(self.papers):
+        for idx, (p_id, p_name) in enumerate(self.papers):
             rb = QRadioButton(p_name)
             rb.setProperty("paper_id", p_id)
             if p_id == cur_paper:
@@ -180,6 +180,7 @@ class EditorAppearanceDialog(QDialog):
         paper_id = button.property("paper_id")
         self.editor.set_paper_style(paper_id)
         self.appearance_changed.emit()
+
 
     def _reset_defaults(self):
         self.zoom_slider.setValue(100)

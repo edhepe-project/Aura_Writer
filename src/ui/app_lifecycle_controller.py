@@ -81,8 +81,7 @@ class AppLifecycleMixin:
             return
         self._sync_relations_to_metadata()
 
-        is_dark = ThemeManager.is_dark()
-        bg_col = '#1c1c1e' if is_dark else '#f5f0ea'
+        bg_col = ThemeManager.color("bg_app")
 
         if self._graph_dialog is None or self._graph_widget is None:
             dlg = QDialog(self)
@@ -108,7 +107,7 @@ class AppLifecycleMixin:
             self._graph_widget = gw
 
         self._graph_dialog.setStyleSheet(f"QDialog {{ background-color: {bg_col}; }}")
-        self._graph_widget.update_theme(is_dark)
+        self._graph_widget.update_theme()
         self._graph_widget.build_from_metadata(self.project_manager.metadata)
         self._graph_dialog.exec()
 
@@ -153,11 +152,11 @@ class AppLifecycleMixin:
         if hasattr(self, "_update_segmented_switcher_style"):
             self._update_segmented_switcher_style()
         if self._graph_dialog is not None:
-            bg_colors = {'dark': '#1c1c1e', 'light': '#f5f0ea', 'sepia': '#f4ecd8'}
-            bg_col = bg_colors.get(theme_name, '#1c1c1e')
+            bg_col = ThemeManager.color("bg_surface")
             self._graph_dialog.setStyleSheet(f"QDialog {{ background-color: {bg_col}; }}")
         labels = {
             "dark": "Oscuro (Dark Slate)",
+            "nordic": "Noche Nórdica (Midnight Blue)",
             "light": "Claro (Lienzo Papel)",
             "sepia": "Sepia (Pergamino)"
         }
@@ -173,11 +172,11 @@ class AppLifecycleMixin:
         if hasattr(self, "_update_segmented_switcher_style"):
             self._update_segmented_switcher_style()
         if self._graph_dialog is not None:
-            bg_colors = {'dark': '#1c1c1e', 'light': '#f5f0ea', 'sepia': '#f4ecd8'}
-            bg_col = bg_colors.get(new_theme, '#1c1c1e')
+            bg_col = ThemeManager.color("bg_surface")
             self._graph_dialog.setStyleSheet(f"QDialog {{ background-color: {bg_col}; }}")
         labels = {
             "dark": "Oscuro (Dark Slate)",
+            "nordic": "Noche Nórdica (Midnight Blue)",
             "light": "Claro (Lienzo Papel)",
             "sepia": "Sepia (Pergamino)"
         }
@@ -188,10 +187,13 @@ class AppLifecycleMixin:
         
         # Actualizar checkmarks en el submenú de temas
         if hasattr(self, "_act_theme_dark"): self._act_theme_dark.setChecked(cur == "dark")
+        if hasattr(self, "_act_theme_nordic"): self._act_theme_nordic.setChecked(cur == "nordic")
         if hasattr(self, "_act_theme_light"): self._act_theme_light.setChecked(cur == "light")
         if hasattr(self, "_act_theme_sepia"): self._act_theme_sepia.setChecked(cur == "sepia")
 
         if cur == "dark":
+            self._theme_act.setText("Alternar a Tema Noche Nórdica")
+        elif cur == "nordic":
             self._theme_act.setText("Alternar a Tema Claro")
         elif cur == "light":
             self._theme_act.setText("Alternar a Tema Sepia")

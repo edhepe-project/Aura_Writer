@@ -43,7 +43,7 @@ class PlaceCard(QFrame):
         icon_val = PLACE_ICONS.get(self.place.category, "●")
         self._icon_lbl = QLabel()
         if "." in icon_val:
-            icon_color = "#ffd60a" if ThemeManager.is_dark() else "#d97706"
+            icon_color = ThemeManager.color("accent")
             self._icon_lbl.setPixmap(qta.icon(icon_val, color=icon_color).pixmap(20, 20))
         else:
             self._icon_lbl.setText(icon_val)
@@ -94,7 +94,7 @@ class PlaceCard(QFrame):
         btn_layout.addWidget(self._btn_edit)
 
         self._btn_del = QPushButton()
-        self._btn_del.setIcon(qta.icon("fa5s.trash-alt", color="#ff453a" if ThemeManager.is_dark() else "#ff3b30"))
+        self._btn_del.setIcon(qta.icon("fa5s.trash-alt", color=ThemeManager.color("red")))
         self._btn_del.setFixedSize(24, 24)
         self._btn_del.setToolTip("Eliminar escenario")
         self._btn_del.clicked.connect(lambda: self.delete_requested.emit(self.place.id))
@@ -117,16 +117,16 @@ class PlaceCard(QFrame):
         super().mouseDoubleClickEvent(event)
 
     def _apply_style(self):
-        tc = ThemeManager.theme_colors()
+        c = ThemeManager.palette()
         if self._is_selected:
-            bg = tc["hover"]
-            border = tc["accent"]
+            bg = c["bg_selected"]
+            border = c["accent"]
         else:
-            bg = tc["bg_card"]
-            border = tc["border"]
+            bg = c["bg_surface"]
+            border = c["border_default"]
 
-        fg_name = tc["fg_text"]
-        fg_sub = tc["sub_text"]
+        fg_name = c["fg_primary"]
+        fg_sub = c["fg_secondary"]
 
         self.setStyleSheet(f"""
             PlaceCard {{
@@ -135,8 +135,8 @@ class PlaceCard(QFrame):
                 border-radius: 8px;
             }}
             PlaceCard:hover {{
-                border: 1px solid {tc['accent']};
-                background-color: {tc['hover']};
+                border: 1px solid {c['accent']};
+                background-color: {c['bg_hover']};
             }}
             QPushButton {{
                 background: transparent;
@@ -145,7 +145,7 @@ class PlaceCard(QFrame):
                 padding: 2px;
             }}
             QPushButton:hover {{
-                background: {tc['border']};
+                background: {c['border_default']};
             }}
         """)
         self._name_lbl.setStyleSheet(f"color: {fg_name};")

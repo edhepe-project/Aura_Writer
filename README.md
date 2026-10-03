@@ -4,13 +4,13 @@
 
 Aura Writer es el procesador de textos definitivo para novelistas que exigen lo mejor en **seguridad, diseño editorial y control creativo**. Diseñado como una herramienta offline-first y privada, lleva tu manuscrito desde la primera idea hasta una versión impresa de calidad profesional — sin depender nunca de la nube.
 
-> _Versión actual: **1.7.8**_
+> _Versión actual: **1.8.0**_
 
 ---
 
 ## ✨ Características Premium
 
-### 🪶 Corrector Ortográfico Offline Integrado *(Nuevo en v1.7.8)*
+### 🪶 Corrector Ortográfico Offline Integrado
 - **Motor Dual Hunspell + Diccionario Personal:** Detección en tiempo real de faltas ortográficas en español con soporte offline total.
 - **Sugerencias y Diccionario del Proyecto:** Corrección rápida con clic derecho, panel lateral de revisión completa y persistencia de diccionario por proyecto.
 
@@ -51,7 +51,7 @@ Aura Writer es el procesador de textos definitivo para novelistas que exigen lo 
 ## 🚀 Instalación Rápida (Windows)
 
 ### Instalador Visual (Recomendado)
-Descarga `AuraWriter_Setup_v1.7.8.exe` desde la sección [Releases](../../releases) y sigue el asistente.
+Descarga `AuraWriter_Setup_v1.8.0.exe` desde la sección [Releases](../../releases) y sigue el asistente.
 
 ### Desde el Código Fuente
 ```powershell

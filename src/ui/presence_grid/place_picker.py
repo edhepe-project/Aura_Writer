@@ -54,7 +54,6 @@ class _PlacePickerDialog(QDialog):
         places: list,
         current_place_id: str | None,
         current_type: str | None,
-        is_dark: bool = True,
         parent=None,
     ):
         super().__init__(parent)

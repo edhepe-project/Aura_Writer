@@ -208,8 +208,7 @@ class PlaceGraphView(QGraphicsView):
         self.update_theme()
 
     def update_theme(self):
-        is_dark = ThemeManager.is_dark()
-        bg_color = "#121214" if is_dark else "#f5f0ea"
+        bg_color = ThemeManager.color("bg_app")
         self.setBackgroundBrush(QBrush(QColor(bg_color)))
         self.setStyleSheet(f"QGraphicsView {{ background: {bg_color}; border: none; }}")
         self.viewport().update()
@@ -217,8 +216,7 @@ class PlaceGraphView(QGraphicsView):
     def drawBackground(self, painter: QPainter | None, rect: QRectF):
         if painter is None:
             return
-        is_dark = ThemeManager.is_dark()
-        bg_color = QColor("#121214" if is_dark else "#f5f0ea")
+        bg_color = QColor(ThemeManager.color("bg_app"))
         painter.fillRect(rect, bg_color)
 
     def mousePressEvent(self, event):

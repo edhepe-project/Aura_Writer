@@ -41,7 +41,6 @@ class _ChapterGroupHeader(QFrame):
         count: int,
         expanded: bool,
         is_latest: bool,
-        is_dark: bool,
         parent=None,
     ):
         super().__init__(parent)
@@ -195,7 +194,6 @@ class PlaceHistoryPanel(QWidget):
                 group_order.append(p.chapter_id)
             groups[p.chapter_id].append(p)
 
-        is_dark          = ThemeManager.is_dark()
         AUTO_EXPAND_LAST = 3
         expanded_ids     = set(group_order[-AUTO_EXPAND_LAST:])
 
@@ -214,7 +212,6 @@ class PlaceHistoryPanel(QWidget):
                 count=len(presences_in_cap),
                 expanded=is_expanded,
                 is_latest=is_latest,
-                is_dark=is_dark,
             )
             self.items_layout.addWidget(header)
 
@@ -230,7 +227,7 @@ class PlaceHistoryPanel(QWidget):
                 type_label, type_color = info[0], info[1]
 
                 row = QFrame()
-                row_bg = "#242426" if is_dark else "#f5f2ec"
+                row_bg = ThemeManager.color("bg_surface")
                 row.setStyleSheet(f"""
                     QFrame {{
                         background: {row_bg};
@@ -256,7 +253,7 @@ class PlaceHistoryPanel(QWidget):
                 """)
                 row_l.addWidget(av)
 
-                fg_text = "#f2f2f7" if is_dark else "#1c1c1e"
+                fg_text = ThemeManager.color("fg_primary")
                 name_lbl = QLabel(c_name)
                 name_lbl.setStyleSheet(
                     f"font-size: 11px; font-weight: 600; color: {fg_text};"

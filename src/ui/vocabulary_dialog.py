@@ -35,15 +35,15 @@ class VocabularyDialog(QDialog):
         self._load_data()
 
     def _setup_ui(self):
-        tc = ThemeManager.theme_colors()
-        bg_main = tc["bg_main"]
-        border_col = tc["border"]
-        fg_col = tc["fg_text"]
-        input_bg = tc["bg_input"]
-        hover_col = tc["hover"]
-        header_bg = tc["bg_card"]
-        btn_bg = tc["bg_input"]
-        accent = tc["accent"]
+        c = ThemeManager.palette()
+        bg_main = c["bg_app"]
+        border_col = c["border_default"]
+        fg_col = c["fg_primary"]
+        input_bg = c["bg_input"]
+        hover_col = c["bg_hover"]
+        header_bg = c["bg_surface"]
+        btn_bg = c["bg_button"]
+        accent = c["accent"]
 
         self.setStyleSheet(f"""
             QDialog {{ background-color: {bg_main}; }}
@@ -103,7 +103,7 @@ class VocabularyDialog(QDialog):
             "El motor NLP las utilizará para detectar la presencia y movimiento de personajes con máxima precisión."
         )
         desc.setWordWrap(True)
-        desc.setStyleSheet(f"color: {tc['sub_text']}; font-size: 11px;")
+        desc.setStyleSheet(f"color: {c['fg_secondary']}; font-size: 11px;")
         root.addWidget(desc)
 
         # Formulario rápido para añadir

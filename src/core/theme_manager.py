@@ -25,9 +25,12 @@ _theme_signals = ThemeSignalEmitter()
 
 # ── IDs de temas ───────────────────────────────────────────────────────────────
 
-DARK  = "dark"
-LIGHT = "light"
-SEPIA = "sepia"
+DARK    = "dark"
+LIGHT   = "light"
+SEPIA   = "sepia"
+NORDIC  = "nordic"
+DRACULA = "dracula"
+FOREST  = "forest"
 
 
 # ── Registro de temas ──────────────────────────────────────────────────────────
@@ -36,19 +39,28 @@ SEPIA = "sepia"
 
 def _load_themes() -> dict:
     """Importa las paletas de todos los temas registrados."""
-    from core.themes.dark  import DARK_PALETTE,  DARK_STYLESHEET
-    from core.themes.light import LIGHT_PALETTE, LIGHT_STYLESHEET
-    from core.themes.sepia import SEPIA_PALETTE, SEPIA_STYLESHEET
+    from core.themes.dark    import DARK_PALETTE,   DARK_STYLESHEET
+    from core.themes.light   import LIGHT_PALETTE,  LIGHT_STYLESHEET
+    from core.themes.sepia   import SEPIA_PALETTE,  SEPIA_STYLESHEET
+    from core.themes.nordic  import NORDIC_PALETTE, NORDIC_STYLESHEET
+    from core.themes.dracula import DRACULA_PALETTE, DRACULA_STYLESHEET
+    from core.themes.forest  import FOREST_PALETTE,  FOREST_STYLESHEET
 
     # Asegura que cada tema contenga al menos todos los tokens de DARK_PALETTE
-    full_dark = dict(DARK_PALETTE)
-    full_light = {**DARK_PALETTE, **LIGHT_PALETTE}
-    full_sepia = {**DARK_PALETTE, **SEPIA_PALETTE}
+    full_dark    = dict(DARK_PALETTE)
+    full_light   = {**DARK_PALETTE, **LIGHT_PALETTE}
+    full_sepia   = {**DARK_PALETTE, **SEPIA_PALETTE}
+    full_nordic  = {**DARK_PALETTE, **NORDIC_PALETTE}
+    full_dracula = {**DARK_PALETTE, **DRACULA_PALETTE}
+    full_forest  = {**DARK_PALETTE, **FOREST_PALETTE}
 
     return {
-        DARK:  {"palette": full_dark,  "stylesheet": DARK_STYLESHEET},
-        LIGHT: {"palette": full_light, "stylesheet": LIGHT_STYLESHEET},
-        SEPIA: {"palette": full_sepia, "stylesheet": SEPIA_STYLESHEET},
+        DARK:    {"palette": full_dark,    "stylesheet": DARK_STYLESHEET},
+        LIGHT:   {"palette": full_light,   "stylesheet": LIGHT_STYLESHEET},
+        SEPIA:   {"palette": full_sepia,   "stylesheet": SEPIA_STYLESHEET},
+        NORDIC:  {"palette": full_nordic,  "stylesheet": NORDIC_STYLESHEET},
+        DRACULA: {"palette": full_dracula, "stylesheet": DRACULA_STYLESHEET},
+        FOREST:  {"palette": full_forest,  "stylesheet": FOREST_STYLESHEET},
     }
 
 
@@ -61,7 +73,7 @@ class ThemeManager:
     signals = _theme_signals
 
     # Orden de alternancia con el botón de toggle
-    TOGGLE_ORDER = [DARK, LIGHT, SEPIA]
+    TOGGLE_ORDER = [DARK, FOREST, DRACULA, LIGHT, SEPIA, NORDIC]
 
     # Cache para no recargar imports en cada acceso
     _themes: dict | None = None
@@ -151,7 +163,7 @@ class ThemeManager:
 
     @classmethod
     def is_dark(cls) -> bool:
-        return cls._current == DARK
+        return cls._current in (DARK, NORDIC)
 
     @classmethod
     def is_sepia(cls) -> bool:
@@ -199,6 +211,8 @@ class ThemeManager:
             "bg_main":   p["bg_app"],
             "bg_card":   p["bg_surface"],
             "bg_input":  p["bg_input"],
+            "bg_button": p["bg_button"],
+            "bg_hover":  p["bg_hover"],
             "fg_text":   p["fg_primary"],
             "sub_text":  p["fg_secondary"],
             "subtext":   p["fg_muted"],

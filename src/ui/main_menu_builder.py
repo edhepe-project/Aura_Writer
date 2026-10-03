@@ -168,11 +168,29 @@ class MainMenuBuilderMixin:
         theme_action_group = QActionGroup(self)
         theme_action_group.setExclusive(True)
 
-        self._act_theme_dark = QAction("Oscuro (Dark Slate #121214)", self)
+        self._act_theme_dark = QAction("Oscuro (Dark Slate #131316)", self)
         self._act_theme_dark.setCheckable(True)
         self._act_theme_dark.triggered.connect(lambda: self._switch_to_theme("dark"))
         theme_action_group.addAction(self._act_theme_dark)
         theme_menu.addAction(self._act_theme_dark)
+
+        self._act_theme_nordic = QAction("Noche Nórdica (Midnight Blue #0d1117)", self)
+        self._act_theme_nordic.setCheckable(True)
+        self._act_theme_nordic.triggered.connect(lambda: self._switch_to_theme("nordic"))
+        theme_action_group.addAction(self._act_theme_nordic)
+        theme_menu.addAction(self._act_theme_nordic)
+
+        self._act_theme_dracula = QAction("Drácula / Amatista (Deep Purple #282a36)", self)
+        self._act_theme_dracula.setCheckable(True)
+        self._act_theme_dracula.triggered.connect(lambda: self._switch_to_theme("dracula"))
+        theme_action_group.addAction(self._act_theme_dracula)
+        theme_menu.addAction(self._act_theme_dracula)
+
+        self._act_theme_forest = QAction("Bosque Profundo (Pine & Sage #141815)", self)
+        self._act_theme_forest.setCheckable(True)
+        self._act_theme_forest.triggered.connect(lambda: self._switch_to_theme("forest"))
+        theme_action_group.addAction(self._act_theme_forest)
+        theme_menu.addAction(self._act_theme_forest)
 
         self._act_theme_light = QAction("Claro (Lienzo Papel #faf8f5)", self)
         self._act_theme_light.setCheckable(True)
@@ -506,9 +524,15 @@ class MainMenuBuilderMixin:
         """Actualiza los iconos de la barra de herramientas al cambiar de tema."""
         try:
             from core.theme_manager import ThemeManager
-            is_dark = ThemeManager.is_dark()
-            _ic = "#aeaeb2" if is_dark else "#4a4a5a"
-            _accent = "#ffd60a" if is_dark else "#d97706"
+            c = ThemeManager.palette()
+            _ic = c["fg_secondary"]
+            _accent = c["accent"]
+            _red = c["red"]
+            _blue = c["blue"]
+            _amber = c["amber"]
+            _purple = c["purple"]
+            _indigo = c["indigo"]
+            _green = c["green"]
 
             if hasattr(self, "_bold_act"): self._bold_act.setIcon(qta.icon("fa5s.bold", color=_ic))
             if hasattr(self, "_italic_act"): self._italic_act.setIcon(qta.icon("fa5s.italic", color=_ic))
@@ -524,20 +548,20 @@ class MainMenuBuilderMixin:
             if hasattr(self, "_act_dot"): self._act_dot.setIcon(qta.icon("fa5s.circle", color=_accent))
             if hasattr(self, "_act_dash"): self._act_dash.setIcon(qta.icon("fa5s.minus", color=_accent))
             if hasattr(self, "_act_sep"): self._act_sep.setIcon(qta.icon("fa5s.asterisk", color=_accent))
-            if hasattr(self, "_act_pb"): self._act_pb.setIcon(qta.icon("fa5s.cut", color="#ff453a" if is_dark else "#dc2626"))
+            if hasattr(self, "_act_pb"): self._act_pb.setIcon(qta.icon("fa5s.cut", color=_red))
             if hasattr(self, "_act_blank"): self._act_blank.setIcon(qta.icon("fa5s.file-alt", color=_ic))
-            if hasattr(self, "_act_img"): self._act_img.setIcon(qta.icon("fa5s.image", color="#32ade6" if is_dark else "#0284c7"))
+            if hasattr(self, "_act_img"): self._act_img.setIcon(qta.icon("fa5s.image", color=_blue))
 
             if hasattr(self, "_act_search"): self._act_search.setIcon(qta.icon("fa5s.search", color=_ic))
-            if hasattr(self, "_act_lock"): self._act_lock.setIcon(qta.icon("fa5s.lock", color="#ff9f0a" if is_dark else "#ea580c"))
-            if hasattr(self, "_act_map"): self._act_map.setIcon(qta.icon("fa5s.globe", color="#bf5af2" if is_dark else "#9333ea"))
-            if hasattr(self, "_act_graph"): self._act_graph.setIcon(qta.icon("fa5s.project-diagram", color="#5e5ce6" if is_dark else "#4f46e5"))
-            if hasattr(self, "_act_place_graph"): self._act_place_graph.setIcon(qta.icon("fa5s.map-marked-alt", color="#ffd60a" if is_dark else "#d97706"))
-            if hasattr(self, "_act_story_graph"): self._act_story_graph.setIcon(qta.icon("fa5s.stream", color="#ff9f0a" if is_dark else "#ea580c"))
-            if hasattr(self, "_act_export"): self._act_export.setIcon(qta.icon("fa5s.file-export", color="#30d158" if is_dark else "#16a34a"))
-            if hasattr(self, "_act_save"): self._act_save.setIcon(qta.icon("fa5s.save", color="#30d158" if is_dark else "#16a34a"))
-            if hasattr(self, "_act_trash"): self._act_trash.setIcon(qta.icon("fa5s.trash-alt", color="#ff453a" if is_dark else "#dc2626"))
-            if hasattr(self, "_appearance_tb_act"): self._appearance_tb_act.setIcon(qta.icon("fa5s.paint-brush", color="#bf5af2" if is_dark else "#9333ea"))
+            if hasattr(self, "_act_lock"): self._act_lock.setIcon(qta.icon("fa5s.lock", color=_amber))
+            if hasattr(self, "_act_map"): self._act_map.setIcon(qta.icon("fa5s.globe", color=_purple))
+            if hasattr(self, "_act_graph"): self._act_graph.setIcon(qta.icon("fa5s.project-diagram", color=_indigo))
+            if hasattr(self, "_act_place_graph"): self._act_place_graph.setIcon(qta.icon("fa5s.map-marked-alt", color=_accent))
+            if hasattr(self, "_act_story_graph"): self._act_story_graph.setIcon(qta.icon("fa5s.stream", color=_amber))
+            if hasattr(self, "_act_export"): self._act_export.setIcon(qta.icon("fa5s.file-export", color=_green))
+            if hasattr(self, "_act_save"): self._act_save.setIcon(qta.icon("fa5s.save", color=_green))
+            if hasattr(self, "_act_trash"): self._act_trash.setIcon(qta.icon("fa5s.trash-alt", color=_red))
+            if hasattr(self, "_appearance_tb_act"): self._appearance_tb_act.setIcon(qta.icon("fa5s.paint-brush", color=_purple))
         except Exception:
             pass
 

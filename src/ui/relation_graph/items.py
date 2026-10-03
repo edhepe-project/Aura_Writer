@@ -124,12 +124,12 @@ class CharacterNode(QGraphicsEllipseItem):
         
         r = self._radius
         c = self._color
-        is_dark = ThemeManager.is_dark()
+        p = ThemeManager.palette()
         lod = option.levelOfDetailFromTransform(painter.worldTransform()) if hasattr(option, "levelOfDetailFromTransform") else 1.0
 
         # Opacidad reducida si otro nodo está seleccionado
         if self._is_dimmed and not self._is_focused:
-            painter.setOpacity(0.12 if is_dark else 0.28)
+            painter.setOpacity(p["node_dimmed_opacity"])
         else:
             painter.setOpacity(1.0)
 
@@ -139,19 +139,19 @@ class CharacterNode(QGraphicsEllipseItem):
         if lod >= 0.15:
             if self._is_focused:
                 aura_spread = r * 0.75 + 16.0
-                aura_alpha = 0.55 if is_dark else 0.40
+                aura_alpha = p["node_aura_focused"]
             elif shape == "circle":
                 aura_spread = r * 0.65 + 14.0
-                aura_alpha = 0.45 if is_dark else 0.32
+                aura_alpha = p["node_aura_circle"]
             elif self._tier == "core":
                 aura_spread = r * 0.50 + 10.0
-                aura_alpha = 0.35 if is_dark else 0.25
+                aura_alpha = p["node_aura_core"]
             elif self._tier == "primary":
                 aura_spread = r * 0.40 + 6.0
-                aura_alpha = 0.22 if is_dark else 0.16
+                aura_alpha = p["node_aura_primary"]
             else:
                 aura_spread = r * 0.30 + 4.0
-                aura_alpha = 0.14 if is_dark else 0.10
+                aura_alpha = p["node_aura_minor"]
 
             aura_r = r + aura_spread
             hgrad = QRadialGradient(0, 0, aura_r)
@@ -180,19 +180,23 @@ class CharacterNode(QGraphicsEllipseItem):
         grad = QRadialGradient(-r * 0.35, -r * 0.35, r * 1.35)
         if self._tier == "core":
             grad.setColorAt(0.00, QColor("#ffffff"))
-            grad.setColorAt(0.35, c.lighter(160) if is_dark else c.lighter(125))
+            grad.setColorAt(0.35, c.lighter(p["node_grad_core_hi"]))
             grad.setColorAt(0.75, c)
-            grad.setColorAt(1.00, c.darker(140) if is_dark else c.darker(120))
+            grad.setColorAt(1.00, c.darker(p["node_grad_core_lo"]))
         else:
-            grad.setColorAt(0.00, c.lighter(140) if is_dark else c.lighter(120))
+            grad.setColorAt(0.00, c.lighter(p["node_grad_hi"]))
             grad.setColorAt(0.60, c)
-            grad.setColorAt(1.00, c.darker(150) if is_dark else c.darker(125))
+            grad.setColorAt(1.00, c.darker(p["node_grad_lo"]))
 
         painter.setBrush(QBrush(grad))
-        if is_dark:
-            border_pen = QPen(c.lighter(160) if self._tier == "core" else c.lighter(130), 2.0 if self._tier == "core" else 1.2)
-        else:
-            border_pen = QPen(c.darker(130) if self._tier == "core" else c.darker(120), 2.2 if self._tier == "core" else 1.6)
+        brd_hi = p["node_border_hi"]
+        brd_mid = p["node_border_mid"]
+        brd_hi_w = p["node_border_hi_w"]
+        brd_mid_w = p["node_border_mid_w"]
+        border_pen = QPen(
+            c.lighter(brd_hi if self._tier == "core" else brd_mid),
+            brd_hi_w if self._tier == "core" else brd_mid_w
+        )
         painter.setPen(border_pen)
         if shape == "circle":
             painter.drawEllipse(QPointF(0, 0), r, r)
@@ -202,7 +206,7 @@ class CharacterNode(QGraphicsEllipseItem):
         # 3. Anillo de enfoque / selección
         if self._is_focused:
             ring_r = r + 7
-            ring_pen = QPen(c.lighter(180) if is_dark else c.darker(135), 3.0)
+            ring_pen = QPen(c.lighter(p["node_ring_factor"]), 3.0)
             painter.setPen(ring_pen)
             painter.setBrush(QBrush(Qt.BrushStyle.NoBrush))
             if shape == "circle":
@@ -222,9 +226,9 @@ class CharacterNode(QGraphicsEllipseItem):
         if show_name:
             font_to_use = self._font_name_large if (lod < 0.40 or self._is_focused) else self._font_name
             painter.setFont(font_to_use)
-            name_col = QColor("#ffffff" if is_dark else "#1a1a2e")
+            name_col = QColor(ThemeManager.color("fg_primary"))
             if self._is_dimmed and not self._is_focused:
-                name_col.setAlphaF(0.35 if is_dark else 0.45)
+                name_col.setAlphaF(p["node_name_dimmed_alpha"])
             painter.setPen(QPen(name_col))
             
             text_w = max(240.0, r * 4.5)
@@ -234,7 +238,7 @@ class CharacterNode(QGraphicsEllipseItem):
             # 6. Raza / Subetiqueta
             if self.char_race and (self._is_focused or (lod >= 0.45 and self._tier in ("core", "primary")) or (lod >= 0.80)):
                 painter.setFont(self._font_race)
-                tag_col = c.lighter(165) if is_dark else c.darker(140)
+                tag_col = c.lighter(p["node_tag_factor"]) if p["node_tag_lighter"] else c.darker(p["node_tag_factor"])
                 tag_col.setAlphaF(0.90)
                 painter.setPen(QPen(tag_col))
                 race_rect = QRectF(-text_w / 2, r + 24, text_w, 16)
@@ -455,7 +459,6 @@ class RelationEdge(QGraphicsPathItem):
         # 4. Etiqueta con el tipo de relación sobre la línea (solo si está activa)
         display_txt = self._display_label or self.relation_type.capitalize()
         if display_txt and self._is_active:
-            is_dark = ThemeManager.is_dark()
             painter.save()
             painter.setFont(self._label_font)
             
@@ -468,7 +471,7 @@ class RelationEdge(QGraphicsPathItem):
             offset_y = -14 if self._is_directional else 0
             rect = QRectF(mx - tw / 2 - 6, my - th / 2 - 3 + offset_y, tw + 12, th + 6)
             
-            bg_col = QColor("#1c1c1e" if is_dark else "#faf7f3")
+            bg_col = QColor(ThemeManager.color("bg_app"))
             bg_col.setAlphaF(0.96 if self._is_active else 0.85)
             border_col = QColor(self._base_color)
             border_col.setAlphaF(0.90 if self._is_active else 0.50)
@@ -477,7 +480,8 @@ class RelationEdge(QGraphicsPathItem):
             painter.setPen(QPen(border_col, 1.4 if self._is_active else 1.0))
             painter.drawRoundedRect(rect, 4, 4)
             
-            txt_col = self._base_color.lighter(160) if is_dark else self._base_color.darker(160)
+            txt_col = QColor(ThemeManager.color("fg_primary"))
+            txt_col.setAlphaF(0.90)
             painter.setPen(QPen(txt_col))
             painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, display_txt)
             painter.restore()
@@ -486,9 +490,8 @@ class RelationEdge(QGraphicsPathItem):
 # ── Fondo Espacioso y Limpio (Optimizador de Pintura) ─────────────────────────
 
 class CleanBackground(QGraphicsRectItem):
-    def __init__(self, rect: QRectF, is_dark: bool):
+    def __init__(self, rect: QRectF):
         super().__init__(rect)
-        self._is_dark = is_dark
         self.setZValue(-20)
         self.setPen(QPen(Qt.PenStyle.NoPen))
         self.setBrush(QBrush(Qt.BrushStyle.NoBrush))
@@ -500,7 +503,8 @@ class CleanBackground(QGraphicsRectItem):
         if exposed.isEmpty():
             return
             
-        dot_col = QColor(255, 255, 255, 14) if self._is_dark else QColor(0, 0, 0, 10)
+        dot_col = QColor(ThemeManager.color("fg_muted"))
+        dot_col.setAlpha(18)
         painter.setBrush(QBrush(dot_col))
         painter.setPen(QPen(Qt.PenStyle.NoPen))
         step = 40
